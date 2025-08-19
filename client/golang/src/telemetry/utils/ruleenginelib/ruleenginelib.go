@@ -1,6 +1,8 @@
 package ruleenginelib
 
-import "encoding/json"
+import (
+	"encoding/json"
+)
 
 // Constants for rule engine match keys
 const (
@@ -90,17 +92,4 @@ func (re *RuleEngine) HandleRuleEvent(msgBytes []byte) error {
 }
 
 func (re *RuleEngine) initAlertRules() {
-	re.Logger.Info("Initializing alert rules")
-	for _, ruleType := range re.RuleTypes {
-		re.Logger.Infof("Loading rules for type: %s", ruleType)
-		rules, err := re.LoadRules(ruleType)
-		if err != nil {
-			re.Logger.Errorf("Failed to load rules for type %s: %v", ruleType, err)
-			continue
-		}
-		for _, rule := range rules {
-			re.AddRule(rule)
-		}
-	}
-	re.Logger.Info("Alert rules initialization complete")
 }

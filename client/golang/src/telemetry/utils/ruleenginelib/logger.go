@@ -4,16 +4,12 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/pkgerrors"
-)
-
-const (
-	DEFAULT_LOG_DIR = "/home/app/log"
 )
 
 // LoggerConfig contains config needed to setup a logger instance
@@ -29,6 +25,7 @@ type LoggerConfig struct {
 	Level    zerolog.Level
 }
 
+// Logger with zerolog instance
 type Logger struct {
 	logger *zerolog.Logger
 }
@@ -112,12 +109,12 @@ func CreateLoggerInstance(svcName string, logFilePath string, level zerolog.Leve
 	//zerolog.CallerMarshalFunc = func(pc uintptr, file string, line int) string { return filepath.Base(file) + ":" + strconv.Itoa(line) }
 
 	if _, err := os.Stat(logConfig.FilePath); os.IsNotExist(err) {
-		os.MkdirAll(filepath.Dir(logConfig.FilePath), 0755)
+		os.MkdirAll(logConfig.FilePath, 0755)
 	}
 
 	logfile, err = os.OpenFile(logConfig.FilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		fmt.Printf("Failed to open log file %v: %v", logConfig.FilePath, err)
+		fmt.Printf("Failed to open log file %s: %v\n", logConfig.FilePath, err)
 		os.Exit(-1)
 	}
 
@@ -128,7 +125,7 @@ func CreateLoggerInstance(svcName string, logFilePath string, level zerolog.Leve
 }
 
 func zerologLevel(level string) zerolog.Level {
-	switch level {
+	switch strings.ToLower(level) {
 	case "debug":
 		return zerolog.DebugLevel
 	case "info":

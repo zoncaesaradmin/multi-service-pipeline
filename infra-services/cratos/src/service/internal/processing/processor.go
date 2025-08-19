@@ -1,10 +1,10 @@
 package processing
 
 import (
-	"servicegomodule/internal/models"
 	"context"
 	"encoding/json"
 	"fmt"
+	"servicegomodule/internal/models"
 	"sharedgomodule/logging"
 	"time"
 )
@@ -12,6 +12,7 @@ import (
 type ProcessorConfig struct {
 	ProcessingDelay time.Duration
 	BatchSize       int
+	RuleEngine      RuleEngineConfig
 }
 
 type ProcessingRecord struct {
@@ -22,12 +23,13 @@ type ProcessingRecord struct {
 }
 
 type Processor struct {
-	config   ProcessorConfig
-	logger   logging.Logger
-	inputCh  <-chan *models.ChannelMessage
-	outputCh chan<- *models.ChannelMessage
-	ctx      context.Context
-	cancel   context.CancelFunc
+	config    ProcessorConfig
+	logger    logging.Logger
+	inputCh   <-chan *models.ChannelMessage
+	outputCh  chan<- *models.ChannelMessage
+	reHandler *RuleEngineHandler
+	ctx       context.Context
+	cancel    context.CancelFunc
 }
 
 func NewProcessor(config ProcessorConfig, logger logging.Logger, inputCh <-chan *models.ChannelMessage, outputCh chan<- *models.ChannelMessage) *Processor {

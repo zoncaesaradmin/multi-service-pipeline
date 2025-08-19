@@ -125,6 +125,7 @@ func initLoggerSettings(cfg *config.RawConfig) logging.Logger {
 	if logDir != "" && !filepath.IsAbs(cfg.Logging.FileName) {
 		cfg.Logging.FileName = filepath.Join(logDir, cfg.Logging.FileName)
 		cfg.Processing.PloggerConfig.FileName = filepath.Join(logDir, cfg.Processing.PloggerConfig.FileName)
+		cfg.Processing.Processor.RuleProcConfig.Logging.FileName = filepath.Join(logDir, cfg.Processing.Processor.RuleProcConfig.Logging.FileName)
 	}
 
 	// Convert config logging configuration to logger config

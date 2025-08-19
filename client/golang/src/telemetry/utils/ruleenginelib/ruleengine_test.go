@@ -5,14 +5,14 @@ import (
 )
 
 func TestNewRuleEngineInstance(t *testing.T) {
-	re := NewRuleEngineInstance(nil)
+	re := NewRuleEngineInstance(nil, nil)
 	if re == nil {
 		t.Error("Expected non-nil RuleEngine instance")
 	}
 }
 
 func TestAddAndDeleteRule(t *testing.T) {
-	re := NewRuleEngineInstance(nil)
+	re := NewRuleEngineInstance(nil, nil)
 	ruleJSON := `{"uuid":"test-uuid","payload":[{"condition":{"any":[],"all":[]},"actions":[]}],"state":true}`
 	re.AddRule(ruleJSON)
 	if _, ok := re.RuleMap["test-uuid"]; !ok {
@@ -25,7 +25,7 @@ func TestAddAndDeleteRule(t *testing.T) {
 }
 
 func TestEvaluateStructAndRule(t *testing.T) {
-	re := NewRuleEngineInstance(nil)
+	re := NewRuleEngineInstance(nil, nil)
 	rule := &RuleEntry{
 		Condition: AstCondition{
 			All: []AstConditional{{Fact: "planet", Operator: "eq", Value: "Earth"}},
@@ -42,7 +42,7 @@ func TestEvaluateStructAndRule(t *testing.T) {
 }
 
 func TestEvaluateRules(t *testing.T) {
-	re := NewRuleEngineInstance(nil)
+	re := NewRuleEngineInstance(nil, nil)
 	ruleJSON := `{"uuid":"test-uuid","payload":[{"condition":{"any":[],"all":[{"identifier":"planet","operator":"eq","value":"Earth"}]},"actions":[]}],"state":true}`
 	re.AddRule(ruleJSON)
 	data := Data{"planet": "Earth"}

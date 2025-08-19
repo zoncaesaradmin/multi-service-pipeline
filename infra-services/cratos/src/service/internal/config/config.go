@@ -53,8 +53,15 @@ type RawInputConfig struct {
 
 // ProcessorConfig holds processor configuration
 type RawProcessorConfig struct {
-	ProcessingDelay time.Duration `yaml:"processingDelay"`
-	BatchSize       int           `yaml:"batchSize"`
+	ProcessingDelay time.Duration          `yaml:"processingDelay"`
+	BatchSize       int                    `yaml:"batchSize"`
+	RuleProcConfig  RawRuleProcessorConfig `yaml:"ruleEngine"`
+}
+
+type RawRuleProcessorConfig struct {
+	RulesTopic  string           `yaml:"rulesTopic"`
+	PollTimeout time.Duration    `yaml:"pollTimeout"`
+	Logging     RawLoggingConfig `yaml:"logging"`
 }
 
 // OutputConfig holds output handler configuration

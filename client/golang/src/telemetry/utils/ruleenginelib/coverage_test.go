@@ -130,7 +130,7 @@ func TestEvaluateOperatorBranches(t *testing.T) {
 }
 
 func TestRuleEngineMethodsPanics(t *testing.T) {
-	re := NewRuleEngineInstance(nil)
+	re := NewRuleEngineInstance(nil, nil)
 	// DeleteRule with invalid JSON
 	defer func() {
 		if r := recover(); r == nil {

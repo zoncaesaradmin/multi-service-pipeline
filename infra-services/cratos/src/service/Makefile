@@ -2,6 +2,8 @@
 .PHONY: build test clean deep-clean run run-local run-local-coverage deps tidy lint fmt vet coverage coverage-enforce coverage-html install-lint docker-build help
 
 # Variables
+ROOT ?= $(shell git rev-parse --show-toplevel)
+PROTO_DIR=${ROOT}/proto
 BINARY_NAME=service.bin
 BINARY_PATH=./bin/$(BINARY_NAME)
 MAIN_PATH=./cmd/main.go
@@ -24,6 +26,7 @@ all: clean deps fmt vet lint test build
 # Build the binary
 build:
 	@echo "Building $(BINARY_NAME)..."
+	@protoc --go_out=${ROOT}/client/golang/src/telemetry/utils/alert --proto_path=$(PROTO_DIR) $(PROTO_DIR)/alert.proto
 	@mkdir -p bin
 	go build $(BUILD_FLAGS) -o $(BINARY_PATH) $(MAIN_PATH)
 	@echo "Build completed: $(BINARY_PATH)"

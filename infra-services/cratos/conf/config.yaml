@@ -32,7 +32,15 @@ processing:
   processor:
     processingDelay: 10ms        # Processing delay per message (env: PROCESSING_DELAY_MS)
     batchSize: 100               # Batch size for processing (env: PROCESSING_BATCH_SIZE)
-  
+    ruleEngine:
+      rulesTopic: "rules-topic"  # Input rules topic (env: PROCESSING_RULES_TOPIC)
+      pollTimeout: 1000ms         # Poll timeout (env: PROCESSING_RULES_POLL_TIMEOUT_MS)
+      logging:
+        level: "debug"
+        fileName: "ruleengine.log"
+        loggerName: "ruleengine"
+        serviceName: "cratos"
+
   output:
     outputTopic: "output-topic"  # Output topic (env: PROCESSING_OUTPUT_TOPIC)
     batchSize: 50                # Output batch size (env: PROCESSING_OUTPUT_BATCH_SIZE)

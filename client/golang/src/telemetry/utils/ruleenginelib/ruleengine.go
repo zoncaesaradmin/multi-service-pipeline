@@ -19,10 +19,10 @@ var defaultOptions = &EvaluatorOptions{
 // RuleEngine represents the main rule engine with its configuration and state
 type RuleEngine struct {
 	EvaluatorOptions
-	RuleMap map[string]RuleBlock
-	Results MatchedResults
-	Mutex   sync.Mutex
-	//Logger *Logger
+	RuleMap   map[string]RuleBlock
+	Results   MatchedResults
+	Mutex     sync.Mutex
+	Logger    *Logger
 	RuleTypes []string
 }
 
@@ -67,7 +67,7 @@ func (re *RuleEngine) EvaluateRules(data Data) (bool, string, *RuleEntry) {
 }
 
 // NewRuleEngineInstance creates a new instance of RuleEngine with the given options
-func NewRuleEngineInstance(options *EvaluatorOptions) *RuleEngine {
+func NewRuleEngineInstance(options *EvaluatorOptions, logger *Logger) *RuleEngine {
 	opts := options
 	if opts == nil {
 		opts = defaultOptions
@@ -76,5 +76,6 @@ func NewRuleEngineInstance(options *EvaluatorOptions) *RuleEngine {
 	return &RuleEngine{
 		EvaluatorOptions: *opts,
 		RuleMap:          make(map[string]RuleBlock, 0),
+		Logger:           logger,
 	}
 }

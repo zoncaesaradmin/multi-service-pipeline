@@ -1,0 +1,52 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Switch to Local Development Mode",
+            "type": "shell",
+            "command": "sh",
+            "args": [
+                "-c",
+                "echo '{\"go.buildTags\": \"local\", \"gopls\": {\"buildFlags\": [\"-tags=local\"]}, \"go.toolsEnvVars\": {\"GOFLAGS\": \"-tags=local\"}}' > .vscode/settings.json && echo 'Switched to local development mode. Please reload VS Code window (Cmd+Shift+P -> Developer: Reload Window)'"
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Switch to Production Mode",
+            "type": "shell",
+            "command": "sh",
+            "args": [
+                "-c",
+                "echo '{\"go.buildTags\": \"\", \"gopls\": {\"buildFlags\": []}, \"go.toolsEnvVars\": {\"GOFLAGS\": \"\"}}' > .vscode/settings.json && echo 'Switched to production mode. Please reload VS Code window (Cmd+Shift+P -> Developer: Reload Window)'"
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Cleanup Obsolete Files",
+            "type": "shell",
+            "command": "${workspaceFolder}/cleanup.sh",
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        }
+    ]
+}

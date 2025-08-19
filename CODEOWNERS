@@ -1,0 +1,6 @@
+# CODEOWNERS
+
+# Define code owners for each service team
+/infra-services/cratos/    @zoncaesaradmin
+/infra-services/beaver/    @zoncaesaradmin
+/client/golang/src/telemetry/utils/    @zoncaesaradmin

@@ -1,0 +1,20 @@
+# Kafka Producer Configuration
+# Direct mapping to Kafka ConfigMap fields
+# These values will be loaded directly into kafka.ConfigMap
+
+bootstrap.servers: "localhost:9092"
+client.id: "cratos-producer"
+acks: "all"
+retries: 3
+batch.size: 16384
+linger.ms: 1
+buffer.memory: 33554432
+compression.type: "none"
+security.protocol: "PLAINTEXT"
+max.in.flight.requests.per.connection: 5
+enable.idempotence: false
+
+# Local messagebus settings (used when running with -tags=local)  
+# These are custom fields for local implementation
+local.base.dir: "/tmp/cratos-messagebus"
+local.flush.interval.ms: 100

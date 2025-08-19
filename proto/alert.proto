@@ -1,0 +1,202 @@
+syntax = "proto3";
+package alert;
+option go_package = "./;alert";
+option optimize_for = LITE_RUNTIME;
+option java_package = "com.cisco.aci.telemetry";
+option java_outer_classname = "AlertProtos";
+message Params {
+    string fabricName = 1;
+    string nodeName = 2;
+    string anomalyType = 3;
+    string startTs = 4;
+    string endTs = 5;
+}
+message AffectedEp {
+    string url = 1;
+    int32 endpointCount = 2;
+    Params params = 3;
+}
+message Adjacency {
+    string peerDeviceName = 1;
+    string peerInterfaceName = 2;
+    string modTs = 3;
+    string fabricName = 4;
+}
+message VpcNode {
+   string nodeName = 1;
+   string interface = 2;
+   string pcId = 3;
+   string vpcOperSt = 4; 
+   string pcOperStateQual = 5;
+   string interfaceType = 6;
+   string interfaceUniqueId = 7;
+}
+message Pc {
+    repeated string configuredMemberList = 1;
+}
+message Vpc {
+    string domainId = 1;
+    repeated VpcNode nodeList = 2;
+}
+message Bgp {
+    string connIf = 1;
+    string bgpType = 2;
+    string prefixChangeType = 3;
+    string peerIp = 4;
+    string vrf = 5;
+}
+message Ospf {
+    string interfaceNameFromDN = 1;
+    string derivedIntf = 2;
+    string peerIp = 3;
+}
+message Svi {
+    string associatedInterface = 1;
+}
+message CustomEvent {
+    string code = 1;
+    string data = 2;
+}
+message ApicFault {
+    string description = 1;
+    repeated string configQuals = 2;
+}
+message CustomData {
+    string controllerName = 1;
+    string accountName = 2;
+    string applicationName = 3;
+    string tierName = 4;
+    string nodeName = 5;
+    string healthRuleName = 6;
+    string vrfDip = 7;
+    AffectedEp affectedEp = 8;
+    repeated string endpoints = 9;
+    string hostName = 10;
+    string vmName = 11;
+    string networkName = 12;
+    string dsName = 13;
+    string deviceName = 14;
+    int32 moveCount = 15;
+    string interfaces = 16;
+    repeated CustomEvent events = 17;
+    Adjacency adjacency = 18;
+    Vpc vpc = 19;
+    Pc pc = 20;
+    Bgp bgp = 21;
+    string pcId =22;
+    Ospf ospf = 23;
+    Svi svi = 24;
+    string rcaData = 25;
+    ApicFault apicFault = 26;
+    string impactResourceType = 27;
+}
+message EntityNameList {
+    string objectType = 1;
+    repeated string objectValue = 2;
+}
+message AnomalyObjectsList {
+    string type = 1;
+    string identifier = 2;
+    string name = 3;
+    bool   isPrimary = 4;
+    bool   isHealthy = 5;
+}
+message Alert {
+    string startTs = 1;
+    string endTs = 2;
+    string fabricName = 3;
+    repeated string nodeNames = 4;
+    string statSubType = 5; // Deprecated field from NI 6.0
+    string statName = 6; // Deprecated field from NI 6.0
+    string anomalyType = 7;
+    string reason = 8;
+    string severity = 9;
+    string category = 10;
+    string entityName = 11;
+    bool streamingAnomaly = 12;
+    bool cleared = 13;
+    string clearTs = 14;
+    string masterClearTs = 15;
+    CustomData customData = 16;
+    string alertType = 17;
+    string alertId = 18;
+    string title = 19;
+    bool recommendation = 20;
+    bool impact = 21;
+    bool extendStreamingAnomaly = 22;
+    string anomalyId = 23;
+    bool newAlert = 24; // Deprecated field from NI 6.0
+    int64 epochStartTs = 25;
+    int64 epochEndTs = 26;
+    string mnemonicTitle = 27;
+    string mnemonicDescription = 28;
+    int32 mnemonicNum = 29;
+    repeated EntityNameList entityNameList = 30;
+    string targetIndex = 31;
+    repeated string parentAnomalyIdList = 32;
+    string resourceName = 33;
+    string resourceType = 34;
+    bool acknowledged = 35;
+    string ackTs = 36;
+    bool updateAlert = 37;
+    string verificationStatus = 38;
+    string assignee = 39;
+    repeated string tags = 40;
+    string comment = 41;
+    string vendor = 42;
+    bool offline = 43;
+    bool autoAck = 44;
+    string manualAck = 45;
+    string activeTs = 46;
+    int64 epochActiveTs = 47;
+    int64 hashKey = 48;
+    bool updateAcknowledged = 49;
+    bool updateTags = 50;
+    bool updateVerificationStatus = 51;
+    bool updateAssignee = 52;
+    bool updateComment = 53;
+    repeated string checkCodes = 54;
+    bool multiFabricAlert = 55;
+    repeated AnomalyObjectsList affectedObjects = 56;
+    string eventSignature = 57;
+    string msoPrimaryKey = 58;
+    string ruleType = 59;
+    string ruleId = 60;
+    string ruleName = 61;
+    string impactStr = 62;
+    string recommendationStr = 63;
+    string whatsTriggeredStr = 64;
+    string appVersion = 65;
+    repeated string analysisTsList = 66;
+    bool isCorrelated = 67;
+    bool isRoot = 68;
+    int32 impactCount = 69;
+    string sender = 70;
+    string anomalySource = 71;
+    string device = 72;
+    string switchId = 73;
+    string policyName = 74;
+    string customSourceData = 75;
+    bool manualClear = 76;
+    bool updateClear = 77;
+    bool updateDelete = 78;
+    bool newAnomaly = 79;
+    bool customRecommendation = 80;
+    string cacheKey = 81;
+    string compositeKey = 82;
+    repeated Remediation remediation = 83;
+    string serviceName = 84;
+    string clusterName = 85;
+    bool isCustomReco = 86;
+    repeated string customRecoStr = 87;
+    string alertRuleId = 88;
+}
+message Remediation {
+    string desc = 1;
+    string method = 2;
+    string remediationPayload = 3;
+    string uri = 4;
+}
+message AlertStream {
+    repeated Alert alertObject = 1;
+}

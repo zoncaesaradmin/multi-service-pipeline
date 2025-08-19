@@ -1,0 +1,84 @@
+# Cratos Service Configuration
+# This is the main configuration file for the Cratos service.
+# Values can be overridden by environment variables (see documentation).
+#
+# Usage:
+#   - Service loads from: $SERVICE_HOME/conf/config.yaml
+#   - SERVICE_HOME must be set to repository root
+#   - Use 'make run-local' to set SERVICE_HOME automatically
+
+# Server configuration
+server:
+  host: "localhost"              # Server host (env: SERVER_HOST)
+  port: 8080                     # Server port (env: SERVER_PORT)
+  readTimeout: 10                # Read timeout in seconds (env: SERVER_READ_TIMEOUT)
+  writeTimeout: 10               # Write timeout in seconds (env: SERVER_WRITE_TIMEOUT)
+
+# Logging configuration
+logging:
+  level: "info"                  # Log level: debug, info, warn, error (env: LOG_LEVEL)
+  fileName: "main.log"           # Log file path (env: LOG_FILE_NAME)
+  loggerName: "main"             # Logger name identifier (env: LOG_LOGGER_NAME)
+  serviceName: "cratos"          # Service name for structured logging (env: LOG_SERVICE_NAME)
+
+# Processing pipeline configuration
+processing:
+  input:
+    topics: 
+      - "input-topic"            # Input topics (env: PROCESSING_INPUT_TOPICS - comma separated)
+    pollTimeout: 1000ms          # Poll timeout (env: PROCESSING_INPUT_POLL_TIMEOUT_MS)
+    channelBufferSize: 1000      # Input channel buffer size (env: PROCESSING_INPUT_BUFFER_SIZE)
+  
+  processor:
+    processingDelay: 10ms        # Processing delay per message (env: PROCESSING_DELAY_MS)
+    batchSize: 100               # Batch size for processing (env: PROCESSING_BATCH_SIZE)
+  
+  output:
+    outputTopic: "output-topic"  # Output topic (env: PROCESSING_OUTPUT_TOPIC)
+    batchSize: 50                # Output batch size (env: PROCESSING_OUTPUT_BATCH_SIZE)
+    flushTimeout: 5000ms         # Flush timeout (env: PROCESSING_OUTPUT_FLUSH_TIMEOUT_MS)
+    channelBufferSize: 1000      # Output channel buffer size (env: PROCESSING_OUTPUT_BUFFER_SIZE)
+  
+  channels:
+    inputBufferSize: 1000        # Pipeline input buffer size (env: PROCESSING_CHANNELS_INPUT_BUFFER_SIZE)
+    outputBufferSize: 1000       # Pipeline output buffer size (env: PROCESSING_CHANNELS_OUTPUT_BUFFER_SIZE)
+  
+  # Pipeline-specific logger configuration (separate from main application logger)
+  logging:
+    level: "info"                # Pipeline log level: debug, info, warn, error, fatal, panic (env: PROCESSING_PLOGGER_LEVEL)
+    fileName: "pipeline.log"     # Pipeline log file path (env: PROCESSING_PLOGGER_FILE_NAME)
+    loggerName: "pipeline"       # Pipeline logger name identifier (env: PROCESSING_PLOGGER_LOGGER_NAME)
+    serviceName: "cratos"        # Pipeline logger service name (env: PROCESSING_PLOGGER_SERVICE_NAME)
+
+# Configuration Notes:
+# 
+# 1. Environment Variable Override:
+#    All configuration values can be overridden using environment variables.
+#    The environment variable names are shown in comments above.
+#
+# 2. File Location and SERVICE_HOME:
+#    - The service requires SERVICE_HOME environment variable pointing to repository root
+#    - Configuration is loaded from: $SERVICE_HOME/conf/config.yaml
+#    - If no config file is found, the service will fail to start
+#    - Environment variables can override any configuration value
+#
+# 3. Development vs Production:
+#    - For local development, use: make run-local (sets SERVICE_HOME automatically)
+#    - For production, set SERVICE_HOME=/path/to/repo when running the binary
+#    - Consider using environment variables for sensitive data in production
+#    - Never commit production passwords or secrets to version control
+#
+# 4. Message Bus Configuration:
+#    - Message bus settings are currently configured in code
+#    - Future versions may move message bus config to this file
+#
+# 5. Processing Pipeline:
+#    - Processing pipeline settings are now configurable through this file
+#    - All processing delays, batch sizes, and buffer sizes can be customized
+#    - Topic names and timeouts are also configurable
+#    - Environment variables can override any processing configuration value
+#    - Pipeline logger is separate from main application logger:
+#      * Main logger logs application-level events (startup, shutdown, API requests)
+#      * Pipeline logger logs processing-specific events (message processing, pipeline stats)
+#      * Both loggers can have different log levels and output files
+#      * This separation helps with debugging and monitoring specific to data processing

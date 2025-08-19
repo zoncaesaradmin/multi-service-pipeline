@@ -1,0 +1,28 @@
+{
+    "go.buildTags": "local",
+    "gopls": {
+        "buildFlags": ["-tags=local"]
+    },
+    "go.toolsEnvVars": {
+        "GOFLAGS": "-tags=local"
+    },
+    "files.exclude": {
+        "**/ASYNC_IMPLEMENTATION.md": true,
+        "**/service/bin/": true,
+        "**/testrunner/bin/": true,
+        "**/coverage_improvement_test.go": true,
+        "test/results": true
+    },
+    "search.exclude": {
+        "**/ASYNC_IMPLEMENTATION.md": true,
+    "**/bin": true,
+        "**/test/results": true
+    },
+    "files.watcherExclude": {
+    "**/bin/**": true,
+    "**/test/results/**": true,
+    "**/katharos-messagebus/**": true
+    },
+    "go.useLanguageServer": true,
+    "gopls.experimentalWorkspaceModule": true
+}

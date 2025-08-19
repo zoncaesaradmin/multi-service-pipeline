@@ -1,0 +1,7 @@
+# Test configuration for messagebus consumer tests
+bootstrap.servers: "localhost:9092"
+group.id: "test-group"
+auto.offset.reset: "earliest"
+enable.auto.commit: false
+client.id: "test-consumer"
+local.base.dir: "/tmp/cratos-messagebus-test"

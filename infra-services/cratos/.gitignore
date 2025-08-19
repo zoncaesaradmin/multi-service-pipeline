@@ -1,0 +1,129 @@
+# Katharos Project - Comprehensive .gitignore
+
+# ==============================================================================
+# Go-specific files
+# ==============================================================================
+
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+coverage.out
+coverage.html
+
+# Go workspace file (tracked in src/ only)
+
+# Dependency directories
+# vendor/
+
+# ==============================================================================
+# Build artifacts and binaries
+# ==============================================================================
+
+# Build directories (general patterns)
+bin/
+build/
+dist/
+**/bin/
+**/build/
+**/dist/
+
+# Specific project binary directories
+src/service/bin/
+src/testrunner/bin/
+src/shared/bin/
+
+# Binary files
+**/service.bin
+**/testrunner.bin
+
+# ==============================================================================
+# IDE and Editor files
+# ==============================================================================
+
+# VS Code
+.vscode/
+.vscode/settings.json.bak
+.vscode/*.log
+
+# IntelliJ IDEA
+.idea/
+
+# Vim/Emacs
+*.swp
+*.swo
+*~
+
+# ==============================================================================
+# OS-generated files
+# ==============================================================================
+
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+ehthumbs.db
+Thumbs.db
+
+# ==============================================================================
+# Log and temporary files
+# ==============================================================================
+
+# Log files
+*.log
+
+# Temporary directories
+tmp/
+temp/
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# ==============================================================================
+# Project-specific: Configuration files
+# ==============================================================================
+
+# Local development configs (only main configs in conf/ are tracked)
+config.local.yaml
+config.local.yml
+
+# ==============================================================================
+# Project-specific: Obsolete files (prevent VS Code resurrection)
+# ==============================================================================
+
+# Obsolete directories
+
+# Obsolete scripts
+
+# Obsolete documentation
+
+# Empty or placeholder test files
+**/coverage_improvement_test.go
+
+# ==============================================================================
+# Project-specific: Runtime and test data
+# ==============================================================================
+
+# Message bus runtime data
+/tmp/katharos-messagebus/
+
+# Test results and coverage
+test/results/
+test/coverage/
+test/service.pid

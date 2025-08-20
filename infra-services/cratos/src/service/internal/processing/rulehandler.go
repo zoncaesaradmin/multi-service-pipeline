@@ -46,7 +46,7 @@ func NewRuleHandler(config RuleEngineConfig, logger logging.Logger) *RuleEngineH
 }
 
 func (rh *RuleEngineHandler) Start() error {
-	rh.logger.Infow("Starting Rule Engine Handler", "topic", rh.config.RulesTopic, "poll_timeout", rh.config.PollTimeout)
+	rh.logger.Infow("Starting Rule Engine Handler", "topic", rh.config.RulesTopic)
 
 	// Create context for cancellation
 	rh.ctx, rh.cancel = context.WithCancel(context.Background())
@@ -170,7 +170,7 @@ func (rh *RuleEngineHandler) applyRuleToRecord(aObj *alert.Alert) (*alert.Alert,
 					var cact ActionCustomReco
 					err = json.Unmarshal(actionPayload, &cact)
 					if err != nil {
-						return aObj, err
+						continue
 					}
 					aObj.CustomRecoStr = cact.CustomMessage
 				}

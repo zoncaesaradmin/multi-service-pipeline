@@ -28,10 +28,10 @@ func ConvertAlertObjectToRuleEngineInput(aObj *alert.Alert) map[string]any {
 	// so, the value copying logic is explicit and for known/allowed match fields only
 	// also, it helps to change the field key mapping if needed
 
-	reInput[relib.MatchKeyFabricName] = aObj.GetFabricName()
-	reInput[relib.MatchKeyCategory] = aObj.GetCategory()
-	reInput[relib.MatchKeyTitle] = aObj.GetTitle()
-	reInput[relib.MatchKeySeverity] = aObj.GetSeverity()
+	reInput[relib.MatchKeyFabricName] = aObj.FabricName
+	reInput[relib.MatchKeyCategory] = aObj.Category
+	reInput[relib.MatchKeyTitle] = aObj.MnemonicTitle
+	reInput[relib.MatchKeySeverity] = aObj.Severity
 
 	for _, objField := range aObj.EntityNameList {
 		switch strings.ToLower(objField.ObjectType) {

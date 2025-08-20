@@ -84,6 +84,24 @@ func (re *RuleEngine) HandleRuleEvent(msgBytes []byte) error {
 	msgType := rInput.Metadata.Action
 	if IsValidRuleMsg(msgType) {
 		re.Logger.Infof("RELIB - processing valid rule for operation: %s", msgType)
+		jsonBytes, err := json.Marshal(rInput.Rules)
+		if err != nil {
+			re.Logger.Infof("RELIB - failed to marshal rule payload: %v", err.Error())
+			return nil
+		}
+
+		re.Logger.Infof("RELIB - processed rule payload: %s", string(jsonBytes))
+
+		ruleJsonBytes, err := ConvertToRuleEngineFormat(jsonBytes)
+		if err != nil {
+			re.Logger.Infof("RELIB - failed to convert rule format: %v", err.Error())
+			return nil
+		}
+		if len(ruleJsonBytes) == 0 {
+			re.Logger.Infof("RELIB - invalid empty to process, ignored")
+			return nil
+		}
+		re.Logger.Infof("RELIB - rule to be processed %s", string(ruleJsonBytes))
 	} else {
 		re.Logger.Debug("RELIB - ignore invalid/non-relevant rule")
 	}
@@ -91,5 +109,29 @@ func (re *RuleEngine) HandleRuleEvent(msgBytes []byte) error {
 	return nil
 }
 
+func (re *RuleEngine) handleRuleMsgEvents(rmsg []byte, msgType string) {
+	switch msgType {
+	case RuleOpCreate:
+		// Handle create rule event
+		re.Logger.Debugf("RELIB - handling create rule msg event")
+		re.AddRule(string(rmsg))
+	case RuleOpUpdate:
+		// Handle update rule event
+		re.Logger.Debugf("RELIB - handling update rule msg event")
+		re.AddRule(string(rmsg))
+	case RuleOpDelete:
+		// Handle delete rule event
+		re.Logger.Debugf("RELIB - handling delete rule msg event")
+		re.DeleteRule(string(rmsg))
+	default:
+		re.Logger.Infof("RELIB - unknown rule msg event type: %s", msgType)
+	}
+}
+
+// initAlertRules initializes the rules from already existing rules configured
 func (re *RuleEngine) initAlertRules() {
+	rules := GetAllConfiguredAlertRules()
+	for _, rule := range rules {
+		re.AddRule(string(rule))
+	}
 }

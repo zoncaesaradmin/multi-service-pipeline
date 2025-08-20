@@ -1,0 +1,8 @@
+{
+  "alertId": "ALERT-12345",
+  "severity": "critical",
+  "anomalyType": "HighCPUUsage",
+  "nodeName": "NodeA",
+  "fabricName": "FabricA",
+  "timestamp": "2025-08-20T10:00:00Z"
+}

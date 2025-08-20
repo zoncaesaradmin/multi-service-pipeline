@@ -140,5 +140,5 @@ func (re *RuleEngine) initAlertRules() {
 
 type RuleEngineType interface {
 	HandleRuleEvent([]byte) error
-	EvaluateRuless(Data) (bool, string, *RuleEntry)
+	EvaluateRules(Data) (bool, string, *RuleEntry)
 }

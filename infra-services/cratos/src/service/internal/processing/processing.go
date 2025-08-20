@@ -193,10 +193,9 @@ func DefaultConfig(cfg *config.RawConfig) ProcConfig {
 			ProcessingDelay: processing.Processor.ProcessingDelay,
 			BatchSize:       processing.Processor.BatchSize,
 			RuleEngine: RuleEngineConfig{
-				Topics:            processing.RuleEngine.Topics,
-				PollTimeout:       processing.RuleEngine.PollTimeout,
-				ChannelBufferSize: processing.RuleEngine.ChannelBufferSize,
-				Logging:           processing.RuleEngine.Logging,
+				RulesTopic:  processing.Processor.RuleProcConfig.RulesTopic,
+				PollTimeout: processing.Processor.RuleProcConfig.PollTimeout,
+				Logging:     processing.Processor.RuleProcConfig.Logging.ConvertToLoggerConfig(),
 			},
 		},
 		Output: OutputConfig{

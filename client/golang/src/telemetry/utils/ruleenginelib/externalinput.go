@@ -5,10 +5,6 @@ import (
 	"strings"
 )
 
-var (
-	getAllAlertRulesApi = "/alertRules"
-)
-
 var severityMap = map[string]string{
 	"EVENT_SEVERITY_WARNING":  "warning",
 	"EVENT_SEVERITY_CRITICAL": "critical",
@@ -16,6 +12,7 @@ var severityMap = map[string]string{
 	"EVENT_SEVERITY_MINOR":    "minor",
 }
 
+// Add field name mapping to convert eventName to title
 var fieldNameMap = map[string]string{
 	"eventName": "title",
 }
@@ -36,7 +33,7 @@ type AffectedObject struct {
 
 type OldRule struct {
 	RuleName         string                     `json:"ruleName"`
-	Description      string                     `json:"description"`
+	Description      string                     `json:"ruleDescription"`
 	State            bool                       `json:"state"`
 	LastModifiedTime int64                      `json:"lastModifiedTime"`
 	AlertRuleUuid    string                     `json:"alertRuleUuid"`
@@ -89,6 +86,7 @@ func ConvertToRuleEngineFormat(oldData []byte) ([]byte, error) {
 		UUID:             oldRules[0].AlertRuleUuid,
 		Payload:          []SubPayload{},
 	}
+
 	for _, rule := range oldRules {
 		subPayload := SubPayload{
 			Condition: map[string][]ConditionClause{
@@ -97,6 +95,7 @@ func ConvertToRuleEngineFormat(oldData []byte) ([]byte, error) {
 			},
 			Actions: []NewAction{},
 		}
+
 		if rule.SiteId != "" {
 			subPayload.Condition["all"] = append(subPayload.Condition["all"], ConditionClause{
 				Identifier: "fabricName",
@@ -107,11 +106,12 @@ func ConvertToRuleEngineFormat(oldData []byte) ([]byte, error) {
 
 		for _, action := range rule.Actions {
 			payload := map[string]interface{}{
-				"applyToActiveAnomaly": action.ApplyToActiveAnomaly,
+				"applyToExisting": action.ApplyToActiveAnomaly,
 			}
 			if action.Action == "CUSTOMIZE_ANOMALY" && len(rule.CustomMessage) > 0 {
 				payload["customMessage"] = rule.CustomMessage
 			}
+
 			subPayload.Actions = append(subPayload.Actions, NewAction{
 				Type:    action.Action,
 				Payload: payload,

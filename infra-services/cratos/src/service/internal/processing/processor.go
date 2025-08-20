@@ -2,24 +2,20 @@ package processing
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"servicegomodule/internal/models"
 	"sharedgomodule/logging"
 	"time"
+
+	"telemetry/utils/alert"
+
+	"google.golang.org/protobuf/proto"
 )
 
 type ProcessorConfig struct {
 	ProcessingDelay time.Duration
 	BatchSize       int
 	RuleEngine      RuleEngineConfig
-}
-
-type ProcessingRecord struct {
-	ID        string                 `json:"id"`
-	Timestamp time.Time              `json:"timestamp"`
-	Data      map[string]interface{} `json:"data"`
-	Metadata  map[string]string      `json:"metadata"`
 }
 
 type Processor struct {
@@ -35,24 +31,28 @@ type Processor struct {
 func NewProcessor(config ProcessorConfig, logger logging.Logger, inputCh <-chan *models.ChannelMessage, outputCh chan<- *models.ChannelMessage) *Processor {
 	ctx, cancel := context.WithCancel(context.Background())
 
+	reHandler := NewRuleHandler(config.RuleEngine, logger.WithField("module", "rule_engine"))
 	return &Processor{
-		config:   config,
-		logger:   logger,
-		inputCh:  inputCh,
-		outputCh: outputCh,
-		ctx:      ctx,
-		cancel:   cancel,
+		config:    config,
+		logger:    logger,
+		inputCh:   inputCh,
+		outputCh:  outputCh,
+		reHandler: reHandler,
+		ctx:       ctx,
+		cancel:    cancel,
 	}
 }
 
 func (p *Processor) Start() error {
 	p.logger.Infow("Starting processor", "batch_size", p.config.BatchSize, "processing_delay", p.config.ProcessingDelay)
+	p.reHandler.Start()
 	go p.processLoop()
 	return nil
 }
 
 func (p *Processor) Stop() error {
 	p.logger.Info("Stopping processor")
+	p.reHandler.Stop()
 	p.cancel()
 	return nil
 }
@@ -71,7 +71,7 @@ func (p *Processor) processLoop() {
 			return
 		case message := <-p.inputCh:
 			if err := p.processMessage(message); err != nil {
-				p.logger.Errorw("Error processing message", "error", err)
+				p.logger.Errorw("Failed to process message", "error", err)
 			}
 		}
 	}
@@ -93,67 +93,43 @@ func (p *Processor) processMessage(message *models.ChannelMessage) error {
 	}
 
 	// For data messages, apply processing
-	var record ProcessingRecord
-	if err := json.Unmarshal(message.Data, &record); err != nil {
+	aStream := &alert.AlertStream{}
+	err := proto.Unmarshal(message.Data, aStream)
+	if err != nil {
+		p.logger.Errorf("Failed to unmarshal input record: %w", err)
 		return fmt.Errorf("failed to unmarshal input record: %w", err)
 	}
 
-	processedRecord, err := p.applyProcessing(record)
-	if err != nil {
-		return fmt.Errorf("failed to apply processing: %w", err)
+	var outAlerts []*alert.Alert
+	for _, aObj := range aStream.AlertObject {
+		processedRecord, err := p.reHandler.applyRuleToRecord(aObj)
+		if err != nil {
+			p.logger.Errorw("Failed to apply rule processing", "error", err)
+			// keep the record unchanged if processing fails
+			outAlerts = append(outAlerts, aObj)
+			continue
+		}
+
+		outAlerts = append(outAlerts, processedRecord)
 	}
 
-	processedData, err := json.Marshal(processedRecord)
-	if err != nil {
-		return fmt.Errorf("failed to marshal processed record: %w", err)
+	if len(outAlerts) > 0 {
+		aStream := &alert.AlertStream{
+			AlertObject: outAlerts,
+		}
+		processedData, err := proto.Marshal(aStream)
+		if err != nil {
+			return fmt.Errorf("failed to marshal processed data: %w", err)
+		}
+
+		// Create a new message with processed data
+		outputMessage := models.NewDataMessage(processedData, "processor")
+
+		p.outputCh <- outputMessage
+		p.logger.Debug("Processed message sent to output channel")
 	}
-
-	// Create a new message with processed data
-	outputMessage := models.NewDataMessage(processedData, "processor")
-
-	p.outputCh <- outputMessage
-	p.logger.Debug("Processed message sent to output channel")
 
 	return nil
-}
-
-func (p *Processor) applyProcessing(input ProcessingRecord) (ProcessingRecord, error) {
-	p.logger.Debugw("Applying processing transformations", "record_id", input.ID)
-
-	if p.config.ProcessingDelay > 0 {
-		time.Sleep(p.config.ProcessingDelay)
-	}
-
-	processed := ProcessingRecord{
-		ID:        input.ID,
-		Timestamp: time.Now().UTC(),
-		Data:      make(map[string]interface{}),
-		Metadata:  make(map[string]string),
-	}
-
-	for key, value := range input.Data {
-		if strValue, ok := value.(string); ok {
-			processed.Data[key] = fmt.Sprintf("processed_%s", strValue)
-		} else {
-			processed.Data[key] = value
-		}
-	}
-
-	for key, value := range input.Metadata {
-		processed.Metadata[key] = value
-	}
-	processed.Metadata["processed_at"] = processed.Timestamp.Format(time.RFC3339)
-	processed.Metadata["processing_version"] = "1.0"
-
-	if processed.Data == nil {
-		processed.Data = make(map[string]interface{})
-	}
-	processed.Data["processing_stats"] = map[string]interface{}{
-		"processed_fields":    len(input.Data),
-		"processing_delay_ms": p.config.ProcessingDelay.Milliseconds(),
-	}
-
-	return processed, nil
 }
 
 func (p *Processor) GetStats() map[string]interface{} {

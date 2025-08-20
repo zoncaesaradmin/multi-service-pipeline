@@ -98,10 +98,12 @@ func (re *RuleEngine) HandleRuleEvent(msgBytes []byte) error {
 			return nil
 		}
 		if len(ruleJsonBytes) == 0 {
-			re.Logger.Infof("RELIB - invalid empty to process, ignored")
+			re.Logger.Info("RELIB - invalid empty rule to process, ignored")
 			return nil
 		}
+
 		re.Logger.Infof("RELIB - rule to be processed %s", string(ruleJsonBytes))
+		re.handleRuleMsgEvents(ruleJsonBytes, msgType)
 	} else {
 		re.Logger.Debug("RELIB - ignore invalid/non-relevant rule")
 	}
@@ -134,4 +136,9 @@ func (re *RuleEngine) initAlertRules() {
 	for _, rule := range rules {
 		re.AddRule(string(rule))
 	}
+}
+
+type RuleEngineType interface {
+	HandleRuleEvent([]byte) error
+	EvaluatorOptions(Data) (bool, string, *RuleEntry)
 }

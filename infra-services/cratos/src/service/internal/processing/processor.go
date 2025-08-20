@@ -31,7 +31,7 @@ type Processor struct {
 func NewProcessor(config ProcessorConfig, logger logging.Logger, inputCh <-chan *models.ChannelMessage, outputCh chan<- *models.ChannelMessage) *Processor {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	reHandler := NewRuleHandler(config.RuleEngine, logger.WithField("module", "rule_engine"))
+	reHandler := NewRuleHandler(config.RuleEngine, logger.WithField("module", "ruleengine"))
 	return &Processor{
 		config:    config,
 		logger:    logger,
@@ -102,6 +102,7 @@ func (p *Processor) processMessage(message *models.ChannelMessage) error {
 
 	var outAlerts []*alert.Alert
 	for _, aObj := range aStream.AlertObject {
+
 		processedRecord, err := p.reHandler.applyRuleToRecord(aObj)
 		if err != nil {
 			p.logger.Errorw("Failed to apply rule processing", "error", err)

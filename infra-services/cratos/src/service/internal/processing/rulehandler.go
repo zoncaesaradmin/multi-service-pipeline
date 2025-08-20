@@ -2,6 +2,7 @@ package processing
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sharedgomodule/logging"
 	"sharedgomodule/messagebus"
@@ -97,6 +98,7 @@ func (rh *RuleEngineHandler) consumeLoop() {
 			message, err := rh.consumer.Poll(rh.config.PollTimeout)
 			if err != nil {
 				rh.logger.Warnw("RULE HANDLER - Error polling for messages", "error", err)
+				continue
 			}
 
 			if message != nil {
@@ -120,12 +122,65 @@ func (rh *RuleEngineHandler) GetStats() map[string]interface{} {
 	return map[string]interface{}{
 		"status":       "running",
 		"topic":        rh.config.RulesTopic,
-		"poll_timeout": rh.config.PollTimeout,
+		"poll_timeout": rh.config.PollTimeout.String(),
 	}
 }
 
 func (rh *RuleEngineHandler) applyRuleToRecord(aObj *alert.Alert) (*alert.Alert, error) {
-	// Apply the rule to the alert object
-	// This is a placeholder implementation
+	if needsRuleProcessing(aObj) {
+		convRecord := ConvertAlertObjectToRuleEngineInput(aObj)
+		rh.logger.WithField("recId", recordIdentifier(aObj)).Infof("RECORD PROC - converted data: %v", convRecord)
+		ruleHit, ruleUuid, evalResults := rh.reInst.EvaluateRules(convRecord)
+		if ruleHit {
+			rh.logger.Infof("RECORD PROC - rule hit for record %s, rule UUID: %s, eval results: %v", recordIdentifier(aObj), ruleUuid, evalResults)
+			// rule matched
+			aObj.AlertRuleId = ruleUuid
+			for _, action := range evalResults.Actions {
+				rh.logger.Infof("RECORD PROC - action type: %s", action.Type)
+				if action.Type == "severity" {
+					actionPayload, err := json.Marshal(action.Payload)
+					if err != nil {
+						rh.logger.Errorw("RECORD PROC - Failed to marshal action payload", "error", err)
+						continue
+					}
+					type ActionSeverity struct {
+						SeverityValue string `json:"severityValue,omitempty"`
+					}
+					var sact ActionSeverity
+					err = json.Unmarshal(actionPayload, &sact)
+					if err != nil {
+						rh.logger.Errorw("RECORD PROC - Failed to unmarshal action payload", "error", err)
+						return aObj, err
+					}
+					aObj.Severity = sact.SeverityValue
+				} else if action.Type == "ACKNOWLEDGE" {
+					aObj.Acknowledged = true
+					aObj.AckTs = time.Now().UTC().Format(time.RFC3339)
+					aObj.AutoAck = true
+				} else if action.Type == "CUSTOMIZE_ANOMALY" {
+					aObj.IsCustomReco = true
+					actionPayload, err := json.Marshal(action.Payload)
+					if err != nil {
+						continue
+					}
+					type ActionCustomReco struct {
+						ApplyToExisting bool     `json:"applyToExisting"`
+						CustomMessage   []string `json:"customMessage"`
+					}
+					var cact ActionCustomReco
+					err = json.Unmarshal(actionPayload, &cact)
+					if err != nil {
+						return aObj, err
+					}
+					aObj.CustomRecoStr = cact.CustomMessage
+				}
+			}
+		} else {
+			// no rule matched
+			rh.logger.WithField("recId", recordIdentifier(aObj)).Infof("RECORD PROC - no rule hit")
+		}
+	} else {
+		rh.logger.WithField("recId", recordIdentifier(aObj)).Infof("RECORD PROC - skipped rule lookup")
+	}
 	return aObj, nil
 }

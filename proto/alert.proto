@@ -4,6 +4,7 @@ option go_package = "./;alert";
 option optimize_for = LITE_RUNTIME;
 option java_package = "com.cisco.aci.telemetry";
 option java_outer_classname = "AlertProtos";
+
 message Params {
     string fabricName = 1;
     string nodeName = 2;
@@ -11,17 +12,20 @@ message Params {
     string startTs = 4;
     string endTs = 5;
 }
+
 message AffectedEp {
     string url = 1;
     int32 endpointCount = 2;
     Params params = 3;
 }
+
 message Adjacency {
     string peerDeviceName = 1;
     string peerInterfaceName = 2;
     string modTs = 3;
     string fabricName = 4;
 }
+
 message VpcNode {
    string nodeName = 1;
    string interface = 2;
@@ -31,13 +35,16 @@ message VpcNode {
    string interfaceType = 6;
    string interfaceUniqueId = 7;
 }
+
 message Pc {
     repeated string configuredMemberList = 1;
 }
+
 message Vpc {
     string domainId = 1;
     repeated VpcNode nodeList = 2;
 }
+
 message Bgp {
     string connIf = 1;
     string bgpType = 2;
@@ -45,22 +52,27 @@ message Bgp {
     string peerIp = 4;
     string vrf = 5;
 }
+
 message Ospf {
     string interfaceNameFromDN = 1;
     string derivedIntf = 2;
     string peerIp = 3;
 }
+
 message Svi {
     string associatedInterface = 1;
 }
+
 message CustomEvent {
     string code = 1;
     string data = 2;
 }
+
 message ApicFault {
     string description = 1;
     repeated string configQuals = 2;
 }
+
 message CustomData {
     string controllerName = 1;
     string accountName = 2;
@@ -90,10 +102,12 @@ message CustomData {
     ApicFault apicFault = 26;
     string impactResourceType = 27;
 }
+
 message EntityNameList {
     string objectType = 1;
     repeated string objectValue = 2;
 }
+
 message AnomalyObjectsList {
     string type = 1;
     string identifier = 2;
@@ -101,6 +115,7 @@ message AnomalyObjectsList {
     bool   isPrimary = 4;
     bool   isHealthy = 5;
 }
+
 message Alert {
     string startTs = 1;
     string endTs = 2;
@@ -189,14 +204,15 @@ message Alert {
     string clusterName = 85;
     bool isCustomReco = 86;
     repeated string customRecoStr = 87;
-    string alertRuleId = 88;
 }
+
 message Remediation {
     string desc = 1;
     string method = 2;
     string remediationPayload = 3;
     string uri = 4;
 }
+
 message AlertStream {
     repeated Alert alertObject = 1;
 }

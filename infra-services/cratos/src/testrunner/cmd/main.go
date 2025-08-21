@@ -15,7 +15,13 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 	steps.InitializeRulesSteps(ctx)
 }
 
+var testStatus = "in_progress" // possible values: in_progress, complete
 func serveReports() {
+	http.HandleFunc("/report/status", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"status": "` + testStatus + `"}`))
+	})
+
 	http.HandleFunc("/report/text", func(w http.ResponseWriter, r *http.Request) {
 		textReportPath := filepath.Join(os.Getenv("SERVICE_LOG_DIR"), "test_report.txt")
 		data, err := ioutil.ReadFile(textReportPath)
@@ -57,6 +63,8 @@ func main() {
 
 	serveReports()
 
+	testStatus = "in_progress"
+
 	featurePaths := getFeaturePaths()
 
 	// Run Godog for text report
@@ -77,6 +85,7 @@ func main() {
 		ScenarioInitializer: InitializeScenario,
 		Options:             &optsText,
 	}.Run()
+	testStatus = "complete"
 
 	// // Run Godog for JSON report
 	// jsonReportPath := "../test_report.json"

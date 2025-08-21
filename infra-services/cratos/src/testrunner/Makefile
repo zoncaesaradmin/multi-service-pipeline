@@ -3,7 +3,8 @@
 
 # Variables
 BINARY_NAME=testrunner.bin
-BINARY_PATH=./bin/$(BINARY_NAME)
+BINARY_DIR=./../../bin
+BINARY_PATH=$(BINARY_DIR)/$(BINARY_NAME)
 MAIN_PATH=./cmd/main.go
 GO_FILES=$(shell find . -name "*.go" -type f)
 
@@ -13,7 +14,7 @@ all: clean deps fmt vet test build
 # Build the binary
 build:
 	@echo "Building $(BINARY_NAME)..."
-	@mkdir -p bin
+	@mkdir -p $(BINARY_DIR)
 	go build -o $(BINARY_PATH) $(MAIN_PATH)
 	@echo "Build completed: $(BINARY_PATH)"
 
@@ -50,7 +51,7 @@ vet:
 # Clean build artifacts and generated files
 clean:
 	@echo "Cleaning build artifacts and generated files..."
-	@rm -rf bin/
+	@rm -rf $(BINARY_DIR)
 	@rm -f *.log
 	@rm -rf tmp/ temp/
 	@find . -name "*.test" -type f -delete

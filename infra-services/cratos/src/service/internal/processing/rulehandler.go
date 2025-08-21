@@ -134,7 +134,7 @@ func (rh *RuleEngineHandler) applyRuleToRecord(aObj *alert.Alert) (*alert.Alert,
 		if ruleHit {
 			rh.logger.Infof("RECORD PROC - rule hit for record %s, rule UUID: %s, eval results: %v", recordIdentifier(aObj), ruleUuid, evalResults)
 			// rule matched
-			aObj.AlertRuleId = ruleUuid
+			aObj.RuleId = ruleUuid
 			for _, action := range evalResults.Actions {
 				rh.logger.Infof("RECORD PROC - action type: %s", action.Type)
 				if action.Type == "severity" {

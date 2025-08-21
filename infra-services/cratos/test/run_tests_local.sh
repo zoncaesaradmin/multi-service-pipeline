@@ -126,7 +126,7 @@ build_testrunner() {
     cd "$TESTRUNNER_DIR"
     
     # Build testrunner
-    go build -tags local -o bin/testrunner.bin cmd/main.go
+    go build -tags local -o ./../../bin/testrunner.bin cmd/main.go
     
     if [ $? -eq 0 ]; then
         log_success "Testrunner built successfully"
@@ -174,7 +174,7 @@ run_testrunner() {
     # Temporarily disable strict error handling for testrunner execution
     set +e
     # Run testrunner and capture output
-    ./bin/testrunner.bin > "$LOGS_DIR/testrunner_stdouterr.log" 2> "$LOGS_DIR/testrunner_stdouterr.log"
+    ./../../bin/testrunner.bin > "$LOGS_DIR/testrunner_stdouterr.log" 2> "$LOGS_DIR/testrunner_stdouterr.log"
     TEST_RESULT=$?
     set -e
     

@@ -5,7 +5,8 @@
 ROOT ?= $(shell git rev-parse --show-toplevel)
 PROTO_DIR=${ROOT}/proto
 BINARY_NAME=service.bin
-BINARY_PATH=./bin/$(BINARY_NAME)
+BINARY_DIR=./../../bin
+BINARY_PATH=$(BINARY_DIR)/$(BINARY_NAME)
 MAIN_PATH=./cmd/main.go
 GO_FILES=$(shell find . -name "*.go" -type f)
 COVERAGE_THRESHOLD=80
@@ -27,7 +28,7 @@ all: clean deps fmt vet lint test build
 build:
 	@echo "Building $(BINARY_NAME)..."
 	@protoc --go_out=${ROOT}/client/golang/src/telemetry/utils/alert --proto_path=$(PROTO_DIR) $(PROTO_DIR)/alert.proto
-	@mkdir -p bin
+	@mkdir -p $(BINARY_DIR)
 	go build $(BUILD_FLAGS) -o $(BINARY_PATH) $(MAIN_PATH)
 	@echo "Build completed: $(BINARY_PATH)"
 
@@ -39,14 +40,14 @@ run: build
 # Run the service with local development settings
 run-local:
 	@echo "Building and running $(BINARY_NAME) with local tags and SERVICE_HOME..."
-	@mkdir -p bin
+	@mkdir -p $(BINARY_DIR)
 	go build -tags local -o $(BINARY_PATH) $(MAIN_PATH)
 	@SERVICE_HOME="$$(cd ../../ && pwd)" $(BINARY_PATH)
 
 # Run the service with local development settings and coverage instrumentation (for integration tests)
 run-local-coverage:
 	@echo "Building and running $(BINARY_NAME) with local tags, coverage, and SERVICE_HOME..."
-	@mkdir -p bin
+	@mkdir -p $(BINARY_DIR)
 	go build -tags local -cover -o $(BINARY_PATH) $(MAIN_PATH)
 	@SERVICE_HOME="$$(cd ../../ && pwd)" $(BINARY_PATH)
 
@@ -115,7 +116,7 @@ lint:
 # Clean build artifacts and generated files
 clean:
 	@echo "Cleaning build artifacts and generated files..."
-	@rm -rf bin/
+	@rm -rf $(BINARY_DIR)
 	@rm -f $(COVERAGE_OUT) $(COVERAGE_HTML)
 	@rm -f *.log
 	@rm -rf tmp/ temp/

@@ -104,6 +104,9 @@ help:
 start: coverage-enforce service-build
 	@echo "✅ Service built with enforced coverage and ready for deployment!"
 
+automation: testrunner-build
+	@echo "✅ Test runner built for production environment test automation!"
+
 # Alias for start (for backward compatibility)
 start-local: start
 
@@ -406,10 +409,10 @@ shared-race:
 e2e-test: service-build testrunner-build
 	@echo "Starting end-to-end test..."
 	@echo "Starting service in background..."
-	@cd service && ./bin/service & SERVICE_PID=$$!; \
+	@cd ./.. && ./bin/service.bin & SERVICE_PID=$$!; \
 	sleep 3; \
 	echo "Running integration tests..."; \
-	cd testrunner && ./bin/testrunner; \
+	cd ./.. && ./bin/testrunner.bin; \
 	TEST_RESULT=$$?; \
 	echo "Stopping service..."; \
 	kill $$SERVICE_PID 2>/dev/null || true; \

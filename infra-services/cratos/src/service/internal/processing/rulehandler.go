@@ -13,9 +13,10 @@ import (
 )
 
 type RuleEngineConfig struct {
-	RulesTopic  string
-	PollTimeout time.Duration
-	Logging     logging.LoggerConfig
+	RulesTopic     string
+	PollTimeout    time.Duration
+	Logging        logging.LoggerConfig
+	KafkaConfigMap map[string]any
 }
 
 type RuleEngineHandler struct {
@@ -29,10 +30,14 @@ type RuleEngineHandler struct {
 
 func NewRuleHandler(config RuleEngineConfig, logger logging.Logger) *RuleEngineHandler {
 	// use simple filename - path resolution is handled by messagebus config loader
-	consumer := messagebus.NewConsumer("kafka-consumer.yaml", "ruleConsGroup"+utils.GetEnv("HOSTNAME", ""))
+	consumer := messagebus.NewConsumer(config.KafkaConfigMap, "ruleConsGroup"+utils.GetEnv("HOSTNAME", ""))
+	filePath := config.Logging.FilePath
+	if filePath == "" {
+		filePath = "/tmp/test.log"
+	}
 	lInfo := relib.LoggerInfo{
 		ServiceName: config.Logging.ServiceName,
-		FilePath:    config.Logging.FilePath,
+		FilePath:    filePath,
 		Level:       config.Logging.Level.String(),
 	}
 	reInst := relib.CreateRuleEngineInstance(lInfo, []string{relib.RuleTypeMgmt})

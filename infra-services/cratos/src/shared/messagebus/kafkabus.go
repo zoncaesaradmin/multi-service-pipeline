@@ -18,14 +18,8 @@ type KafkaProducer struct {
 }
 
 // NewProducer creates a new Kafka producer with configuration from YAML file
-func NewProducer(configPath string) Producer {
-	// Load configuration from YAML file
-	configMap, err := LoadProducerConfigMap(configPath)
-	if err != nil {
-		panic(fmt.Sprintf("Failed to load producer config: %v", err))
-	}
+func NewProducer(configMap map[string]any) Producer {
 
-	// Create Kafka config map with values from YAML
 	config := &kafka.ConfigMap{}
 
 	// Set values from config file, with fallback defaults
@@ -189,14 +183,8 @@ type KafkaConsumer struct {
 
 // NewConsumer creates a new Kafka consumer with configuration from YAML file
 // If cgroup is not empty, it overrides the group.id from config file
-func NewConsumer(configPath string, cgroup string) Consumer {
-	// Load configuration from YAML file
-	configMap, err := LoadConsumerConfigMap(configPath)
-	if err != nil {
-		panic(fmt.Sprintf("Failed to load consumer config: %v", err))
-	}
+func NewConsumer(configMap map[string]any, cgroup string) Consumer {
 
-	// Create Kafka config map with values from YAML
 	config := &kafka.ConfigMap{}
 
 	// Set values from config file, with fallback defaults

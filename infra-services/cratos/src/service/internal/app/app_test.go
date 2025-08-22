@@ -2,7 +2,10 @@ package app
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
+	"time"
 
 	"servicegomodule/internal/config"
 	"sharedgomodule/logging"
@@ -53,10 +56,34 @@ func (m *mockLogger) Clone() logging.Logger                                     
 func (m *mockLogger) Close() error                                                       { return nil }
 
 func TestNewApplication(t *testing.T) {
+	tempDir := t.TempDir()
+	kafkaConfigPath := filepath.Join(tempDir, "kafka-consumer.yaml")
+	err := os.WriteFile(kafkaConfigPath, []byte("bootstrap.servers: localhost:9092\n"), 0644)
+	if err != nil {
+		t.Fatalf("Failed to create temp kafka config: %v", err)
+	}
+
 	cfg := &config.RawConfig{
 		Server: config.RawServerConfig{
 			Host: "localhost",
 			Port: 8080,
+		},
+		Processing: config.RawProcessingConfig{
+			Input: config.RawInputConfig{
+				Topics:            []string{"input-topic"},
+				PollTimeout:       1 * time.Second,
+				ChannelBufferSize: 1000,
+				KafkaConfFile:     kafkaConfigPath,
+			},
+			Processor: config.RawProcessorConfig{},
+			Output: config.RawOutputConfig{
+				OutputTopic:       "output-topic",
+				BatchSize:         50,
+				FlushTimeout:      5 * time.Second,
+				ChannelBufferSize: 1000,
+				KafkaConfFile:     kafkaConfigPath,
+			},
+			Channels: config.RawChannelConfig{},
 		},
 	}
 	logger := newMockLogger()

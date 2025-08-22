@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -93,6 +94,7 @@ func CreateLoggerInstance(svcName string, logFilePath string, level zerolog.Leve
 		Level:       level,
 	}
 
+	fmt.Printf("[Logger Debug] Attempting to use log file path: %s\n", logConfig.FilePath)
 	if logFilePath != "" {
 		if _, err := os.OpenFile(logFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err != nil {
 			panic(fmt.Sprintf("Failed to open log file %v: %v", logFilePath, err))
@@ -109,7 +111,7 @@ func CreateLoggerInstance(svcName string, logFilePath string, level zerolog.Leve
 	//zerolog.CallerMarshalFunc = func(pc uintptr, file string, line int) string { return filepath.Base(file) + ":" + strconv.Itoa(line) }
 
 	if _, err := os.Stat(logConfig.FilePath); os.IsNotExist(err) {
-		os.MkdirAll(logConfig.FilePath, 0755)
+		os.MkdirAll(filepath.Dir(logConfig.FilePath), 0755)
 	}
 
 	logfile, err = os.OpenFile(logConfig.FilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)

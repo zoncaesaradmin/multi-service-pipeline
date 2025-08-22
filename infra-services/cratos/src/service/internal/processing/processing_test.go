@@ -2,6 +2,8 @@ package processing
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"servicegomodule/internal/models"
 	"sharedgomodule/logging"
 	"sharedgomodule/messagebus"
@@ -90,21 +92,46 @@ func TestConfigValidation(t *testing.T) {
 }
 
 func TestNewProcessor(t *testing.T) {
-	config := ProcessorConfig{
-		ProcessingDelay: 10 * time.Millisecond,
-		BatchSize:       100,
+	testLogFile := "/tmp/test.log"
+	procConfig := ProcConfig{
+		Processor: ProcessorConfig{
+			ProcessingDelay: 10 * time.Millisecond,
+			BatchSize:       100,
+			RuleEngine: RuleEngineConfig{
+				RulesTopic:  "test-topic",
+				PollTimeout: 10 * time.Millisecond,
+				Logging: logging.LoggerConfig{
+					Level:         logging.InfoLevel,
+					FilePath:      testLogFile,
+					LoggerName:    "ruleengine",
+					ComponentName: "ruleengine",
+					ServiceName:   "cratos",
+				},
+				KafkaConfigMap: map[string]any{"bootstrap.servers": "localhost:9092"},
+			},
+		},
+		LoggerConfig: logging.LoggerConfig{
+			Level:         logging.InfoLevel,
+			FilePath:      testLogFile,
+			LoggerName:    "pipeline",
+			ComponentName: "processing",
+			ServiceName:   "cratos",
+		},
 	}
-	logger := &mockLogger{}
+	logger, _ := logging.NewLogger(&procConfig.LoggerConfig)
 	inputCh := make(chan *models.ChannelMessage, 10)
 	outputCh := make(chan *models.ChannelMessage, 10)
+	processor := NewProcessor(procConfig.Processor, logger, inputCh, outputCh)
+	inputCh = make(chan *models.ChannelMessage, 10)
+	outputCh = make(chan *models.ChannelMessage, 10)
 
-	processor := NewProcessor(config, logger, inputCh, outputCh)
+	processor = NewProcessor(procConfig.Processor, logger, inputCh, outputCh)
 
 	if processor == nil {
 		t.Fatal("Expected processor to be created, got nil")
 	}
-	if processor.config.ProcessingDelay != config.ProcessingDelay {
-		t.Errorf("Expected processing delay %v, got %v", config.ProcessingDelay, processor.config.ProcessingDelay)
+	if processor.config.ProcessingDelay != procConfig.Processor.ProcessingDelay {
+		t.Errorf("Expected processing delay %v, got %v", procConfig.Processor.ProcessingDelay, processor.config.ProcessingDelay)
 	}
 }
 
@@ -185,9 +212,23 @@ func TestOutputHandlerGetStats(t *testing.T) {
 }
 
 func TestSimpleNewPipeline(t *testing.T) {
-	config := DefaultConfig(nil)
-	logger := &mockLogger{}
+	// Create a temporary Kafka config file
+	tempDir := t.TempDir()
+	kafkaConfigPath := filepath.Join(tempDir, "kafka-consumer.yaml")
+	err := os.WriteFile(kafkaConfigPath, []byte("bootstrap.servers: localhost:9092\n"), 0644)
+	if err != nil {
+		t.Fatalf("Failed to create temp kafka config: %v", err)
+	}
 
+	config := DefaultConfig(nil)
+	// Set KafkaConfigMap fields for test
+	const kafkaBootstrapServers = "bootstrap.servers"
+	const kafkaLocalhost9092 = "localhost:9092"
+	config.Input.KafkaConfigMap = map[string]any{kafkaBootstrapServers: kafkaLocalhost9092}
+	config.Output.KafkaConfigMap = map[string]any{kafkaBootstrapServers: kafkaLocalhost9092}
+	config.Processor.RuleEngine.KafkaConfigMap = map[string]any{kafkaBootstrapServers: kafkaLocalhost9092}
+
+	logger := &mockLogger{}
 	pipeline := NewPipeline(config, logger)
 
 	if pipeline == nil {

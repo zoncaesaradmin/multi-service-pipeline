@@ -1,5 +1,0 @@
-# Test configuration for messagebus producer tests
-bootstrap.servers: "localhost:9092"
-client.id: "test-producer"
-acks: "all"
-local.base.dir: "/tmp/cratos-messagebus-test"

@@ -49,6 +49,7 @@ type RawInputConfig struct {
 	Topics            []string      `yaml:"topics"`
 	PollTimeout       time.Duration `yaml:"pollTimeout"`
 	ChannelBufferSize int           `yaml:"channelBufferSize"`
+	KafkaConfFile     string        `yaml:"kafkaConfigFile"`
 }
 
 // ProcessorConfig holds processor configuration
@@ -59,9 +60,10 @@ type RawProcessorConfig struct {
 }
 
 type RawRuleProcessorConfig struct {
-	RulesTopic  string           `yaml:"rulesTopic"`
-	PollTimeout time.Duration    `yaml:"pollTimeout"`
-	Logging     RawLoggingConfig `yaml:"logging"`
+	RulesTopic    string           `yaml:"rulesTopic"`
+	PollTimeout   time.Duration    `yaml:"pollTimeout"`
+	Logging       RawLoggingConfig `yaml:"logging"`
+	KafkaConfFile string           `yaml:"kafkaConfigFile"`
 }
 
 // OutputConfig holds output handler configuration
@@ -70,6 +72,7 @@ type RawOutputConfig struct {
 	BatchSize         int           `yaml:"batchSize"`
 	FlushTimeout      time.Duration `yaml:"flushTimeout"`
 	ChannelBufferSize int           `yaml:"channelBufferSize"`
+	KafkaConfFile     string        `yaml:"kafkaConfigFile"`
 }
 
 // ChannelConfig holds channel buffer configuration

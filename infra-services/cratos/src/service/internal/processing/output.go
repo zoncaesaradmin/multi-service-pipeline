@@ -1,19 +1,20 @@
 package processing
 
 import (
-	"servicegomodule/internal/models"
 	"context"
 	"fmt"
+	"servicegomodule/internal/models"
 	"sharedgomodule/logging"
 	"sharedgomodule/messagebus"
 	"time"
 )
 
 type OutputConfig struct {
-	OutputTopic       string        `json:"outputTopic"`
-	BatchSize         int           `json:"batchSize"`
-	FlushTimeout      time.Duration `json:"flushTimeout"`
-	ChannelBufferSize int           `json:"channelBufferSize"`
+	OutputTopic       string
+	BatchSize         int
+	FlushTimeout      time.Duration
+	ChannelBufferSize int
+	KafkaConfigMap    map[string]any
 }
 
 type OutputHandler struct {
@@ -27,7 +28,7 @@ type OutputHandler struct {
 
 func NewOutputHandler(config OutputConfig, logger logging.Logger) *OutputHandler {
 	ctx, cancel := context.WithCancel(context.Background())
-	producer := messagebus.NewProducer("kafka-producer.yaml")
+	producer := messagebus.NewProducer(config.KafkaConfigMap)
 
 	return &OutputHandler{
 		config:   config,

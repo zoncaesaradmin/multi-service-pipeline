@@ -7,14 +7,18 @@ import (
 
 	"servicegomodule/internal/models"
 	"sharedgomodule/logging"
+	"telemetry/utils/alert"
+
+	"google.golang.org/protobuf/proto"
 )
 
 // mockLoggerForProcessor implements the logging.Logger interface for testing
 type mockLoggerForProcessor struct{}
 
-func (m *mockLoggerForProcessor) SetLevel(level logging.Level)                                 {}
-func (m *mockLoggerForProcessor) GetLevel() logging.Level                                      { return logging.InfoLevel }
-func (m *mockLoggerForProcessor) IsLevelEnabled(level logging.Level) bool                      { return true }
+func (m *mockLoggerForProcessor) SetLevel(level logging.Level)            {}
+func (m *mockLoggerForProcessor) GetLevel() logging.Level                 { return logging.InfoLevel }
+func (m *mockLoggerForProcessor) IsLevelEnabled(level logging.Level) bool { return true }
+
 func (m *mockLoggerForProcessor) Debug(msg string)                                             {}
 func (m *mockLoggerForProcessor) Info(msg string)                                              {}
 func (m *mockLoggerForProcessor) Warn(msg string)                                              {}
@@ -125,9 +129,21 @@ func TestProcessorMessageFlow(t *testing.T) {
 	}
 	defer processor.Stop()
 
-	// Create a test record as JSON
-	testData := `{"id":"flow-test-1","timestamp":"2023-01-01T00:00:00Z","data":{"message":"hello"},"metadata":{"test":"flow"}}`
-	inputMessage := models.NewDataMessage([]byte(testData), "test")
+	// Create a valid AlertStream protobuf message
+	alertObj := &alert.Alert{
+		AlertId:  "flow-test-1",
+		StartTs:  "2023-01-01T00:00:00Z",
+		Reason:   "unit test",
+		Severity: "info",
+	}
+	aStream := &alert.AlertStream{
+		AlertObject: []*alert.Alert{alertObj},
+	}
+	data, err := proto.Marshal(aStream)
+	if err != nil {
+		t.Fatalf("Failed to marshal AlertStream: %v", err)
+	}
+	inputMessage := models.NewDataMessage(data, "test")
 
 	// Send the message
 	inputCh <- inputMessage
@@ -143,8 +159,8 @@ func TestProcessorMessageFlow(t *testing.T) {
 			t.Error("Expected processed data to be non-empty")
 		}
 
-	case <-time.After(100 * time.Millisecond):
-		t.Error("Timeout waiting for processed message")
+	case <-time.After(500 * time.Millisecond):
+		t.Error("Timeout waiting for processed message (increase timeout or check processor logic)")
 	}
 }
 

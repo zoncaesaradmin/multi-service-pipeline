@@ -10,12 +10,20 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const headerContentType = "content-type"
-const contentTypeJSON = "application/json"
+const (
+	headerContentType = "content-type"
+	contentTypeJSON   = "application/json"
+	messageDir        = "/tmp/cratos-messagebus-test"
+)
 
 // Test KafkaProducer initialization
 func TestNewProducer(t *testing.T) {
-	producer := NewProducer("test_producer_config.yaml")
+	config := map[string]interface{}{
+		"bus_type":          "kafka",
+		"bootstrap.servers": "localhost:9092",
+		"message_dir":       messageDir,
+	}
+	producer := NewProducer(config)
 	assert.NotNil(t, producer)
 
 	// Cleanup
@@ -26,7 +34,11 @@ func TestNewProducer(t *testing.T) {
 
 // Test KafkaConsumer initialization
 func TestNewConsumer(t *testing.T) {
-	consumer := NewConsumer("test_consumer_config.yaml", "")
+	config := map[string]interface{}{
+		"bus_type":          "kafka",
+		"bootstrap.servers": "localhost:9092",
+	}
+	consumer := NewConsumer(config, "")
 	assert.NotNil(t, consumer)
 
 	// Cleanup
@@ -71,7 +83,7 @@ func TestMessageConversion(t *testing.T) {
 	assert.Equal(t, headerContentType, kafkaMsg.Headers[0].Key)
 	assert.Len(t, kafkaMsg.Headers, 1)
 	assert.Equal(t, headerContentType, kafkaMsg.Headers[0].Key)
-	assert.Equal(t, []byte("application/json"), kafkaMsg.Headers[0].Value)
+	assert.Equal(t, []byte(contentTypeJSON), kafkaMsg.Headers[0].Value)
 }
 
 // Test error handling scenarios

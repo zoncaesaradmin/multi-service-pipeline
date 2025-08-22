@@ -1,9 +1,9 @@
 package processing
 
 import (
-	"servicegomodule/internal/models"
 	"context"
 	"fmt"
+	"servicegomodule/internal/models"
 	"sharedgomodule/logging"
 	"sharedgomodule/messagebus"
 	"time"
@@ -11,9 +11,10 @@ import (
 
 // InputConfig holds configuration for the input handler
 type InputConfig struct {
-	Topics            []string      `json:"topics"`
-	PollTimeout       time.Duration `json:"pollTimeout"`
-	ChannelBufferSize int           `json:"channelBufferSize"`
+	Topics            []string
+	PollTimeout       time.Duration
+	ChannelBufferSize int
+	KafkaConfigMap    map[string]any
 }
 
 // InputHandler handles input processing - reads from Kafka and writes to input channel
@@ -29,7 +30,7 @@ type InputHandler struct {
 // NewInputHandler creates a new input handler
 func NewInputHandler(config InputConfig, logger logging.Logger) *InputHandler {
 	// Use simple filename - path resolution is handled by messagebus config loader
-	consumer := messagebus.NewConsumer("kafka-consumer.yaml", "recordConsGroup")
+	consumer := messagebus.NewConsumer(config.KafkaConfigMap, "recordConsGroup")
 
 	return &InputHandler{
 		consumer: consumer,

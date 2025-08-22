@@ -6,6 +6,7 @@ import (
 	"servicegomodule/internal/config"
 	"servicegomodule/internal/models"
 	"sharedgomodule/logging"
+	"sharedgomodule/utils"
 	"time"
 )
 
@@ -116,6 +117,7 @@ func DefaultConfig(cfg *config.RawConfig) ProcConfig {
 				Topics:            []string{"input-topic"},
 				PollTimeout:       1 * time.Second,
 				ChannelBufferSize: 1000,
+				KafkaConfigMap:    map[string]any{"client.id": "test-consumer"},
 			},
 			Processor: ProcessorConfig{
 				ProcessingDelay: 10 * time.Millisecond,
@@ -126,6 +128,7 @@ func DefaultConfig(cfg *config.RawConfig) ProcConfig {
 				BatchSize:         50,
 				FlushTimeout:      5 * time.Second,
 				ChannelBufferSize: 1000,
+				KafkaConfigMap:    map[string]any{"client.id": "test-producer"},
 			},
 			Channels: ChannelConfig{
 				InputBufferSize:  1000,
@@ -150,6 +153,7 @@ func DefaultConfig(cfg *config.RawConfig) ProcConfig {
 				Topics:            []string{"input-topic"},
 				PollTimeout:       1 * time.Second,
 				ChannelBufferSize: 1000,
+				KafkaConfigMap:    map[string]any{"client.id": "test-consumer"},
 			},
 			Processor: ProcessorConfig{
 				ProcessingDelay: 10 * time.Millisecond,
@@ -160,6 +164,7 @@ func DefaultConfig(cfg *config.RawConfig) ProcConfig {
 				BatchSize:         50,
 				FlushTimeout:      5 * time.Second,
 				ChannelBufferSize: 1000,
+				KafkaConfigMap:    map[string]any{"client.id": "test-producer"},
 			},
 			Channels: ChannelConfig{
 				InputBufferSize:  1000,
@@ -188,14 +193,16 @@ func DefaultConfig(cfg *config.RawConfig) ProcConfig {
 			Topics:            processing.Input.Topics,
 			PollTimeout:       processing.Input.PollTimeout,
 			ChannelBufferSize: processing.Input.ChannelBufferSize,
+			KafkaConfigMap:    utils.LoadConfigMap(processing.Input.KafkaConfFile),
 		},
 		Processor: ProcessorConfig{
 			ProcessingDelay: processing.Processor.ProcessingDelay,
 			BatchSize:       processing.Processor.BatchSize,
 			RuleEngine: RuleEngineConfig{
-				RulesTopic:  processing.Processor.RuleProcConfig.RulesTopic,
-				PollTimeout: processing.Processor.RuleProcConfig.PollTimeout,
-				Logging:     processing.Processor.RuleProcConfig.Logging.ConvertToLoggerConfig(),
+				RulesTopic:     processing.Processor.RuleProcConfig.RulesTopic,
+				PollTimeout:    processing.Processor.RuleProcConfig.PollTimeout,
+				Logging:        processing.Processor.RuleProcConfig.Logging.ConvertToLoggerConfig(),
+				KafkaConfigMap: utils.LoadConfigMap(processing.Processor.RuleProcConfig.KafkaConfFile),
 			},
 		},
 		Output: OutputConfig{
@@ -203,6 +210,7 @@ func DefaultConfig(cfg *config.RawConfig) ProcConfig {
 			BatchSize:         processing.Output.BatchSize,
 			FlushTimeout:      processing.Output.FlushTimeout,
 			ChannelBufferSize: processing.Output.ChannelBufferSize,
+			KafkaConfigMap:    utils.LoadConfigMap(processing.Output.KafkaConfFile),
 		},
 		Channels: ChannelConfig{
 			InputBufferSize:  processing.Channels.InputBufferSize,

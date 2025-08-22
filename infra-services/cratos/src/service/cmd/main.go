@@ -31,6 +31,7 @@ func main() {
 		log.Fatal("Failed to load configuration, exiting")
 	}
 
+	initKafkaConfFiles(cfg)
 	logger := initLoggerSettings(cfg)
 	defer logger.Close()
 
@@ -136,6 +137,12 @@ func initLoggerSettings(cfg *config.RawConfig) logging.Logger {
 		log.Fatalf("Failed to create logger: %v", err)
 	}
 	return logger
+}
+
+func initKafkaConfFiles(cfg *config.RawConfig) {
+	cfg.Processing.Input.KafkaConfFile = utils.ResolveConfFilePath(cfg.Processing.Input.KafkaConfFile)
+	cfg.Processing.Processor.RuleProcConfig.KafkaConfFile = utils.ResolveConfFilePath(cfg.Processing.Processor.RuleProcConfig.KafkaConfFile)
+	cfg.Processing.Output.KafkaConfFile = utils.ResolveConfFilePath(cfg.Processing.Output.KafkaConfFile)
 }
 
 // loadEnvFile loads .env file for local development

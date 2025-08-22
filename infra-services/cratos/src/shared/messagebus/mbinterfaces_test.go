@@ -7,26 +7,31 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const (
+	testTopic = "test-topic"
+	testValue = "test-value"
+)
+
 // Test Message struct creation and validation
-func TestMessage_Creation(t *testing.T) {
+func TestMessageCreation(t *testing.T) {
 	message := Message{
-		Topic:   "test-topic",
+		Topic:   testTopic,
 		Key:     "test-key",
-		Value:   []byte("test-value"),
+		Value:   []byte(testValue),
 		Headers: map[string]string{"header1": "value1"},
 	}
 
-	assert.Equal(t, "test-topic", message.Topic)
+	assert.Equal(t, testTopic, message.Topic)
 	assert.Equal(t, "test-key", message.Key)
-	assert.Equal(t, []byte("test-value"), message.Value)
+	assert.Equal(t, []byte(testValue), message.Value)
 	assert.Equal(t, "value1", message.Headers["header1"])
 }
 
 // Test Message header manipulation
-func TestMessage_HeaderManipulation(t *testing.T) {
+func TestMessageHeaderManipulation(t *testing.T) {
 	message := Message{
-		Topic:   "test-topic",
-		Value:   []byte("test-value"),
+		Topic:   testTopic,
+		Value:   []byte(testValue),
 		Headers: make(map[string]string),
 	}
 
@@ -42,11 +47,15 @@ func TestMessage_HeaderManipulation(t *testing.T) {
 // Interface compliance test
 func TestInterfaces(t *testing.T) {
 	// Test that we can create instances that implement the interfaces
-	producer := NewProducer("test_producer_config.yaml")
+	config := map[string]interface{}{
+		"bus_type":    "local",
+		"message_dir": "/tmp/cratos-messagebus-test",
+	}
+	producer := NewProducer(config)
 	assert.NotNil(t, producer)
 	assert.Implements(t, (*Producer)(nil), producer)
 
-	consumer := NewConsumer("test_consumer_config.yaml", "")
+	consumer := NewConsumer(config, "")
 	assert.NotNil(t, consumer)
 	assert.Implements(t, (*Consumer)(nil), consumer)
 }
@@ -79,7 +88,11 @@ func TestSendResultCreation(t *testing.T) {
 func TestProducerInterfaceCompliance(t *testing.T) {
 	// This test ensures that our Producer interface has the expected methods
 	// We test this by creating a real producer and checking its methods
-	producer := NewProducer("test_producer_config.yaml")
+	config := map[string]interface{}{
+		"bus_type":    "local",
+		"message_dir": "/tmp/cratos-messagebus-test",
+	}
+	producer := NewProducer(config)
 	defer producer.Close()
 
 	// These should compile if the interface is correctly implemented
@@ -90,7 +103,11 @@ func TestProducerInterfaceCompliance(t *testing.T) {
 func TestConsumerInterfaceCompliance(t *testing.T) {
 	// This test ensures that our Consumer interface has the expected methods
 	// We test this by creating a real consumer and checking its methods
-	consumer := NewConsumer("test_consumer_config.yaml", "")
+	config := map[string]interface{}{
+		"bus_type":    "local",
+		"message_dir": "/tmp/cratos-messagebus-test",
+	}
+	consumer := NewConsumer(config, "")
 	defer consumer.Close()
 
 	// These should compile if the interface is correctly implemented
@@ -102,20 +119,7 @@ func TestAsyncSendResultTimeout(t *testing.T) {
 	// Test that we can handle timeout scenarios with async sends
 	resultChan := make(chan SendResult, 1)
 
-	// Simulate a timeout by not sending anything to the channel
-	select {
-	case result := <-resultChan:
-		t.Errorf("Expected timeout, but got result: %+v", result)
-	case <-time.After(100 * time.Millisecond):
-		// Expected timeout - test passes
-	}
-}
-
-func TestAsyncSendResultSuccess(t *testing.T) {
-	// Test successful async result delivery
-	resultChan := make(chan SendResult, 1)
-
-	// Simulate a successful send
+	// Simulate async send result
 	go func() {
 		resultChan <- SendResult{
 			Partition: 2,

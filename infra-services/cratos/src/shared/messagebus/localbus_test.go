@@ -12,16 +12,24 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const testTopic = "test-topic"
+const (
+	testTopicName  = "test-topic"
+	multiTopic     = "multi-topic"
+	messageDirPath = "/tmp/cratos-messagebus-test"
+)
 
 // cleanupMessageBusDir removes all message files to ensure tests start clean
 func cleanupMessageBusDir() {
-	os.RemoveAll("/tmp/cratos-messagebus-test")
+	os.RemoveAll(messageDirPath)
 }
 
 // Test LocalProducer.NewProducer
 func TestNewLocalProducer(t *testing.T) {
-	producer := NewProducer("test_producer_config.yaml")
+	config := map[string]interface{}{
+		"bus_type":    "local",
+		"message_dir": messageDirPath,
+	}
+	producer := NewProducer(config)
 	assert.NotNil(t, producer)
 	assert.IsType(t, &LocalProducer{}, producer)
 }
@@ -31,12 +39,16 @@ func TestLocalProducerSend(t *testing.T) {
 	// Clean up any existing messages from previous tests
 	cleanupMessageBusDir()
 
-	producer := NewProducer("test_producer_config.yaml")
+	config := map[string]interface{}{
+		"bus_type":    "local",
+		"message_dir": messageDirPath,
+	}
+	producer := NewProducer(config)
 	assert.NotNil(t, producer)
 
 	ctx := context.Background()
 	message := &Message{
-		Topic:   "test-topic",
+		Topic:   testTopicName,
 		Key:     "test-key",
 		Value:   []byte("test-value"),
 		Headers: map[string]string{"header1": "value1"},
@@ -50,21 +62,34 @@ func TestLocalProducerSend(t *testing.T) {
 
 // Test LocalConsumer.NewConsumer
 func TestNewLocalConsumer(t *testing.T) {
-	consumer := NewConsumer("test_consumer_config.yaml", "")
+	config := map[string]interface{}{
+		"bus_type":    "local",
+		"message_dir": messageDirPath,
+	}
+	consumer := NewConsumer(config, "")
 	assert.NotNil(t, consumer)
 	assert.IsType(t, &LocalConsumer{}, consumer)
 }
 
 // Test LocalConsumer.Subscribe
-func TestLocalConsumer_Subscribe(t *testing.T) {
-	consumer := NewConsumer("test_consumer_config.yaml", "")
+func TestLocalConsumerSubscribe(t *testing.T) {
+	config := map[string]interface{}{
+		"bus_type":    "local",
+		"message_dir": messageDirPath,
+	}
+	consumer := NewConsumer(config, "")
 	err := consumer.Subscribe([]string{"test-topic"})
+	_ = consumer.Subscribe([]string{testTopicName})
 	assert.NoError(t, err)
 }
 
 // Test LocalConsumer.Poll
-func TestLocalConsumer_Poll(t *testing.T) {
-	consumer := NewConsumer("test_consumer_config.yaml", "")
+func TestLocalConsumerPoll(t *testing.T) {
+	config := map[string]interface{}{
+		"bus_type":    "local",
+		"message_dir": messageDirPath,
+	}
+	consumer := NewConsumer(config, "")
 	msg, err := consumer.Poll(time.Second)
 	assert.NoError(t, err)
 	assert.Nil(t, msg)
@@ -75,8 +100,12 @@ func TestLocalProducerConsumerIntegration(t *testing.T) {
 	// Clean up any existing messages from previous tests
 	cleanupMessageBusDir()
 
-	producer := NewProducer("test_producer_config.yaml")
-	consumer := NewConsumer("test_consumer_config.yaml", "")
+	config := map[string]interface{}{
+		"bus_type":    "local",
+		"message_dir": messageDirPath,
+	}
+	producer := NewProducer(config)
+	consumer := NewConsumer(config, "")
 
 	ctx := context.Background()
 
@@ -105,26 +134,38 @@ func TestLocalProducerConsumerIntegration(t *testing.T) {
 }
 
 // Test LocalProducer.Close
-func TestLocalProducer_Close(t *testing.T) {
-	producer := NewProducer("test_producer_config.yaml")
+func TestLocalProducerClose(t *testing.T) {
+	config := map[string]interface{}{
+		"bus_type":    "local",
+		"message_dir": messageDirPath,
+	}
+	producer := NewProducer(config)
 	err := producer.Close()
 	assert.NoError(t, err)
 }
 
 // Test LocalConsumer.Close
-func TestLocalConsumer_Close(t *testing.T) {
-	consumer := NewConsumer("test_consumer_config.yaml", "")
+func TestLocalConsumerClose(t *testing.T) {
+	config := map[string]interface{}{
+		"bus_type":    "local",
+		"message_dir": messageDirPath,
+	}
+	consumer := NewConsumer(config, "")
 	err := consumer.Close()
 	assert.NoError(t, err)
 }
 
 // Test LocalConsumer.Commit
-func TestLocalConsumer_Commit(t *testing.T) {
-	consumer := NewConsumer("test_consumer_config.yaml", "")
+func TestLocalConsumerCommit(t *testing.T) {
+	config := map[string]interface{}{
+		"bus_type":    "local",
+		"message_dir": messageDirPath,
+	}
+	consumer := NewConsumer(config, "")
 
 	ctx := context.Background()
 	message := &Message{
-		Topic:     "test-topic",
+		Topic:     testTopicName,
 		Key:       "test-key",
 		Value:     []byte("test-value"),
 		Offset:    5,
@@ -160,9 +201,13 @@ func (m *MockProducer) Close() error {
 }
 
 // Test that NewConsumer creates independent consumers
-func TestNewConsumer_Independence(t *testing.T) {
-	consumer1 := NewConsumer("test_consumer_config.yaml", "")
-	consumer2 := NewConsumer("test_consumer_config.yaml", "")
+func TestNewConsumerIndependence(t *testing.T) {
+	config := map[string]interface{}{
+		"bus_type":    "local",
+		"message_dir": messageDirPath,
+	}
+	consumer1 := NewConsumer(config, "")
+	consumer2 := NewConsumer(config, "")
 
 	assert.NotNil(t, consumer1)
 	assert.NotNil(t, consumer2)
@@ -171,24 +216,28 @@ func TestNewConsumer_Independence(t *testing.T) {
 }
 
 // Test multiple messages in same topic
-func TestLocalProducerConsumer_MultipleMessages(t *testing.T) {
+func TestLocalProducerConsumerMultipleMessages(t *testing.T) {
 	// Clean up any existing messages from previous tests
 	cleanupMessageBusDir()
 
-	producer := NewProducer("test_producer_config.yaml")
-	consumer := NewConsumer("test_consumer_config.yaml", "")
+	config := map[string]interface{}{
+		"bus_type":    "local",
+		"message_dir": messageDirPath,
+	}
+	producer := NewProducer(config)
+	consumer := NewConsumer(config, "")
 
 	ctx := context.Background()
 
 	// Subscribe to topic
-	err := consumer.Subscribe([]string{"multi-topic"})
+	err := consumer.Subscribe([]string{multiTopic})
 	assert.NoError(t, err)
 
 	// Send multiple messages
 	messages := []*Message{
-		{Topic: "multi-topic", Key: "key1", Value: []byte("value1")},
-		{Topic: "multi-topic", Key: "key2", Value: []byte("value2")},
-		{Topic: "multi-topic", Key: "key3", Value: []byte("value3")},
+		{Topic: multiTopic, Key: "key1", Value: []byte("value1")},
+		{Topic: multiTopic, Key: "key2", Value: []byte("value2")},
+		{Topic: multiTopic, Key: "key3", Value: []byte("value3")},
 	}
 
 	for i, msg := range messages {
@@ -215,9 +264,13 @@ func TestLocalProducerConsumer_MultipleMessages(t *testing.T) {
 }
 
 // Test multiple topics
-func TestLocalProducerConsumer_MultipleTopics(t *testing.T) {
-	producer := NewProducer("test_producer_config.yaml")
-	consumer := NewConsumer("test_consumer_config.yaml", "")
+func TestLocalProducerConsumerMultipleTopics(t *testing.T) {
+	config := map[string]interface{}{
+		"bus_type":    "local",
+		"message_dir": messageDirPath,
+	}
+	producer := NewProducer(config)
+	consumer := NewConsumer(config, "")
 
 	ctx := context.Background()
 
@@ -252,12 +305,16 @@ func TestLocalProducerConsumer_MultipleTopics(t *testing.T) {
 }
 
 // Test Subscribe multiple times (updates subscription)
-func TestLocalConsumer_Subscribe_Multiple(t *testing.T) {
+func TestLocalConsumerSubscribeMultiple(t *testing.T) {
 	// Clean up any existing messages from previous tests
 	cleanupMessageBusDir()
 
-	consumer := NewConsumer("test_consumer_config.yaml", "")
-	producer := NewProducer("test_producer_config.yaml")
+	config := map[string]interface{}{
+		"bus_type":    "local",
+		"message_dir": messageDirPath,
+	}
+	consumer := NewConsumer(config, "")
+	producer := NewProducer(config)
 
 	// First subscription
 	err := consumer.Subscribe([]string{"topic1", "topic2"})
@@ -297,8 +354,12 @@ func TestLocalConsumer_Subscribe_Multiple(t *testing.T) {
 }
 
 // Test message timestamp assignment
-func TestLocalProducer_TimestampAssignment(t *testing.T) {
-	producer := NewProducer("test_producer_config.yaml")
+func TestLocalProducerTimestampAssignment(t *testing.T) {
+	config := map[string]interface{}{
+		"bus_type":    "local",
+		"message_dir": messageDirPath,
+	}
+	producer := NewProducer(config)
 	ctx := context.Background()
 
 	beforeTime := time.Now()
@@ -321,9 +382,13 @@ func TestLocalProducer_TimestampAssignment(t *testing.T) {
 }
 
 // Test message headers preservation
-func TestLocalProducerConsumer_HeaderPreservation(t *testing.T) {
-	producer := NewProducer("test_producer_config.yaml")
-	consumer := NewConsumer("test_consumer_config.yaml", "")
+func TestLocalProducerConsumerHeaderPreservation(t *testing.T) {
+	config := map[string]interface{}{
+		"bus_type":    "local",
+		"message_dir": messageDirPath,
+	}
+	producer := NewProducer(config)
+	consumer := NewConsumer(config, "")
 
 	ctx := context.Background()
 

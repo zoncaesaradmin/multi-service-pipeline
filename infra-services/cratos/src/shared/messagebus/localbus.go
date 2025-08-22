@@ -16,7 +16,7 @@ import (
 
 // File-based message storage for cross-process communication
 var (
-	messageBusDir = "/tmp/cratos-messagebus"
+	messageBusDir = "/tmp/cratos-messagebus-test"
 	globalMutex   = sync.RWMutex{}
 )
 
@@ -31,13 +31,7 @@ type LocalProducer struct {
 }
 
 // NewProducer creates a new local producer with configuration from YAML file
-func NewProducer(configPath string) Producer {
-	// Load configuration from YAML file
-	configMap, err := LoadProducerConfigMap(configPath)
-	if err != nil {
-		panic(fmt.Sprintf("Failed to load producer config: %v", err))
-	}
-
+func NewProducer(configMap map[string]any) Producer {
 	// Update messageBusDir if specified in config
 	if baseDir := GetStringValue(configMap, "local.base.dir", ""); baseDir != "" {
 		messageBusDir = baseDir
@@ -130,13 +124,7 @@ type LocalConsumer struct {
 
 // NewConsumer creates a new local consumer with configuration from YAML file
 // The cgroup parameter is ignored for local implementation as it's single consumer
-func NewConsumer(configPath string, cgroup string) Consumer {
-	// Load configuration from YAML file
-	configMap, err := LoadConsumerConfigMap(configPath)
-	if err != nil {
-		panic(fmt.Sprintf("Failed to load consumer config: %v", err))
-	}
-
+func NewConsumer(configMap map[string]any, cgroup string) Consumer {
 	// Create local consumer with configuration
 	consumer := &LocalConsumer{
 		lastRead: make(map[string]int64),
@@ -158,9 +146,17 @@ func (c *LocalConsumer) Subscribe(topics []string) error {
 	defer c.mutex.Unlock()
 
 	c.topics = topics
+	// Remove lastRead entries for topics not in the new subscription
+	newTopics := make(map[string]struct{})
 	for _, topic := range topics {
+		newTopics[topic] = struct{}{}
 		if _, exists := c.lastRead[topic]; !exists {
 			c.lastRead[topic] = -1
+		}
+	}
+	for topic := range c.lastRead {
+		if _, ok := newTopics[topic]; !ok {
+			delete(c.lastRead, topic)
 		}
 	}
 

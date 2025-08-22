@@ -1,4 +1,5 @@
 syntax = "proto3";
+
 package alert;
 option go_package = "./;alert";
 option optimize_for = LITE_RUNTIME;

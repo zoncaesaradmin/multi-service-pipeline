@@ -5,7 +5,7 @@
 BINARY_NAME=testrunner.bin
 BINARY_DIR=./../../bin
 BINARY_PATH=$(BINARY_DIR)/$(BINARY_NAME)
-MAIN_PATH=./cmd/main.go
+MAIN_PATH=./cmd/testmain.go
 GO_FILES=$(shell find . -name "*.go" -type f)
 
 # Default target
@@ -17,6 +17,7 @@ build:
 	@mkdir -p $(BINARY_DIR)
 	go build -o $(BINARY_PATH) $(MAIN_PATH)
 	@echo "Build completed: $(BINARY_PATH)"
+	@cp -rf features $(BINARY_DIR)
 
 # Run the test runner
 run: build

@@ -59,33 +59,7 @@ src/                          # Source code root
 │   ├── Makefile             # Test runner build automation
 │   ├── (no config.yaml)     # Configuration moved to conf/testconfig.yaml
 │   ├── cmd/                 # Test runner entry point
-│   │   └── main.go          # Test runner main with message bus
-│   ├── internal/            # Private test code
-│   │   ├── client/          # API client for health checks
-│   │   │   └── client.go    # HTTP client implementation
-│   │   ├── config/          # Test configuration
-│   │   │   └── config.go    # Test config management
-│   │   ├── harness/         # Test harness interfaces
-│   │   │   └── interfaces.go
-│   │   ├── orchestrator/    # Test orchestration
-│   │   │   └── orchestrator.go
-│   │   ├── process/         # Process management
-│   │   │   └── manager.go
-│   │   ├── testdata/        # Test data loading
-│   │   │   └── loader.go
-│   │   ├── tests/           # Integration tests
-│   │   │   └── integration_tests.go
-│   │   ├── types/           # Test types
-│   │   │   └── types.go
-│   │   └── validation/      # Response validation
-│   │       ├── reporter.go  # Test reporting
-│   │       └── validator.go # Response validation
-│   ├── testdata/            # Test scenarios and fixtures
-│   │   ├── fixtures/        # Test data files
-│   │   │   └── sample_users.json
-│   │   └── scenarios/       # Test scenarios
-│   │       └── user_workflow.yaml
-│   └── bin/                 # Build output
+│   │   └── testmain.go      # Test runner main with message bus
 │
 └── shared/                  # Shared modules
     ├── go.mod               # Module: sharedgomodule  

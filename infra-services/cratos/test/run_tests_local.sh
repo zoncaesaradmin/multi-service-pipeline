@@ -126,7 +126,7 @@ build_testrunner() {
     cd "$TESTRUNNER_DIR"
     
     # Build testrunner
-    go build -tags local -o ./../../bin/testrunner.bin cmd/main.go
+    go build -tags local -o ./../../bin/testrunner.bin cmd/testmain.go
     
     if [ $? -eq 0 ]; then
         log_success "Testrunner built successfully"

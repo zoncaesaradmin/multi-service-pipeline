@@ -20,9 +20,9 @@ find . -name "*.out" -delete 2>/dev/null || true
 find . -name "coverage.html" -delete 2>/dev/null || true
 
 # 3. Clean Go module cache
-echo "Cleaning Go module cache..."
-cd src && go clean -modcache 2>/dev/null || true
-cd ..
+#echo "Cleaning Go module cache..."
+#cd src && go clean -modcache 2>/dev/null || true
+#cd ..
 
 # 4. Clean message bus data
 echo "Cleaning message bus data..."

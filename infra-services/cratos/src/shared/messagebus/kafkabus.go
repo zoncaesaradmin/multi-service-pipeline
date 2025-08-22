@@ -6,6 +6,7 @@ package messagebus
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
@@ -29,16 +30,20 @@ func NewProducer(configPath string) Producer {
 
 	// Set values from config file, with fallback defaults
 	config.SetKey("bootstrap.servers", GetStringValue(configMap, "bootstrap.servers", "localhost:9092"))
-	config.SetKey("client.id", GetStringValue(configMap, "client.id", "cratos-producer"))
-	config.SetKey("acks", GetStringValue(configMap, "acks", "all"))
+	config.SetKey("client.id", GetStringValue(configMap, "client.id", os.Getenv("HOSTNAME")))
+	config.SetKey("acks", GetStringValue(configMap, "acks", "1"))
 	config.SetKey("retries", GetIntValue(configMap, "retries", 3))
 	config.SetKey("batch.size", GetIntValue(configMap, "batch.size", 16384))
 	config.SetKey("linger.ms", GetIntValue(configMap, "linger.ms", 1))
-	config.SetKey("buffer.memory", GetIntValue(configMap, "buffer.memory", 33554432))
-	config.SetKey("compression.type", GetStringValue(configMap, "compression.type", "none"))
+	//config.SetKey("buffer.memory", GetIntValue(configMap, "buffer.memory", 33554432))
+	//config.SetKey("compression.type", GetStringValue(configMap, "compression.type", "none"))
+	//config.SetKey("max.in.flight.requests.per.connection", GetIntValue(configMap, "max.in.flight.requests.per.connection", 5))
+	//config.SetKey("enable.idempotence", GetBoolValue(configMap, "enable.idempotence", false))
 	config.SetKey("security.protocol", GetStringValue(configMap, "security.protocol", "PLAINTEXT"))
-	config.SetKey("max.in.flight.requests.per.connection", GetIntValue(configMap, "max.in.flight.requests.per.connection", 5))
-	config.SetKey("enable.idempotence", GetBoolValue(configMap, "enable.idempotence", false))
+	config.SetKey("ssl.ca.location", GetStringValue(configMap, "ssl.ca.location", ""))
+	config.SetKey("ssl.certificate.location", GetStringValue(configMap, "ssl.certificate.location", ""))
+	config.SetKey("ssl.key.location", GetStringValue(configMap, "ssl.key.location", ""))
+	config.SetKey("enable.certificate.verification", GetBoolValue(configMap, "enable.certificate.verification", false))
 
 	producer, err := kafka.NewProducer(config)
 	if err != nil {
@@ -204,14 +209,23 @@ func NewConsumer(configPath string, cgroup string) Consumer {
 	}
 	config.SetKey("group.id", groupID)
 	config.SetKey("auto.offset.reset", GetStringValue(configMap, "auto.offset.reset", "earliest"))
+	config.SetKey("go.application.rebalance.enable", GetBoolValue(configMap, "go.application.rebalance.enable", true))
+	config.SetKey("go.events.channel.enable", GetBoolValue(configMap, "go.events.channel.enable", true))
 	config.SetKey("enable.auto.commit", GetBoolValue(configMap, "enable.auto.commit", false))
-	config.SetKey("session.timeout.ms", GetIntValue(configMap, "session.timeout.ms", 30000))
-	config.SetKey("heartbeat.interval.ms", GetIntValue(configMap, "heartbeat.interval.ms", 10000))
-	config.SetKey("fetch.min.bytes", GetIntValue(configMap, "fetch.min.bytes", 1))
-	config.SetKey("fetch.max.wait.ms", GetIntValue(configMap, "fetch.max.wait.ms", 500))
-	config.SetKey("max.partition.fetch.bytes", GetIntValue(configMap, "max.partition.fetch.bytes", 1048576))
-	config.SetKey("client.id", GetStringValue(configMap, "client.id", "cratos-consumer"))
+	config.SetKey("go.events.channel.size", GetIntValue(configMap, "go.events.channel.size", 100000))
+	config.SetKey("session.timeout.ms", GetIntValue(configMap, "session.timeout.ms", 6000))
+	config.SetKey("fetch.max.bytes", GetIntValue(configMap, "fetch.max.bytes", 1048576))
+	//config.SetKey("session.timeout.ms", GetIntValue(configMap, "session.timeout.ms", 30000))
+	//config.SetKey("heartbeat.interval.ms", GetIntValue(configMap, "heartbeat.interval.ms", 10000))
+	//config.SetKey("fetch.min.bytes", GetIntValue(configMap, "fetch.min.bytes", 1))
+	//config.SetKey("fetch.max.wait.ms", GetIntValue(configMap, "fetch.max.wait.ms", 500))
+	//config.SetKey("max.partition.fetch.bytes", GetIntValue(configMap, "max.partition.fetch.bytes", 1048576))
+	config.SetKey("client.id", GetStringValue(configMap, "client.id", cgroup+os.Getenv("HOSTNAME")))
 	config.SetKey("security.protocol", GetStringValue(configMap, "security.protocol", "PLAINTEXT"))
+	config.SetKey("ssl.ca.location", GetStringValue(configMap, "ssl.ca.location", ""))
+	config.SetKey("ssl.certificate.location", GetStringValue(configMap, "ssl.certificate.location", ""))
+	config.SetKey("ssl.key.location", GetStringValue(configMap, "ssl.key.location", ""))
+	config.SetKey("enable.certificate.verification", GetBoolValue(configMap, "enable.certificate.verification", false))
 
 	consumer, err := kafka.NewConsumer(config)
 	if err != nil {

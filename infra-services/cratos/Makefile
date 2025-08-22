@@ -1,5 +1,10 @@
+LANG=python
+IMAGE_NAME=cratos
+
+include ../Makefile.include
+
 # Simplified Cratos Project Makefile
-.PHONY: help devenv dev dev-run dev-clean test-coverage build clean package package-local pre_build post_build
+.PHONY: help devenv dev dev-run dev-clean test-coverage buildall clean package package-local pre_build post_build
 
 # Default ENTRYPOINT_MODE if not set
 ENTRYPOINT_MODE ?= start
@@ -43,7 +48,7 @@ help:
 	@echo "                 • Show coverage summary"
 	@echo ""
 	@echo "🏭 PRODUCTION BUILD:"
-	@echo "  build        - Production build with enforced coverage:"
+	@echo "  buildall       - Production build with enforced coverage:"
 	@echo "                 • Build all services with coverage enforcement"
 	@echo "                 • Ready for deployment"
 	@echo "                 • No test execution"
@@ -65,7 +70,7 @@ help:
 	@echo "  make dev                           # Full local development cycle"
 	@echo "  make dev-run                       # Quick test run"
 	@echo "  make test-coverage                 # Generate coverage report from latest test"
-	@echo "  make build                         # Production build"
+	@echo "  make buildall                      # Production build"
 	@echo "  make package                       # Uses default ENTRYPOINT_MODE=start (production)"
 	@echo "  make package-local                 # Uses default ENTRYPOINT_MODE=start (local dev)"
 	@echo "  make package ENTRYPOINT_MODE=test  # Run tests via CI/CD"
@@ -151,17 +156,19 @@ package-local:
 # Pre-build target that depends on package
 pre_build: package
 	@echo "Pre-build completed"
+	@cp ${ROOT}/tools/scripts/initializer/set-common-ni-env.sh .
 
 # Post-build target that depends on clean
 post_build: clean
 	@echo "Post-build completed"
+	@rm -fR set-common-ni-env.sh
 
 # ==============================================================================
 # PRODUCTION BUILD
 # ==============================================================================
 
 # Production build with enforced coverage
-build:
+buildall:
 	@echo "🏭 Production build with enforced coverage..."
 	@$(MAKE) -C src coverage-enforce
 	@$(MAKE) -C src service-build BUILD_TAGS="$(BUILD_TAGS)"

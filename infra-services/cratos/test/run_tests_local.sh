@@ -145,17 +145,15 @@ run_service() {
     
     # Set coverage directory and log file path (using absolute paths)
     export GOCOVERDIR="$COVERAGE_DIR"
-    export SERVICE_LOG_DIR="$SERVICE_HOME/test/results/logs"
     
         # All other environment variables should be set via .env file
     
-    # Use make run-local-coverage which automatically sets SERVICE_HOME and builds with local tags + coverage
     # Run in background and capture stdout/stderr
-    make run-local-coverage > "$LOGS_DIR/service_stdouterr.log" 2> "$LOGS_DIR/service_stdouterr.log" &
+    ./../../bin/service.bin > "$LOGS_DIR/service_stdouterr.log" 2> "$LOGS_DIR/service_stdouterr.log" &
     COMPONENT_PID=$!
     echo $COMPONENT_PID > "$ROOT_DIR/test/service.pid"
     
-    log_success "Service started with PID $COMPONENT_PID using make run-local-coverage (SERVICE_HOME=$ROOT_DIR)"
+    log_success "Service started with PID $COMPONENT_PID"
     log_info "Service logs: $LOGS_DIR/service_stdouterr.log"
     cd - > /dev/null
     
@@ -167,9 +165,6 @@ run_service() {
 run_testrunner() {
     log_info "Running testrunner..."
     cd "$TESTRUNNER_DIR"
-    
-    # Set SERVICE_HOME and testrunner log file path (using absolute paths)
-    export SERVICE_HOME="$ROOT_DIR"
     
     # Temporarily disable strict error handling for testrunner execution
     set +e

@@ -161,7 +161,7 @@ pre_build: package
 # Post-build target that depends on clean
 post_build: clean
 	@echo "Post-build completed"
-	@rm -fR set-common-ni-env.sh
+	-@rm -fR set-common-ni-env.sh
 
 # ==============================================================================
 # PRODUCTION BUILD

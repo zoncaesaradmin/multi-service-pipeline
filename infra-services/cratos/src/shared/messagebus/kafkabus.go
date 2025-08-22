@@ -43,7 +43,7 @@ func NewProducer(configPath string) Producer {
 	config.SetKey("ssl.ca.location", GetStringValue(configMap, "ssl.ca.location", ""))
 	config.SetKey("ssl.certificate.location", GetStringValue(configMap, "ssl.certificate.location", ""))
 	config.SetKey("ssl.key.location", GetStringValue(configMap, "ssl.key.location", ""))
-	config.SetKey("enable.certificate.verification", GetBoolValue(configMap, "enable.certificate.verification", false))
+	config.SetKey("enable.ssl.certificate.verification", GetBoolValue(configMap, "enable.ssl.certificate.verification", false))
 
 	producer, err := kafka.NewProducer(config)
 	if err != nil {
@@ -225,7 +225,7 @@ func NewConsumer(configPath string, cgroup string) Consumer {
 	config.SetKey("ssl.ca.location", GetStringValue(configMap, "ssl.ca.location", ""))
 	config.SetKey("ssl.certificate.location", GetStringValue(configMap, "ssl.certificate.location", ""))
 	config.SetKey("ssl.key.location", GetStringValue(configMap, "ssl.key.location", ""))
-	config.SetKey("enable.certificate.verification", GetBoolValue(configMap, "enable.certificate.verification", false))
+	config.SetKey("enable.ssl.certificate.verification", GetBoolValue(configMap, "enable.ssl.certificate.verification", false))
 
 	consumer, err := kafka.NewConsumer(config)
 	if err != nil {

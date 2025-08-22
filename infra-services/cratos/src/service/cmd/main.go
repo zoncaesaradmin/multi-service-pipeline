@@ -159,7 +159,7 @@ func loadEnvFile() {
 		if _, err := os.Stat(envPath); err == nil {
 			if err := godotenv.Load(envPath); err == nil {
 				log.Printf("✅ Loaded environment from: %s", envPath)
-				return
+				continue
 			} else {
 				log.Printf("❌ Failed to load .env from %s: %v", envPath, err)
 			}

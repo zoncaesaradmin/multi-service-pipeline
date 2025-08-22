@@ -1,13 +1,16 @@
 package main
 
 import (
+	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"testgomodule/steps"
 
 	"github.com/cucumber/godog"
+	"github.com/joho/godotenv"
 )
 
 func InitializeScenario(ctx *godog.ScenarioContext) {
@@ -54,11 +57,31 @@ func serveReports() {
 }
 
 func main() {
+	// Load .env file if present
+	// Try to load .env file from workspace root for local development
+	envPaths := []string{
+		".env",         // Current directory
+		"./../.env",    // From component workspace root
+		"./../../.env", // From service workspace root
+	}
+
+	for _, envPath := range envPaths {
+		if _, err := os.Stat(envPath); err == nil {
+			if err := godotenv.Load(envPath); err == nil {
+				log.Printf("✅ Loaded environment from: %s", envPath)
+				continue
+			} else {
+				log.Printf("❌ Failed to load .env from %s: %v", envPath, err)
+			}
+		}
+	}
+
 	// Use SERVICE_LOG_DIR for logs if set
 	logDir := os.Getenv("SERVICE_LOG_DIR")
 	if logDir == "" {
 		logDir = "./logs"
 	}
+	fmt.Printf("log dir : %s\n", logDir)
 	os.MkdirAll(logDir, 0755)
 
 	serveReports()

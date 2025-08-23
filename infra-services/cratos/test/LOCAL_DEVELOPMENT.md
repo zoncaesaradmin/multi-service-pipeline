@@ -67,7 +67,7 @@ cratos/
 │   ├── results/            # Test results and reports
 │   │   ├── logs/          # Service and testrunner logs
 │   │   ├── coverage.html  # Coverage report
-│   │   └── executionreport.txt
+│   │   └── report.txt
 │   ├── coverage/          # Coverage binary data
 │   └── LOCAL_DEVELOPMENT.md # This file
 └── Makefile               # Root makefile with test targets
@@ -95,7 +95,7 @@ The local development environment uses a **file-based message bus** for cross-pr
 All test results, logs, and reports are generated in the `test/results/` directory:
 
 ### Main Reports
-- `executionreport.txt` - Comprehensive test report with all details
+- `report.txt` - Comprehensive report of the script execution
 - `coverage.html` - Interactive HTML coverage report
 - `coverage.out` - Raw coverage data
 - `coverage_summary.txt` - Coverage statistics

@@ -20,6 +20,8 @@ import (
 )
 
 var testStatus = "in_progress" // possible values: in_progress, complete
+var textReportPath string
+
 func serveReports() *http.Server {
 	http.HandleFunc("/report/status", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -27,7 +29,6 @@ func serveReports() *http.Server {
 	})
 
 	http.HandleFunc("/report/text", func(w http.ResponseWriter, r *http.Request) {
-		textReportPath := filepath.Join(os.Getenv("SERVICE_LOG_DIR"), "executionreport.txt")
 		data, err := ioutil.ReadFile(textReportPath)
 		if err != nil {
 			w.WriteHeader(http.StatusNotFound)
@@ -39,7 +40,7 @@ func serveReports() *http.Server {
 	})
 
 	// http.HandleFunc("/report/json", func(w http.ResponseWriter, r *http.Request) {
-	// 	jsonReportPath := filepath.Join(os.Getenv("SERVICE_LOG_DIR"), "executionreport.json")
+	// 	jsonReportPath := filepath.Join(os.Getenv("SERVICE_LOG_DIR"), "test_execution_report.json")
 	// 	data, err := ioutil.ReadFile(jsonReportPath)
 	// 	if err != nil {
 	// 		w.WriteHeader(http.StatusNotFound)
@@ -97,7 +98,7 @@ func main() {
 
 	// Run Godog for text report
 
-	textReportPath := filepath.Join(logDir, "executionreport.txt")
+	textReportPath = filepath.Join(logDir, "test_execution_report.txt")
 	textFile, err := os.Create(textReportPath)
 	if err != nil {
 		log.Panicf("Failed to create text report file: %v", err)
@@ -108,7 +109,7 @@ func main() {
 		Paths:  featurePaths,
 		Output: textFile,
 	}
-	godog.TestSuite{
+	suiteResult := godog.TestSuite{
 		Name:                 "service-testrunner",
 		ScenarioInitializer:  InitializeScenario,
 		TestSuiteInitializer: InitializeTestSuite, // <-- hooks integrated here
@@ -116,8 +117,22 @@ func main() {
 	}.Run()
 	testStatus = "complete"
 
+	resultText := "SUITE RESULT: "
+	if suiteResult == 0 {
+		resultText += "SUCCESS"
+	} else {
+		resultText += "FAILURE"
+	}
+
+	// append the cumulative result to the report
+	f, err := os.OpenFile(textReportPath, os.O_APPEND|os.O_WRONLY, 0644)
+	if err == nil {
+		f.WriteString("\n" + resultText + "\n")
+		f.Close()
+	}
+
 	// // Run Godog for JSON report
-	// jsonReportPath := "../executionreport.json"
+	// jsonReportPath := "../test_execution_report.json"
 	// jsonFile, err := os.Create(jsonReportPath)
 	// if err != nil {
 	// 	panic("Failed to create JSON report file: " + err.Error())

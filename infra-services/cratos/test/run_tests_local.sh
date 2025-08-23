@@ -174,21 +174,29 @@ run_testrunner() {
     log_success "Test runner started with PID $TESTRUNNER_PID"
     echo $TESTRUNNER_PID > "$ROOT_DIR/test/testrunner.pid"
 
-    REPORT_URL="http://localhost:8081/report/status"
+    STATUS_URL="http://localhost:8081/report/status"
     echo "Waiting for test runner to complete..."
     while true; do
-        STATUS=$(curl -s "$REPORT_URL" | grep -o '"status": *"[^"]*"' | cut -d'"' -f4)
+        STATUS=$(curl -s "$STATUS_URL" | grep -o '"status": *"[^"]*"' | cut -d'"' -f4)
         if [ "$STATUS" = "complete" ]; then
             echo "Test runner completed."
             break
         fi
-        echo "Test runner status: $STATUS"
-        sleep 2
+        #echo "Test runner status: $STATUS"
+        sleep 4
     done
 
     echo "Fetching test report..."
-    curl -s http://localhost:8081/report/text
+    REPORT=$(curl -s http://localhost:8081/report/text)
     TEST_RESULT=$?
+    if echo "$REPORT" | grep -q "SUITE RESULT: SUCCESS"; then
+        echo "Test suite PASSED"
+        TEST_RESULT=0
+    else
+        echo "Test suite FAILED"
+        TEST_RESULT=1
+    fi
+
     set -e
     
     cd - > /dev/null
@@ -196,7 +204,7 @@ run_testrunner() {
     if [ $TEST_RESULT -eq 0 ]; then
         log_success "Tests completed successfully"
     else
-        log_warning "Tests completed with issues (exit code: $TEST_RESULT)"
+        log_warning "Tests completed with issues"
     fi
     
     return $TEST_RESULT
@@ -220,38 +228,6 @@ stop_service() {
 # Function to collect and organize logs
 collect_logs() {
     log_info "Collecting and organizing logs..."
-    
-    # Create a consolidated log file with timestamps
-    CONSOLIDATED_LOG="$RESULTS_DIR/all_logs.txt"
-    
-    {
-        echo "=================================================="
-        echo "Consolidated Log Report"
-        echo "Generated: $(date)"
-        echo "=================================================="
-        echo
-        
-        echo "=== COMPONENT APPLICATION LOGS ==="
-        
-        echo "=== COMPONENT STDOUT & STDERR ==="
-        if [ -f "$LOGS_DIR/service_stdouterr.log" ]; then
-            cat "$LOGS_DIR/service_stdouterr.log"
-        else
-            echo "No service stdout/stderr logs found"
-        fi
-        echo
-        
-        echo "=== TESTRUNNER STDOUT & STDERR ==="
-        if [ -f "$LOGS_DIR/testrunner_stdouterr.log.log" ]; then
-            cat "$LOGS_DIR/testrunner_stdouterr.log.log"
-        else
-            echo "No testrunner combined logs found"
-        fi
-        echo
-        
-    } > "$CONSOLIDATED_LOG"
-    
-    log_success "Consolidated logs created at $CONSOLIDATED_LOG"
     
     # Display log file summary
     echo
@@ -296,10 +272,10 @@ generate_coverage_report() {
 
 # Function to generate final report
 generate_report() {
-    log_info "Generating test report..."
-    
-    REPORT_FILE="$RESULTS_DIR/executionreport.txt"
-    
+    log_info "Generating test script report..."
+
+    REPORT_FILE="$RESULTS_DIR/report.txt"
+
     {
         echo "=================================================="
         echo "Local Development Test Report"
@@ -314,9 +290,9 @@ generate_report() {
         
         echo "Test Execution:"
         if [ $TEST_RESULT -eq 0 ]; then
-            echo "- Status: PASSED"
+            log_success "- Status: PASSED"
         else
-            echo "- Status: FAILED (exit code: $TEST_RESULT)"
+            log_warning "- Status: FAILED"
         fi
         echo
         
@@ -328,12 +304,12 @@ generate_report() {
         fi
         echo
         
-        echo "Log Files:"
-        echo "- Service & Testrunner logs are at: $LOGS_DIR/"
-        echo "- Service stdout & stderr logs: $LOGS_DIR/service_stdouterr.log"
-        echo "- Testrunner stdout & stderr logs: $LOGS_DIR/testrunner_stdouterr.log.log"
-        echo "- Consolidated logs: $RESULTS_DIR/all_logs.txt"
-        echo
+        #echo "Log Files:"
+        #echo "- Service & Testrunner logs are at: $LOGS_DIR/"
+        #echo "- Service stdout & stderr logs: $LOGS_DIR/service_stdouterr.log"
+        #echo "- Testrunner stdout & stderr logs: $LOGS_DIR/testrunner_stdouterr.log.log"
+        #echo "- Consolidated logs: $RESULTS_DIR/all_logs.txt"
+        #echo
         
         echo "Output Files:"
         echo "- Coverage report: $RESULTS_DIR/coverage.html"
@@ -343,7 +319,7 @@ generate_report() {
         
     } > "$REPORT_FILE"
     
-    log_success "Test report generated at $REPORT_FILE"
+    log_success "Test script report generated at $REPORT_FILE"
     echo
     log_info "=== QUICK SUMMARY ==="
     cat "$REPORT_FILE" | grep -A 10 "Test Execution:"

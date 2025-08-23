@@ -17,11 +17,6 @@ import (
 	"github.com/joho/godotenv"
 )
 
-func InitializeScenario(ctx *godog.ScenarioContext) {
-	steps.InitializeCommonSteps(ctx)
-	steps.InitializeRulesSteps(ctx)
-}
-
 var testStatus = "in_progress" // possible values: in_progress, complete
 func serveReports() *http.Server {
 	http.HandleFunc("/report/status", func(w http.ResponseWriter, r *http.Request) {
@@ -112,9 +107,10 @@ func main() {
 		Output: textFile,
 	}
 	godog.TestSuite{
-		Name:                "infra-testrunner",
-		ScenarioInitializer: InitializeScenario,
-		Options:             &optsText,
+		Name:                 "service-testrunner",
+		ScenarioInitializer:  InitializeScenario,
+		TestSuiteInitializer: InitializeTestSuite, // <-- hooks integrated here
+		Options:              &optsText,
 	}.Run()
 	testStatus = "complete"
 
@@ -255,4 +251,23 @@ func trim(s string) string {
 		end--
 	}
 	return s[start:end]
+}
+
+// --- HOOKS INTEGRATION ---
+
+func InitializeTestSuite(ctx *godog.TestSuiteContext) {
+	ctx.BeforeSuite(func() {
+		fmt.Println("🔧 Global setup: runs ONCE before all features")
+		// Add global setup logic here
+	})
+	ctx.AfterSuite(func() {
+		fmt.Println("🧹 Global cleanup: runs ONCE after all features")
+		// Add global cleanup logic here
+	})
+}
+
+// Scenario step registration
+func InitializeScenario(ctx *godog.ScenarioContext) {
+	steps.InitializeCommonSteps(ctx)
+	steps.InitializeRulesSteps(ctx)
 }

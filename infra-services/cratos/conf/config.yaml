@@ -25,17 +25,17 @@ logging:
 processing:
   input:
     topics: 
-      - "input-topic"            # Input topics (env: PROCESSING_INPUT_TOPICS - comma separated)
-    pollTimeout: 1000ms          # Poll timeout (env: PROCESSING_INPUT_POLL_TIMEOUT_MS)
-    channelBufferSize: 1000      # Input channel buffer size (env: PROCESSING_INPUT_BUFFER_SIZE)
-    kafkaConfigFile: "kafka-consumer.yaml"  # Kafka consumer config file (env: PROCESSING_INPUT_KAFKA_CONFIG_FILE)
+      - "cisco_nir-anomalies"                 # Input topics (env: PROCESSING_INPUT_TOPICS - comma separated)
+    pollTimeout: 1000ms                       # Poll timeout (env: PROCESSING_INPUT_POLL_TIMEOUT_MS)
+    channelBufferSize: 1000                   # Input channel buffer size (env: PROCESSING_INPUT_BUFFER_SIZE)
+    kafkaConfigFile: "kafka-consumer.yaml"    # Kafka consumer config file (env: PROCESSING_INPUT_KAFKA_CONFIG_FILE)
 
   processor:
-    processingDelay: 10ms        # Processing delay per message (env: PROCESSING_DELAY_MS)
-    batchSize: 100               # Batch size for processing (env: PROCESSING_BATCH_SIZE)
+    processingDelay: 10ms                     # Processing delay per message (env: PROCESSING_DELAY_MS)
+    batchSize: 100                            # Batch size for processing (env: PROCESSING_BATCH_SIZE)
     ruleEngine:
-      rulesTopic: "rules-topic"  # Input rules topic (env: PROCESSING_RULES_TOPIC)
-      pollTimeout: 1000ms         # Poll timeout (env: PROCESSING_RULES_POLL_TIMEOUT_MS)
+      rulesTopic: "cisco_nir-alertRules"      # Input rules topic (env: PROCESSING_RULES_TOPIC)
+      pollTimeout: 1000ms                     # Poll timeout (env: PROCESSING_RULES_POLL_TIMEOUT_MS)
       kafkaConfigFile: "kafka-consumer.yaml"  # Kafka consumer config file (env: PROCESSING_RULES_KAFKA_CONFIG_FILE)
       logging:
         level: "debug"
@@ -44,10 +44,10 @@ processing:
         serviceName: "cratos"
 
   output:
-    outputTopic: "output-topic"  # Output topic (env: PROCESSING_OUTPUT_TOPIC)
-    batchSize: 50                # Output batch size (env: PROCESSING_OUTPUT_BATCH_SIZE)
-    flushTimeout: 5000ms         # Flush timeout (env: PROCESSING_OUTPUT_FLUSH_TIMEOUT_MS)
-    channelBufferSize: 1000      # Output channel buffer size (env: PROCESSING_OUTPUT_BUFFER_SIZE)
+    outputTopic: "cisco_nir-prealerts"      # Output topic (env: PROCESSING_OUTPUT_TOPIC)
+    batchSize: 50                           # Output batch size (env: PROCESSING_OUTPUT_BATCH_SIZE)
+    flushTimeout: 5000ms                    # Flush timeout (env: PROCESSING_OUTPUT_FLUSH_TIMEOUT_MS)
+    channelBufferSize: 1000                 # Output channel buffer size (env: PROCESSING_OUTPUT_BUFFER_SIZE)
     kafkaConfigFile: "kafka-producer.yaml"  # Kafka producer config file (env: PROCESSING_OUTPUT_KAFKA_CONFIG_FILE)
 
   channels:

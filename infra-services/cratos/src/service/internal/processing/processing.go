@@ -114,7 +114,7 @@ func DefaultConfig(cfg *config.RawConfig) ProcConfig {
 		// Return hardcoded defaults if no config is provided
 		return ProcConfig{
 			Input: InputConfig{
-				Topics:            []string{"input-topic"},
+				Topics:            []string{"cisco_nir-anomalies"},
 				PollTimeout:       1 * time.Second,
 				ChannelBufferSize: 1000,
 				KafkaConfigMap:    map[string]any{"client.id": "test-consumer"},
@@ -124,7 +124,7 @@ func DefaultConfig(cfg *config.RawConfig) ProcConfig {
 				BatchSize:       100,
 			},
 			Output: OutputConfig{
-				OutputTopic:       "output-topic",
+				OutputTopic:       "cisco_nir-prealerts",
 				BatchSize:         50,
 				FlushTimeout:      5 * time.Second,
 				ChannelBufferSize: 1000,
@@ -150,7 +150,7 @@ func DefaultConfig(cfg *config.RawConfig) ProcConfig {
 		// If Processing is empty/nil, use defaults but fill LoggerConfig from main config
 		procConfig := ProcConfig{
 			Input: InputConfig{
-				Topics:            []string{"input-topic"},
+				Topics:            []string{"cisco_nir-anomalies"},
 				PollTimeout:       1 * time.Second,
 				ChannelBufferSize: 1000,
 				KafkaConfigMap:    map[string]any{"client.id": "test-consumer"},
@@ -160,7 +160,7 @@ func DefaultConfig(cfg *config.RawConfig) ProcConfig {
 				BatchSize:       100,
 			},
 			Output: OutputConfig{
-				OutputTopic:       "output-topic",
+				OutputTopic:       "cisco_nir-prealerts",
 				BatchSize:         50,
 				FlushTimeout:      5 * time.Second,
 				ChannelBufferSize: 1000,

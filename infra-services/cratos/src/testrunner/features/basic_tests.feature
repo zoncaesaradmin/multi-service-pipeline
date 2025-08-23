@@ -11,13 +11,13 @@ Feature: Basic test for data reception without hitting any rule
   # common steps for each of the scenarios in this feature
   Background:
     And ensure_test_config_kafka_producer_is_ready
-    And ensure_test_data_kafka_consumer_on_topic "output-topic"
+    And ensure_test_data_kafka_consumer_on_topic "cisco_nir-prealerts"
 
   # test if basic input and output of service are working fine
   Scenario: IT_SCENARIO_BASE_001
-    And send_input_config_to_topic "sampleconfig.json" "rules-topic"
-    And send_input_data_to_topic "sampledata2.json", "input-topic"
-    And wait_till_data_received_on_topic_with_timeout_sec "output-topic", 2
+    And send_input_config_to_topic "sampleconfig.json" "cisco_nir-alertRules"
+    And send_input_data_to_topic "sampledata2.json", "cisco_nir-anomalies"
+    And wait_till_data_received_on_topic_with_timeout_sec "cisco_nir-prealerts", 2
     And verify_if_data_is_fully_received
     And verify_if_valid_field "fabricName"
     And verify_if_all_fields_are_unchanged

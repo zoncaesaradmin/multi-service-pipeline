@@ -349,19 +349,12 @@ main() {
 
     # Ensure local bus topic directories exist for tests
     LOCAL_BUS_BASE="/tmp/cratos-messagebus"
-    for topic in input-topic output-topic rules-topic; do
+    for topic in cisco_nir-anomalies cisco_nir-prealerts cisco_nir-alertRules; do
         if [ ! -d "$LOCAL_BUS_BASE/$topic" ]; then
             mkdir -p "$LOCAL_BUS_BASE/$topic"
             log_info "Created local bus topic directory: $LOCAL_BUS_BASE/$topic"
         fi
     done
-
-    # Ensure at least one dummy message file exists for input-topic
-    #DUMMY_MSG="$LOCAL_BUS_BASE/input-topic/0000000000.json"
-    #if [ ! -f "$DUMMY_MSG" ]; then
-    #    echo '{"dummy":"message"}' > "$DUMMY_MSG"
-    #    log_info "Created dummy message file: $DUMMY_MSG"
-    #fi
     
     if [ "$BUILD_MODE" = "build" ] || [ "$BUILD_MODE" = "all" ]; then
         # Build phase

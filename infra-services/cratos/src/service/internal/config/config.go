@@ -98,7 +98,7 @@ func LoadConfig() *RawConfig {
 		},
 		Processing: RawProcessingConfig{
 			Input: RawInputConfig{
-				Topics:            parseTopics(utils.GetEnv("PROCESSING_INPUT_TOPICS", "input-topic")),
+				Topics:            parseTopics(utils.GetEnv("PROCESSING_INPUT_TOPICS", "cisco_nir-anomalies")),
 				PollTimeout:       time.Duration(utils.GetEnvInt("PROCESSING_INPUT_POLL_TIMEOUT_MS", 1000)) * time.Millisecond,
 				ChannelBufferSize: utils.GetEnvInt("PROCESSING_INPUT_BUFFER_SIZE", 1000),
 			},
@@ -107,7 +107,7 @@ func LoadConfig() *RawConfig {
 				BatchSize:       utils.GetEnvInt("PROCESSING_BATCH_SIZE", 100),
 			},
 			Output: RawOutputConfig{
-				OutputTopic:       utils.GetEnv("PROCESSING_OUTPUT_TOPIC", "output-topic"),
+				OutputTopic:       utils.GetEnv("PROCESSING_OUTPUT_TOPIC", "cisco_nir-prealerts"),
 				BatchSize:         utils.GetEnvInt("PROCESSING_OUTPUT_BATCH_SIZE", 50),
 				FlushTimeout:      time.Duration(utils.GetEnvInt("PROCESSING_OUTPUT_FLUSH_TIMEOUT_MS", 5000)) * time.Millisecond,
 				ChannelBufferSize: utils.GetEnvInt("PROCESSING_OUTPUT_BUFFER_SIZE", 1000),

@@ -5,11 +5,16 @@
 # So, to avoid any thinking, we can just use one keyword always say "And"
 
 Feature: Basic test for data reception without hitting any rule
+  Tests base functionalities of rule engine service for various inputs.
+  Test pod sends rule config and data records and verifies from output topic
+
+  # common steps for each of the scenarios in this feature
   Background:
     And ensure_test_config_kafka_producer_is_ready
     And ensure_test_data_kafka_consumer_on_topic "output-topic"
 
-  Scenario: Check for data loss and field integrity
+  # test if basic input and output of service are working fine
+  Scenario: IT_SCENARIO_BASE_001
     And send_input_config_to_topic "sampleconfig.json" "rules-topic"
     And send_input_data_to_topic "sampledata2.json", "input-topic"
     And wait_till_data_received_on_topic_with_timeout_sec "output-topic", 2

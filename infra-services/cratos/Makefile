@@ -196,3 +196,7 @@ devenv:
 	sed -i.bak "s|^SERVICE_HOME=.*$$|SERVICE_HOME=$(shell pwd)|g" .env
 	@rm .env.bak
 	@echo ".env created with SERVICE_HOME=$(shell pwd)"
+
+testrun:
+	@echo "run testrunner "
+	@$(MAKE) -C src/testrunner run

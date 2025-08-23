@@ -1,13 +1,17 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 	"testgomodule/steps"
+	"time"
 
 	"github.com/cucumber/godog"
 	"github.com/joho/godotenv"
@@ -19,7 +23,7 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 }
 
 var testStatus = "in_progress" // possible values: in_progress, complete
-func serveReports() {
+func serveReports() *http.Server {
 	http.HandleFunc("/report/status", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"status": "` + testStatus + `"}`))
@@ -53,7 +57,11 @@ func serveReports() {
 	if port == "" {
 		port = "8081"
 	}
-	go http.ListenAndServe(":"+port, nil)
+	fmt.Println("Starting report server on port:", port)
+	// Start HTTP server in a goroutine and signal when it's done
+	server := &http.Server{Addr: ":" + port}
+
+	return server
 }
 
 func main() {
@@ -84,7 +92,7 @@ func main() {
 	fmt.Printf("log dir : %s\n", logDir)
 	os.MkdirAll(logDir, 0755)
 
-	serveReports()
+	server := serveReports()
 
 	testStatus = "in_progress"
 
@@ -127,6 +135,38 @@ func main() {
 	// 	ScenarioInitializer: InitializeScenario,
 	// 	Options:             &optsJson,
 	// }.Run()
+
+	go func() {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Printf("HTTP server error: %v", err)
+		}
+	}()
+
+	fmt.Println("Test execution is complete")
+	if os.Getenv("KEEP_REPORT_SERVER") == "true" {
+		fmt.Println("Report server is still running as KEEP_REPORT_SERVER is set")
+		keepRunningSever(server)
+	} else {
+		fmt.Println("Exiting as KEEP_REPORT_SERVER is not set")
+	}
+}
+
+func keepRunningSever(server *http.Server) {
+	// Wait for interrupt signal to gracefully shutdown the server
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	fmt.Println("Shutting down testrunner application ...")
+
+	// Give outstanding requests a 1-second deadline to complete
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	// Shutdown the server
+	if err := server.Shutdown(ctx); err != nil {
+		fmt.Printf("Server forced to shutdown: %v", err)
+	}
 }
 
 func getFeaturePaths() []string {
@@ -215,5 +255,4 @@ func trim(s string) string {
 		end--
 	}
 	return s[start:end]
-	// ...existing code...
 }

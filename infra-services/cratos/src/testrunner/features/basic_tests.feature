@@ -1,12 +1,18 @@
-Feature: Data integrity
+# This feature file uses BDD Gherkin syntax to write steps, but in code style
+# with function like single keyword followed by parameters
+# In BDD, the keywords "Given", "When", "And", "Then" are only for readability.
+# replacing one with another does not impact execution.
+# So, to avoid any thinking, we can just use one keyword always say "And"
+
+Feature: Basic test for data reception without hitting any rule
   Background:
-    Given kafka producer publishing test config and test data is ready
-    And the test kafka consumer is listening on kafka topic "output-topic"
+    And ensure_test_config_kafka_producer_is_ready
+    And ensure_test_data_kafka_consumer_on_topic "output-topic"
 
   Scenario: Check for data loss and field integrity
-    Given send input config "sampleconfig.json" over kafka topic "rules-topic"
-    And send input data "sampledata2.json" over kafka topic "input-topic"
-    When wait till the sent data is received on kafka topic "output-topic" with a timeout of 2 seconds
-    Then verify if the data is fully received without loss
-    And verify if data field "fabricName" is the same
-    And verify if no field is modified as expected
+    And send_input_config_to_topic "sampleconfig.json" "rules-topic"
+    And send_input_data_to_topic "sampledata2.json", "input-topic"
+    And wait_till_data_received_on_topic_with_timeout_sec "output-topic", 2
+    And verify_if_data_is_fully_received
+    And verify_if_valid_fabricname "fabricName"
+    And verify_if_all_fields_are_unchanged

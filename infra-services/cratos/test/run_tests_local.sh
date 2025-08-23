@@ -280,7 +280,7 @@ generate_coverage_report() {
 generate_report() {
     log_info "Generating test report..."
     
-    REPORT_FILE="$RESULTS_DIR/test_report.txt"
+    REPORT_FILE="$RESULTS_DIR/executionreport.txt"
     
     {
         echo "=================================================="

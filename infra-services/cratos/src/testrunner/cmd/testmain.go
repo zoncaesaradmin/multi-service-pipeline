@@ -9,8 +9,10 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sharedgomodule/logging"
 	"syscall"
 	"testgomodule/steps"
+	"testgomodule/types"
 	"time"
 
 	"github.com/cucumber/godog"
@@ -25,7 +27,7 @@ func serveReports() *http.Server {
 	})
 
 	http.HandleFunc("/report/text", func(w http.ResponseWriter, r *http.Request) {
-		textReportPath := filepath.Join(os.Getenv("SERVICE_LOG_DIR"), "test_report.txt")
+		textReportPath := filepath.Join(os.Getenv("SERVICE_LOG_DIR"), "executionreport.txt")
 		data, err := ioutil.ReadFile(textReportPath)
 		if err != nil {
 			w.WriteHeader(http.StatusNotFound)
@@ -36,17 +38,17 @@ func serveReports() *http.Server {
 		w.Write(data)
 	})
 
-	http.HandleFunc("/report/json", func(w http.ResponseWriter, r *http.Request) {
-		jsonReportPath := filepath.Join(os.Getenv("SERVICE_LOG_DIR"), "test_report.json")
-		data, err := ioutil.ReadFile(jsonReportPath)
-		if err != nil {
-			w.WriteHeader(http.StatusNotFound)
-			w.Write([]byte("JSON report not found"))
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.Write(data)
-	})
+	// http.HandleFunc("/report/json", func(w http.ResponseWriter, r *http.Request) {
+	// 	jsonReportPath := filepath.Join(os.Getenv("SERVICE_LOG_DIR"), "executionreport.json")
+	// 	data, err := ioutil.ReadFile(jsonReportPath)
+	// 	if err != nil {
+	// 		w.WriteHeader(http.StatusNotFound)
+	// 		w.Write([]byte("JSON report not found"))
+	// 		return
+	// 	}
+	// 	w.Header().Set("Content-Type", "application/json")
+	// 	w.Write(data)
+	// })
 
 	port := os.Getenv("REPORT_PORT")
 	if port == "" {
@@ -95,10 +97,10 @@ func main() {
 
 	// Run Godog for text report
 
-	textReportPath := filepath.Join(logDir, "test_report.txt")
+	textReportPath := filepath.Join(logDir, "executionreport.txt")
 	textFile, err := os.Create(textReportPath)
 	if err != nil {
-		panic("Failed to create text report file: " + err.Error())
+		log.Panicf("Failed to create text report file: %v", err)
 	}
 	defer textFile.Close()
 	optsText := godog.Options{
@@ -115,7 +117,7 @@ func main() {
 	testStatus = "complete"
 
 	// // Run Godog for JSON report
-	// jsonReportPath := "../test_report.json"
+	// jsonReportPath := "../executionreport.json"
 	// jsonFile, err := os.Create(jsonReportPath)
 	// if err != nil {
 	// 	panic("Failed to create JSON report file: " + err.Error())
@@ -268,6 +270,19 @@ func InitializeTestSuite(ctx *godog.TestSuiteContext) {
 
 // Scenario step registration
 func InitializeScenario(ctx *godog.ScenarioContext) {
-	steps.InitializeCommonSteps(ctx)
-	steps.InitializeRulesSteps(ctx)
+	logDir := os.Getenv("SERVICE_LOG_DIR")
+	logger, err := logging.NewLogger(&logging.LoggerConfig{
+		Level:         logging.InfoLevel,
+		FilePath:      filepath.Join(logDir, "testrunner.log"),
+		LoggerName:    "testrunner",
+		ComponentName: "test-component",
+		ServiceName:   "test-service",
+	})
+	if err != nil {
+		log.Fatalf("Failed to create logger: %v", err)
+	}
+	suiteCtx := &types.CustomContext{L: logger}
+
+	steps.InitializeCommonSteps(ctx, suiteCtx)
+	steps.InitializeRulesSteps(ctx, suiteCtx)
 }

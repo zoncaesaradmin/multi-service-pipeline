@@ -113,7 +113,7 @@ func keysAndValuesToFields(keysAndValues ...interface{}) Fields {
 type LoggerConfig struct {
 	// Basic configuration
 	Level         Level  // Log level (Debug, Info, Warn, Error, Fatal, Panic)
-	FilePath      string // Complete path o Log file name
+	FilePath      string // Complete path to Log file name
 	LoggerName    string // Name identifier for the logger instance
 	ComponentName string // Component/module name for structured logging
 	ServiceName   string // Service name for structured logging

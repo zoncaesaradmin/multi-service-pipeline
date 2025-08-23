@@ -34,6 +34,7 @@ echo "Cleaning test results..."
 rm -rf test/results/ 2>/dev/null || true
 rm -rf test/coverage 2>/dev/null || true
 rm -rf test/service.pid 2>/dev/null || true
+rm -rf test/testrunner.pid 2>/dev/null || true
 
 # 6. Clean individual module artifacts
 echo "Cleaning module artifacts..."

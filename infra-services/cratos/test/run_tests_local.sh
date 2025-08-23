@@ -149,7 +149,7 @@ run_service() {
         # All other environment variables should be set via .env file
     
     # Run in background and capture stdout/stderr
-    ./../../bin/service.bin > "$LOGS_DIR/service_stdouterr.log" 2> "$LOGS_DIR/service_stdouterr.log" &
+    ./../../bin/service.bin > "$LOGS_DIR/service_stdouterr.log" 2>&1 &
     COMPONENT_PID=$!
     echo $COMPONENT_PID > "$ROOT_DIR/test/service.pid"
     
@@ -169,7 +169,25 @@ run_testrunner() {
     # Temporarily disable strict error handling for testrunner execution
     set +e
     # Run testrunner and capture output
-    ./../../bin/testrunner.bin > "$LOGS_DIR/testrunner_stdouterr.log" 2> "$LOGS_DIR/testrunner_stdouterr.log"
+    ./../../bin/testrunner.bin > "$LOGS_DIR/testrunner_stdouterr.log" 2>&1 &
+    TESTRUNNER_PID=$!
+    log_success "Test runner started with PID $TESTRUNNER_PID"
+    echo $TESTRUNNER_PID > "$ROOT_DIR/test/testrunner.pid"
+
+    REPORT_URL="http://localhost:8081/report/status"
+    echo "Waiting for test runner to complete..."
+    while true; do
+        STATUS=$(curl -s "$REPORT_URL" | grep -o '"status": *"[^"]*"' | cut -d'"' -f4)
+        if [ "$STATUS" = "complete" ]; then
+            echo "Test runner completed."
+            break
+        fi
+        echo "Test runner status: $STATUS"
+        sleep 2
+    done
+
+    echo "Fetching test report..."
+    curl -s http://localhost:8081/report/text
     TEST_RESULT=$?
     set -e
     
@@ -379,7 +397,7 @@ main() {
         collect_logs
         
         # Generate reports
-        generate_coverage_report
+        #generate_coverage_report
         generate_report
         
         # Manual cleanup at the end

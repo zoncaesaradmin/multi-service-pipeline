@@ -1,10 +1,13 @@
 package steps
 
 import (
+	"context"
+	"sharedgomodule/messagebus"
 	"testgomodule/types"
 	"time"
 
 	"github.com/cucumber/godog"
+	"google.golang.org/protobuf/proto"
 )
 
 var (
@@ -25,7 +28,22 @@ func (b *StepBindings) SendInputConfigToTopic(configFile string, topic string) e
 }
 
 func (b *StepBindings) SendInputDataToTopic(dataFile string, topic string) error {
-	inputDataFile = dataFile
+	inputDataFile = "testdata/" + dataFile
+	alertStream, err := LoadAlertFromJSON(inputDataFile)
+	if err != nil {
+		b.Cctx.L.Infof("Failed to load from data file %s\n", dataFile)
+		return err
+	}
+	aBytes, err := proto.Marshal(alertStream)
+	if err != nil {
+		b.Cctx.L.Infof("Failed to marshal alert stream\n")
+		return err
+	}
+	message := &messagebus.Message{
+		Topic: topic,
+		Value: aBytes,
+	}
+	b.Cctx.Producer.Send(context.Background(), message)
 	b.Cctx.L.Infof("Sent data %s over Kafka topic %s\n", dataFile, topic)
 	return nil
 }

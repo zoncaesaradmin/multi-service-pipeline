@@ -1,8 +1,6 @@
 package steps
 
 import (
-	"fmt"
-	"os"
 	"sharedgomodule/messagebus"
 	"sharedgomodule/utils"
 	"testgomodule/types"
@@ -23,14 +21,12 @@ func (b *CommonStepBindings) KafkaProducerReady() error {
 }
 
 func (b *CommonStepBindings) KafkaConsumersStarted(topic string) error {
-	confFilename := utils.ResolveConfFilePath("kafka-consumer.yaml")
-	kafkaConf := utils.LoadConfigMap(confFilename)
-	b.SuiteCtx.Consumer = messagebus.NewConsumer(kafkaConf, "cGroupPreAlerts"+os.Getenv("HOSTNAME"))
-	// Subscribe to topics
-	if err := b.SuiteCtx.Consumer.Subscribe([]string{"cisco_nir-prealerts"}); err != nil {
-		b.SuiteCtx.L.Errorf("failed to subscribe to topics: %w", err)
-		return fmt.Errorf("failed to subscribe to topics: %w", err)
+	consHandler := types.NewConsumerHandler(b.SuiteCtx.L)
+	if err := consHandler.Start(); err != nil {
+		b.SuiteCtx.L.Errorf("Failed to start consumer on topic %s", topic, err)
+		return err
 	}
+	b.SuiteCtx.ConsHandler = consHandler
 	b.SuiteCtx.L.Infof("Kafka consumers started on topic %s.", topic)
 	return nil
 }

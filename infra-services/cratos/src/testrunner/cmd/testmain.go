@@ -287,7 +287,7 @@ func InitializeTestSuite(ctx *godog.TestSuiteContext) {
 func InitializeScenario(ctx *godog.ScenarioContext) {
 	logDir := os.Getenv("SERVICE_LOG_DIR")
 	logger, err := logging.NewLogger(&logging.LoggerConfig{
-		Level:         logging.InfoLevel,
+		Level:         logging.DebugLevel,
 		FilePath:      filepath.Join(logDir, "testrunner.log"),
 		LoggerName:    "testrunner",
 		ComponentName: "test-component",

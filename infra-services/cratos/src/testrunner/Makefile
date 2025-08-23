@@ -17,10 +17,11 @@ build:
 	@mkdir -p $(BINARY_DIR)
 	go build -o $(BINARY_PATH) $(MAIN_PATH)
 	@echo "Build completed: $(BINARY_PATH)"
-	@cp -rf features $(BINARY_DIR)
 
 # Run the test runner
 run: build
+	@cp -rf features $(BINARY_DIR)
+	@cp -rf testdata $(BINARY_DIR)
 	@echo "Running $(BINARY_NAME)..."
 	$(BINARY_PATH)
 

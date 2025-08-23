@@ -56,7 +56,7 @@ processing:
   
   # Pipeline-specific logger configuration (separate from main application logger)
   logging:
-    level: "info"                # Pipeline log level: debug, info, warn, error, fatal, panic (env: PROCESSING_PLOGGER_LEVEL)
+    level: "debug"                # Pipeline log level: debug, info, warn, error, fatal, panic (env: PROCESSING_PLOGGER_LEVEL)
     fileName: "pipeline.log"     # Pipeline log file path (env: PROCESSING_PLOGGER_FILE_NAME)
     loggerName: "pipeline"       # Pipeline logger name identifier (env: PROCESSING_PLOGGER_LOGGER_NAME)
     serviceName: "cratos"        # Pipeline logger service name (env: PROCESSING_PLOGGER_SERVICE_NAME)

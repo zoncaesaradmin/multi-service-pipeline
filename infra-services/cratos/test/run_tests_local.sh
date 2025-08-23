@@ -127,7 +127,9 @@ build_testrunner() {
     
     # Build testrunner
     go build -tags local -o ./../../bin/testrunner.bin cmd/testmain.go
-    
+    cp -rf features ./../../bin
+    cp -rf testdata ./../../bin
+  
     if [ $? -eq 0 ]; then
         log_success "Testrunner built successfully"
     else
@@ -149,7 +151,8 @@ run_service() {
         # All other environment variables should be set via .env file
     
     # Run in background and capture stdout/stderr
-    ./../../bin/service.bin > "$LOGS_DIR/service_stdouterr.log" 2>&1 &
+    make run-local > "$LOGS_DIR/service_stdouterr.log" 2>&1 &
+    #./../../bin/service.bin > "$LOGS_DIR/service_stdouterr.log" 2>&1 &
     COMPONENT_PID=$!
     echo $COMPONENT_PID > "$ROOT_DIR/test/service.pid"
     
@@ -290,9 +293,9 @@ generate_report() {
         
         echo "Test Execution:"
         if [ $TEST_RESULT -eq 0 ]; then
-            log_success "- Status: PASSED"
+            echo "- Status: PASSED"
         else
-            log_warning "- Status: FAILED"
+            echo "- Status: FAILED"
         fi
         echo
         

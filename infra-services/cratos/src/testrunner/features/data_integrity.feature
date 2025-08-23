@@ -1,11 +1,12 @@
-Feature: Data integrity
+Feature: using code like steps
   Background:
-    Given the Kafka producers and consumers are started
+    Given ensure_test_config_kafka_producer_is_ready
+    And ensure_test_data_kafka_consumer_on_topic "output-topic"
 
   Scenario: Check for data loss and field integrity
-    Given input config from "sampleconfig.json" and send over kafka topic "rules-topic"
-    And data from "sampledata2.json" and send over kafka topic "input-topic"
-    When wait till the sent data is received on kafka topic "output-topic" until a timeout of 2 seconds
-    Then verify if the data is fully received without loss
-    And verify if data field "fabricName" is the same
-    And verify if no field is modified as expected
+    Given send_input_config_to_topic "sampleconfig.json" "rules-topic"
+    And send_input_data_to_topic "sampledata2.json", "input-topic"
+    When wait_till_data_received_on_topic_with_timeout_sec "output-topic", 2
+    Then verify_if_data_is_fully_received
+    And verify_if_valid_fabricname "fabricName"
+    And verify_if_all_fields_are_unchanged

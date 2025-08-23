@@ -86,7 +86,7 @@ func main() {
 	if logDir == "" {
 		logDir = "./logs"
 	}
-	fmt.Printf("log dir : %s\n", logDir)
+	fmt.Printf("Log and report dir : %s\n", logDir)
 	os.MkdirAll(logDir, 0755)
 
 	server := serveReports()

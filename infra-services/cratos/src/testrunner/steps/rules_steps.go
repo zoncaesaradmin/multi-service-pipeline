@@ -18,7 +18,7 @@ type StepBindings struct {
 	Cctx *types.CustomContext
 }
 
-func (b *StepBindings) GivenInputConfigAndSendOverKafka(configFile, topic string) error {
+func (b *StepBindings) GivenInputConfigAndSendOverKafka(configFile string, topic string) error {
 	inputConfigFile = configFile
 	b.Cctx.L.Infof("Sent config %s over Kafka topic %s\n", configFile, topic)
 	return nil
@@ -64,4 +64,11 @@ func InitializeRulesSteps(ctx *godog.ScenarioContext, suiteMetadataCtx *types.Cu
 	ctx.Step(`^verify if the data is fully received without loss$`, bindings.ThenVerifyDataReceivedWithoutLoss)
 	ctx.Step(`^verify if data field "([^"]*)" is the same$`, bindings.ThenVerifyDataFieldIsSame)
 	ctx.Step(`^verify if no field is modified as expected$`, bindings.ThenVerifyNoFieldModified)
+	// same as above steps but written in code function style
+	ctx.Step(`^send_input_config_to_topic "([^"]*)" "([^"]*)"$`, bindings.GivenInputConfigAndSendOverKafka)
+	ctx.Step(`^send_input_data_to_topic "([^"]*)", "([^"]*)"$`, bindings.GivenDataAndSendOverKafka)
+	ctx.Step(`^wait_till_data_received_on_topic_with_timeout_sec "([^"]*)", (\d+)$`, bindings.WhenWaitForKafkaOutput)
+	ctx.Step(`^verify_if_data_is_fully_received$`, bindings.ThenVerifyDataReceivedWithoutLoss)
+	ctx.Step(`^verify_if_valid_fabricname "([^"]*)"$`, bindings.ThenVerifyDataFieldIsSame)
+	ctx.Step(`^verify_if_all_fields_are_unchanged$`, bindings.ThenVerifyNoFieldModified)
 }

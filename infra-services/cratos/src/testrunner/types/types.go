@@ -3,9 +3,11 @@ package types
 import (
 	"context"
 	"fmt"
+	"os"
 	"sharedgomodule/logging"
 	"sharedgomodule/messagebus"
 	"sharedgomodule/utils"
+	"time"
 )
 
 // this is a custom suite context structure that can be passed to the steps
@@ -33,7 +35,7 @@ func NewConsumerHandler(logger logging.Logger) *ConsumerHandler {
 
 	confFilename := utils.ResolveConfFilePath("kafka-consumer.yaml")
 	kafkaConf := utils.LoadConfigMap(confFilename)
-	consumer := messagebus.NewConsumer(kafkaConf, "prealertConsGroup")
+	consumer := messagebus.NewConsumer(kafkaConf, "prealertConsGroup"+os.Getenv("HOSTNAME"))
 
 	return &ConsumerHandler{
 		consumer: consumer,
@@ -116,7 +118,7 @@ func (i *ConsumerHandler) consumeLoop() {
 			return
 		default:
 			// Poll for messages
-			message, err := i.consumer.Poll(1000)
+			message, err := i.consumer.Poll(1000 * time.Millisecond)
 			if err != nil {
 				i.logger.Warnw("Error polling for messages", "error", err)
 				continue

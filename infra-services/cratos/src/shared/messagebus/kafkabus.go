@@ -12,9 +12,39 @@ import (
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 )
 
+const kafkaGroupID = "group.id"
+
 // KafkaProducer Kafka implementation for production (default)
 type KafkaProducer struct {
 	producer *kafka.Producer
+}
+
+// Helper to check if error is transient (network, broker, etc)
+func isTransientKafkaError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if kafkaErr, ok := err.(kafka.Error); ok {
+		switch kafkaErr.Code() {
+		case kafka.ErrTransport, kafka.ErrAllBrokersDown, kafka.ErrTimedOut, kafka.ErrQueueFull, kafka.ErrUnknown:
+			return true
+		}
+	}
+	return false
+}
+
+// Helper to recreate producer on error
+func (p *KafkaProducer) reconnectProducer(configMap map[string]any) error {
+	config := &kafka.ConfigMap{}
+	for k, v := range configMap {
+		config.SetKey(k, v)
+	}
+	prod, err := kafka.NewProducer(config)
+	if err != nil {
+		return err
+	}
+	p.producer = prod
+	return nil
 }
 
 // NewProducer creates a new Kafka producer with configuration from YAML file
@@ -52,7 +82,6 @@ func NewProducer(configMap map[string]any) Producer {
 // Send sends a message to Kafka
 func (p *KafkaProducer) Send(ctx context.Context, message *Message) (int32, int64, error) {
 	message.Timestamp = time.Now()
-
 	kafkaMessage := &kafka.Message{
 		TopicPartition: kafka.TopicPartition{
 			Topic:     &message.Topic,
@@ -62,36 +91,46 @@ func (p *KafkaProducer) Send(ctx context.Context, message *Message) (int32, int6
 		Value:     message.Value,
 		Timestamp: message.Timestamp,
 	}
-
-	// Add headers
 	for key, value := range message.Headers {
 		kafkaMessage.Headers = append(kafkaMessage.Headers, kafka.Header{
 			Key:   key,
 			Value: []byte(value),
 		})
 	}
-
 	deliveryChan := make(chan kafka.Event, 1)
 	defer close(deliveryChan)
 
-	err := p.producer.Produce(kafkaMessage, deliveryChan)
-	if err != nil {
-		return 0, 0, fmt.Errorf("failed to produce message: %w", err)
-	}
-
-	// Wait for delivery report
-	select {
-	case event := <-deliveryChan:
-		if msg, ok := event.(*kafka.Message); ok {
-			if msg.TopicPartition.Error != nil {
-				return 0, 0, fmt.Errorf("delivery failed: %w", msg.TopicPartition.Error)
+	var lastErr error
+	maxRetries := 5
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		err := p.producer.Produce(kafkaMessage, deliveryChan)
+		if err != nil {
+			if isTransientKafkaError(err) {
+				lastErr = err
+				time.Sleep(time.Duration(500*(attempt+1)) * time.Millisecond)
+				continue
 			}
-			return msg.TopicPartition.Partition, int64(msg.TopicPartition.Offset), nil
+			return 0, 0, fmt.Errorf("failed to produce message: %w", err)
 		}
-		return 0, 0, fmt.Errorf("unexpected event type")
-	case <-ctx.Done():
-		return 0, 0, ctx.Err()
+		select {
+		case event := <-deliveryChan:
+			if msg, ok := event.(*kafka.Message); ok {
+				if msg.TopicPartition.Error != nil {
+					if isTransientKafkaError(msg.TopicPartition.Error) {
+						lastErr = msg.TopicPartition.Error
+						time.Sleep(time.Duration(500*(attempt+1)) * time.Millisecond)
+						continue
+					}
+					return 0, 0, fmt.Errorf("delivery failed: %w", msg.TopicPartition.Error)
+				}
+				return msg.TopicPartition.Partition, int64(msg.TopicPartition.Offset), nil
+			}
+			return 0, 0, fmt.Errorf("unexpected event type")
+		case <-ctx.Done():
+			return 0, 0, ctx.Err()
+		}
 	}
+	return 0, 0, fmt.Errorf("Kafka Send failed after retries: %w", lastErr)
 }
 
 // SendAsync sends a message to Kafka asynchronously
@@ -100,9 +139,7 @@ func (p *KafkaProducer) SendAsync(ctx context.Context, message *Message) <-chan 
 
 	go func() {
 		defer close(resultChan)
-
 		message.Timestamp = time.Now()
-
 		kafkaMessage := &kafka.Message{
 			TopicPartition: kafka.TopicPartition{
 				Topic:     &message.Topic,
@@ -112,61 +149,74 @@ func (p *KafkaProducer) SendAsync(ctx context.Context, message *Message) <-chan 
 			Value:     message.Value,
 			Timestamp: message.Timestamp,
 		}
-
-		// Add headers
 		for key, value := range message.Headers {
 			kafkaMessage.Headers = append(kafkaMessage.Headers, kafka.Header{
 				Key:   key,
 				Value: []byte(value),
 			})
 		}
-
 		deliveryChan := make(chan kafka.Event, 1)
 		defer close(deliveryChan)
-
-		err := p.producer.Produce(kafkaMessage, deliveryChan)
-		if err != nil {
-			resultChan <- SendResult{
-				Partition: 0,
-				Offset:    0,
-				Error:     fmt.Errorf("failed to produce message: %w", err),
+		var lastErr error
+		maxRetries := 5
+		for attempt := 0; attempt < maxRetries; attempt++ {
+			err := p.producer.Produce(kafkaMessage, deliveryChan)
+			if err != nil {
+				if isTransientKafkaError(err) {
+					lastErr = err
+					time.Sleep(time.Duration(500*(attempt+1)) * time.Millisecond)
+					continue
+				}
+				resultChan <- SendResult{
+					Partition: 0,
+					Offset:    0,
+					Error:     fmt.Errorf("failed to produce message: %w", err),
+				}
+				return
 			}
-			return
-		}
-
-		// Wait for delivery report
-		select {
-		case event := <-deliveryChan:
-			if msg, ok := event.(*kafka.Message); ok {
-				if msg.TopicPartition.Error != nil {
+			select {
+			case event := <-deliveryChan:
+				if msg, ok := event.(*kafka.Message); ok {
+					if msg.TopicPartition.Error != nil {
+						if isTransientKafkaError(msg.TopicPartition.Error) {
+							lastErr = msg.TopicPartition.Error
+							time.Sleep(time.Duration(500*(attempt+1)) * time.Millisecond)
+							continue
+						}
+						resultChan <- SendResult{
+							Partition: 0,
+							Offset:    0,
+							Error:     fmt.Errorf("delivery failed: %w", msg.TopicPartition.Error),
+						}
+						return
+					}
 					resultChan <- SendResult{
-						Partition: 0,
-						Offset:    0,
-						Error:     fmt.Errorf("delivery failed: %w", msg.TopicPartition.Error),
+						Partition: msg.TopicPartition.Partition,
+						Offset:    int64(msg.TopicPartition.Offset),
+						Error:     nil,
 					}
 					return
 				}
 				resultChan <- SendResult{
-					Partition: msg.TopicPartition.Partition,
-					Offset:    int64(msg.TopicPartition.Offset),
-					Error:     nil,
+					Partition: 0,
+					Offset:    0,
+					Error:     fmt.Errorf("unexpected event type"),
+				}
+			case <-ctx.Done():
+				resultChan <- SendResult{
+					Partition: 0,
+					Offset:    0,
+					Error:     ctx.Err(),
 				}
 				return
 			}
-			resultChan <- SendResult{
-				Partition: 0,
-				Offset:    0,
-				Error:     fmt.Errorf("unexpected event type"),
-			}
-		case <-ctx.Done():
-			resultChan <- SendResult{
-				Partition: 0,
-				Offset:    0,
-				Error:     ctx.Err(),
-			}
+		}
+		resultChan <- SendResult{
+			Partition: 0,
+			Offset:    0,
+			Error:     fmt.Errorf("Kafka SendAsync failed after retries: %w", lastErr),
 		}
 	}()
-
 	return resultChan
 }
 
@@ -181,6 +231,39 @@ type KafkaConsumer struct {
 	consumer *kafka.Consumer
 }
 
+// Helper to check if error is transient for consumer
+func isTransientKafkaConsumerError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if kafkaErr, ok := err.(kafka.Error); ok {
+		switch kafkaErr.Code() {
+		case kafka.ErrTransport, kafka.ErrAllBrokersDown, kafka.ErrTimedOut, kafka.ErrUnknown:
+			return true
+		}
+	}
+	return false
+}
+
+// Helper to recreate consumer on error
+func (c *KafkaConsumer) reconnectConsumer(configMap map[string]any, cgroup string) error {
+	config := &kafka.ConfigMap{}
+	for k, v := range configMap {
+		config.SetKey(k, v)
+	}
+	groupID := GetStringValue(configMap, kafkaGroupID, "default-group")
+	if cgroup != "" {
+		groupID = cgroup
+	}
+	config.SetKey(kafkaGroupID, groupID)
+	cons, err := kafka.NewConsumer(config)
+	if err != nil {
+		return err
+	}
+	c.consumer = cons
+	return nil
+}
+
 // NewConsumer creates a new Kafka consumer with configuration from YAML file
 // If cgroup is not empty, it overrides the group.id from config file
 func NewConsumer(configMap map[string]any, cgroup string) Consumer {
@@ -191,11 +274,11 @@ func NewConsumer(configMap map[string]any, cgroup string) Consumer {
 	config.SetKey("bootstrap.servers", GetStringValue(configMap, "bootstrap.servers", "localhost:9092"))
 
 	// Use provided cgroup if not empty, otherwise use config file value
-	groupID := GetStringValue(configMap, "group.id", "default-group")
+	groupID := GetStringValue(configMap, kafkaGroupID, "default-group")
 	if cgroup != "" {
 		groupID = cgroup
 	}
-	config.SetKey("group.id", groupID)
+	config.SetKey(kafkaGroupID, groupID)
 	config.SetKey("auto.offset.reset", GetStringValue(configMap, "auto.offset.reset", "earliest"))
 	config.SetKey("go.application.rebalance.enable", GetBoolValue(configMap, "go.application.rebalance.enable", true))
 	config.SetKey("go.events.channel.enable", GetBoolValue(configMap, "go.events.channel.enable", true))
@@ -232,30 +315,36 @@ func (c *KafkaConsumer) Subscribe(topics []string) error {
 
 // Poll polls for messages
 func (c *KafkaConsumer) Poll(timeout time.Duration) (*Message, error) {
-	kafkaMessage, err := c.consumer.ReadMessage(timeout)
-	if err != nil {
-		if kafkaErr, ok := err.(kafka.Error); ok && kafkaErr.Code() == kafka.ErrTimedOut {
-			return nil, nil // Timeout is not an error
+	var lastErr error
+	maxRetries := 5
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		kafkaMessage, err := c.consumer.ReadMessage(timeout)
+		if err != nil {
+			if kafkaErr, ok := err.(kafka.Error); ok && kafkaErr.Code() == kafka.ErrTimedOut {
+				return nil, nil // Timeout is not an error
+			}
+			if isTransientKafkaConsumerError(err) {
+				lastErr = err
+				time.Sleep(time.Duration(500*(attempt+1)) * time.Millisecond)
+				continue
+			}
+			return nil, err
 		}
-		return nil, err
+		message := &Message{
+			Topic:     *kafkaMessage.TopicPartition.Topic,
+			Key:       string(kafkaMessage.Key),
+			Value:     kafkaMessage.Value,
+			Headers:   make(map[string]string),
+			Partition: kafkaMessage.TopicPartition.Partition,
+			Offset:    int64(kafkaMessage.TopicPartition.Offset),
+			Timestamp: kafkaMessage.Timestamp,
+		}
+		for _, header := range kafkaMessage.Headers {
+			message.Headers[header.Key] = string(header.Value)
+		}
+		return message, nil
 	}
-
-	message := &Message{
-		Topic:     *kafkaMessage.TopicPartition.Topic,
-		Key:       string(kafkaMessage.Key),
-		Value:     kafkaMessage.Value,
-		Headers:   make(map[string]string),
-		Partition: kafkaMessage.TopicPartition.Partition,
-		Offset:    int64(kafkaMessage.TopicPartition.Offset),
-		Timestamp: kafkaMessage.Timestamp,
-	}
-
-	// Convert headers
-	for _, header := range kafkaMessage.Headers {
-		message.Headers[header.Key] = string(header.Value)
-	}
-
-	return message, nil
+	return nil, fmt.Errorf("Kafka Poll failed after retries: %w", lastErr)
 }
 
 // Commit manually commits the offset

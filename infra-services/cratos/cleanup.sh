@@ -29,12 +29,15 @@ echo "Cleaning message bus data..."
 rm -rf src/component 2>/dev/null || true
 rm -rf /tmp/cratos-messagebus/ 2>/dev/null || true
 
-# 5. Clean test results
+# 5. Clean test results && processes
 echo "Cleaning test results..."
 rm -rf test/results/ 2>/dev/null || true
 rm -rf test/coverage 2>/dev/null || true
 rm -rf test/service.pid 2>/dev/null || true
 rm -rf test/testrunner.pid 2>/dev/null || true
+# kill the processes hanging around
+pkill -f "testrunner.bin" 2>/dev/null || true
+pkill -f "service.bin" 2>/dev/null || true
 
 # 6. Clean individual module artifacts
 echo "Cleaning module artifacts..."

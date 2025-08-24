@@ -1,8 +1,6 @@
 package steps
 
 import (
-	"sharedgomodule/messagebus"
-	"sharedgomodule/utils"
 	"testgomodule/types"
 
 	"github.com/cucumber/godog"
@@ -13,10 +11,16 @@ type CommonStepBindings struct {
 }
 
 func (b *CommonStepBindings) KafkaProducerReady() error {
-	confFilename := utils.ResolveConfFilePath("kafka-producer.yaml")
-	kafkaConf := utils.LoadConfigMap(confFilename)
-	b.SuiteCtx.Producer = messagebus.NewProducer(kafkaConf)
-	b.SuiteCtx.L.Info("Kafka producer is ready.")
+	prodHandler := types.NewProducerHandler(b.SuiteCtx.L)
+	if err := prodHandler.Start(); err != nil {
+		b.SuiteCtx.L.Errorf("Failed to start producer: %w", err)
+		return err
+	}
+	b.SuiteCtx.ProducerHandler = prodHandler
+	b.SuiteCtx.L.Infof("Kafka producer started successfully.")
+	// reset
+	b.SuiteCtx.SentDataSize = 0
+	b.SuiteCtx.SentDataCount = 0
 	return nil
 }
 
@@ -28,6 +32,8 @@ func (b *CommonStepBindings) KafkaConsumersStarted(topic string) error {
 	}
 	b.SuiteCtx.ConsHandler = consHandler
 	b.SuiteCtx.L.Infof("Kafka consumers started on topic %s.", topic)
+	// reset
+	b.SuiteCtx.ConsHandler.Reset()
 	return nil
 }
 

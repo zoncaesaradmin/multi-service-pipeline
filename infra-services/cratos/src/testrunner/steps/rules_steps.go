@@ -1,8 +1,7 @@
 package steps
 
 import (
-	"context"
-	"sharedgomodule/messagebus"
+	"errors"
 	"testgomodule/types"
 	"time"
 
@@ -39,24 +38,31 @@ func (b *StepBindings) SendInputDataToTopic(dataFile string, topic string) error
 		b.Cctx.L.Infof("Failed to marshal alert stream\n")
 		return err
 	}
-	message := &messagebus.Message{
-		Topic: topic,
-		Value: aBytes,
-	}
-	b.Cctx.Producer.Send(context.Background(), message)
+	b.Cctx.ProducerHandler.Send(aBytes, topic)
+	b.Cctx.SentDataSize += len(aBytes)
+	b.Cctx.SentDataCount++
+	b.Cctx.ConsHandler.SetExpectedCount(1)
 	b.Cctx.L.Infof("Sent data %s over Kafka topic %s\n", dataFile, topic)
 	return nil
 }
 
 func (b *StepBindings) WaitTillDataReceivedOnTopicWithTimeoutSec(topic string, timeoutSec int) error {
-	outputTopic = topic
-	b.Cctx.L.Infof("Waiting for data on Kafka topic %s for %d seconds...\n", topic, timeoutSec)
-	time.Sleep(time.Duration(timeoutSec) * time.Second)
-	// Simulate received data
-	receivedData = map[string]interface{}{
-		"fabricName": "FabricA",
+	b.Cctx.L.Infof("Started waiting for data on Kafka topic %s for %d seconds...\n", topic, timeoutSec)
+	timeoutTicker := time.NewTicker(10 * time.Millisecond)
+	defer timeoutTicker.Stop()
+	timeoutCh := time.After(time.Duration(timeoutSec) * time.Second)
+	for {
+		select {
+		case <-timeoutTicker.C:
+			if b.Cctx.ConsHandler.GetReceivedAll() {
+				b.Cctx.L.Infof("Wait ended as data is received on topic %s\n", topic)
+				return nil
+			}
+		case <-timeoutCh:
+			b.Cctx.L.Infof("Wait ended due to timeout before data is received on topic %s\n", topic)
+			return errors.New("timeout waiting for data")
+		}
 	}
-	return nil
 }
 
 func (b *StepBindings) VerifyIfDataIsFullyReceived() error {

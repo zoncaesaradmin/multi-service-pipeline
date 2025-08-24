@@ -10,16 +10,21 @@ import (
 
 // this is a custom suite context structure that can be passed to the steps
 type CustomContext struct {
-	L           logging.Logger
-	Producer    messagebus.Producer
-	ConsHandler *ConsumerHandler
+	L               logging.Logger
+	ConsHandler     *ConsumerHandler
+	ProducerHandler *ProducerHandler
+	SentDataSize    int
+	SentDataCount   int
 }
 
 type ConsumerHandler struct {
-	consumer messagebus.Consumer
-	logger   logging.Logger
-	ctx      context.Context
-	cancel   context.CancelFunc
+	consumer      messagebus.Consumer
+	logger        logging.Logger
+	ctx           context.Context
+	cancel        context.CancelFunc
+	receivedAll   bool
+	receivedCount int
+	expectedCount int
 }
 
 // NewInputHandler creates a new input handler
@@ -73,6 +78,24 @@ func (i *ConsumerHandler) Stop() error {
 	return nil
 }
 
+func (i *ConsumerHandler) GetReceivedAll() bool {
+	return i.receivedAll
+}
+
+func (i *ConsumerHandler) SetReceivedAll(receivedAll bool) {
+	i.receivedAll = receivedAll
+}
+
+func (i *ConsumerHandler) SetExpectedCount(count int) {
+	i.expectedCount = count
+}
+
+func (i *ConsumerHandler) Reset() {
+	i.receivedCount = 0
+	i.expectedCount = 0
+	i.receivedAll = false
+}
+
 func (i *ConsumerHandler) consumeLoop() {
 	defer func() {
 		if r := recover(); r != nil {
@@ -96,6 +119,14 @@ func (i *ConsumerHandler) consumeLoop() {
 			if message != nil {
 				i.logger.Debugw("Received data message", "size", len(message.Value))
 
+				i.receivedCount++
+
+				if i.receivedCount == i.expectedCount {
+					// simple indication for now that data is received
+					// to be enhanced to include checks based on sent test data
+					i.receivedAll = true
+				}
+
 				// Commit the message
 				if err := i.consumer.Commit(context.Background(), message); err != nil {
 					i.logger.Warnw("Failed to commit message", "error", err)
@@ -103,4 +134,52 @@ func (i *ConsumerHandler) consumeLoop() {
 			}
 		}
 	}
+}
+
+type ProducerHandler struct {
+	producer messagebus.Producer
+	logger   logging.Logger
+}
+
+func NewProducerHandler(logger logging.Logger) *ProducerHandler {
+	confFilename := utils.ResolveConfFilePath("kafka-producer.yaml")
+	kafkaConf := utils.LoadConfigMap(confFilename)
+
+	producer := messagebus.NewProducer(kafkaConf)
+
+	return &ProducerHandler{
+		producer: producer,
+		logger:   logger,
+	}
+}
+func (o *ProducerHandler) Start() error {
+	o.logger.Debug("Starting producer handler")
+	return nil
+}
+
+func (o *ProducerHandler) Stop() error {
+	o.logger.Debug("Stopping producer handler")
+
+	if o.producer != nil {
+		if err := o.producer.Close(); err != nil {
+			o.logger.Errorw("Error closing producer", "error", err)
+			return err
+		}
+	}
+	return nil
+}
+
+func (o *ProducerHandler) Send(data []byte, topic string) error {
+	message := &messagebus.Message{
+		Topic: topic,
+		Value: data,
+	}
+	_, _, err := o.producer.Send(context.Background(), message)
+	if err != nil {
+		return fmt.Errorf("failed to send message to topic %s: %w", topic, err)
+	}
+
+	o.logger.Debugw("Message sent successfully", "topic", topic, "size", len(data))
+
+	return nil
 }

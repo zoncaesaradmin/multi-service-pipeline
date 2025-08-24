@@ -108,6 +108,9 @@ func (i *InputHandler) consumeLoop() {
 
 				// Create a ChannelMessage from the Kafka message
 				channelMsg := models.NewDataMessage(message.Value, "kafka")
+				for k, v := range message.Headers {
+					channelMsg.Meta[k] = v
+				}
 
 				i.inputCh <- channelMsg
 				i.logger.Debug("Message sent to input channel")

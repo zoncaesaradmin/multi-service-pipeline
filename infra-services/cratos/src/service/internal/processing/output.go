@@ -123,8 +123,9 @@ func (o *OutputHandler) flushBatch(batch []*models.ChannelMessage) {
 func (o *OutputHandler) sendMessage(channelMsg *models.ChannelMessage) error {
 
 	message := &messagebus.Message{
-		Topic: o.config.OutputTopic,
-		Value: channelMsg.Data,
+		Topic:   o.config.OutputTopic,
+		Value:   channelMsg.Data,
+		Headers: channelMsg.Meta,
 	}
 
 	_, _, err := o.producer.Send(context.Background(), message)

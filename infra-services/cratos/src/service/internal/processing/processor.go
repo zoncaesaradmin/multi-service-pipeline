@@ -125,6 +125,9 @@ func (p *Processor) processMessage(message *models.ChannelMessage) error {
 
 		// Create a new message with processed data
 		outputMessage := models.NewDataMessage(processedData, "processor")
+		for k, v := range message.Meta {
+			outputMessage.Meta[k] = v
+		}
 
 		p.outputCh <- outputMessage
 		p.logger.Debug("Processed message sent to output channel")

@@ -38,10 +38,12 @@ func (b *StepBindings) SendInputDataToTopic(dataFile string, topic string) error
 		b.Cctx.L.Infof("Failed to marshal alert stream\n")
 		return err
 	}
-	b.Cctx.ProducerHandler.Send(aBytes, topic)
+	metaDataMap := map[string]string{"testData": "true"}
+	b.Cctx.ProducerHandler.Send(topic, aBytes, metaDataMap)
 	b.Cctx.SentDataSize += len(aBytes)
 	b.Cctx.SentDataCount++
 	b.Cctx.ConsHandler.SetExpectedCount(1)
+	b.Cctx.ConsHandler.SetExpectedMap(metaDataMap)
 	b.Cctx.L.Infof("Sent data %s over Kafka topic %s\n", dataFile, topic)
 	return nil
 }

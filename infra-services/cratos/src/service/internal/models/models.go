@@ -19,6 +19,7 @@ type ChannelMessage struct {
 	Type      ChannelMessageType `json:"type"`
 	Timestamp time.Time          `json:"timestamp"`
 	Data      []byte             `json:"data"`
+	Meta      map[string]string  `json:"meta"`
 }
 
 // NewChannelMessage creates a new channel message with the given type and data
@@ -27,6 +28,7 @@ func NewChannelMessage(msgType ChannelMessageType, data []byte, source string) *
 		Type:      msgType,
 		Timestamp: time.Now(),
 		Data:      data,
+		Meta:      make(map[string]string),
 	}
 }
 

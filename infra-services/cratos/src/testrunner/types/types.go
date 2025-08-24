@@ -25,6 +25,7 @@ type ConsumerHandler struct {
 	receivedAll   bool
 	receivedCount int
 	expectedCount int
+	expectedMap   map[string]string
 }
 
 // NewInputHandler creates a new input handler
@@ -90,10 +91,15 @@ func (i *ConsumerHandler) SetExpectedCount(count int) {
 	i.expectedCount = count
 }
 
+func (i *ConsumerHandler) SetExpectedMap(expectedMap map[string]string) {
+	i.expectedMap = expectedMap
+}
+
 func (i *ConsumerHandler) Reset() {
 	i.receivedCount = 0
 	i.expectedCount = 0
 	i.receivedAll = false
+	i.expectedMap = make(map[string]string)
 }
 
 func (i *ConsumerHandler) consumeLoop() {
@@ -117,14 +123,19 @@ func (i *ConsumerHandler) consumeLoop() {
 			}
 
 			if message != nil {
-				i.logger.Debugw("Received data message", "size", len(message.Value))
 
-				i.receivedCount++
-
-				if i.receivedCount == i.expectedCount {
-					// simple indication for now that data is received
-					// to be enhanced to include checks based on sent test data
-					i.receivedAll = true
+				// ensure data is valid test data only
+				// ensure data received matches expectations
+				if EnsureMapMatches(i.expectedMap, message.Headers) {
+					i.logger.Debugw("Received valid test data message", "size", len(message.Value))
+					i.receivedCount++
+					if i.receivedCount == i.expectedCount {
+						// simple indication for now that data is received
+						// to be enhanced to include checks based on sent test data
+						i.receivedAll = true
+					}
+				} else {
+					i.logger.Debugw("Received some other data message", "size", len(message.Value))
 				}
 
 				// Commit the message
@@ -169,10 +180,11 @@ func (o *ProducerHandler) Stop() error {
 	return nil
 }
 
-func (o *ProducerHandler) Send(data []byte, topic string) error {
+func (o *ProducerHandler) Send(topic string, data []byte, headers map[string]string) error {
 	message := &messagebus.Message{
-		Topic: topic,
-		Value: data,
+		Topic:   topic,
+		Value:   data,
+		Headers: headers,
 	}
 	_, _, err := o.producer.Send(context.Background(), message)
 	if err != nil {
@@ -182,4 +194,14 @@ func (o *ProducerHandler) Send(data []byte, topic string) error {
 	o.logger.Debugw("Message sent successfully", "topic", topic, "size", len(data))
 
 	return nil
+}
+
+func EnsureMapMatches(expected, data map[string]string) bool {
+	for k, v := range expected {
+		dv, ok := data[k]
+		if !ok || dv != v {
+			return false
+		}
+	}
+	return true
 }

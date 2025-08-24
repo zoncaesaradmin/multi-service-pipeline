@@ -34,8 +34,8 @@ cd reportserver
 # (Make sure testrunner_report.txt and testrunner_report.json exist in parent dir)
 go run report_server.go
 ```
-- Access text report: http://localhost:8080/report/text
-- Access JSON report: http://localhost:8080/report/json
+- Access text report: http://localhost:4478/report/text
+- Access JSON report: http://localhost:4478/report/json
 
 ## Advanced Step Implementations
 

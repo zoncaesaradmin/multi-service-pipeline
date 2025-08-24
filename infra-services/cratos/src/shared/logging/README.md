@@ -28,7 +28,7 @@ func main() {
     })
     
     logger.Info("Application starting")
-    logger.Infof("Server listening on port %d", 8080)
+    logger.Infof("Server listening on port %d", 4477)
     logger.Infow("User logged in", "user_id", 12345, "ip", "192.168.1.1")
 }
 ```

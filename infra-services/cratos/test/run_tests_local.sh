@@ -177,7 +177,7 @@ run_testrunner() {
     log_success "Test runner started with PID $TESTRUNNER_PID"
     echo $TESTRUNNER_PID > "$ROOT_DIR/test/testrunner.pid"
 
-    STATUS_URL="http://localhost:8081/report/status"
+    STATUS_URL="http://localhost:4478/report/status"
     echo "Waiting for test runner to complete..."
     while true; do
         STATUS=$(curl -s "$STATUS_URL" | grep -o '"status": *"[^"]*"' | cut -d'"' -f4)
@@ -190,7 +190,7 @@ run_testrunner() {
     done
 
     echo "Fetching test report..."
-    REPORT=$(curl -s http://localhost:8081/report/text)
+    REPORT=$(curl -s http://localhost:4478/report/text)
     TEST_RESULT=$?
     if echo "$REPORT" | grep -q "SUITE RESULT: SUCCESS"; then
         echo "Test suite PASSED"

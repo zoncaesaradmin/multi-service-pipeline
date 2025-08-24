@@ -86,7 +86,7 @@ func LoadConfig() *RawConfig {
 	config := &RawConfig{
 		Server: RawServerConfig{
 			Host:         utils.GetEnv("SERVER_HOST", "localhost"),
-			Port:         utils.GetEnvInt("SERVER_PORT", 8080),
+			Port:         utils.GetEnvInt("SERVER_PORT", 4477),
 			ReadTimeout:  utils.GetEnvInt("SERVER_READ_TIMEOUT", 10),
 			WriteTimeout: utils.GetEnvInt("SERVER_WRITE_TIMEOUT", 10),
 		},

@@ -157,7 +157,7 @@ make build BUILD_TAGS="local"
 
 The service will start:
 - Processing pipeline listening on message bus
-- Health API on `localhost:8080`
+- Health API on `localhost:4477`
 - Processing `test_input` messages and sending responses to `test_output`
 
 #### 2. Run Test Runner (Message Bus Tests)
@@ -260,7 +260,7 @@ The service and testrunner can be configured using environment variables and con
 | Variable | Default | Description |
 |----------|---------|-------------|
 | SERVER_HOST | localhost | Health check server host |
-| SERVER_PORT | 8080 | Health check server port |
+| SERVER_PORT | 4477 | Health check server port |
 | LOG_LEVEL | info | Log level (debug, info, warn, error) |
 | LOG_FORMAT | json | Log format (json, text) |
 | PROCESSING_DELAY | 100ms | Processing delay for each message |
@@ -614,7 +614,7 @@ expected_output:
 
 ### Health Check (Service Monitoring)
 ```bash
-curl http://localhost:8080/health
+curl http://localhost:4477/health
 ```
 
 ## Go Workspace Benefits

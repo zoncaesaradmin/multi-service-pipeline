@@ -12,8 +12,8 @@ func TestLoadConfigDefaults(t *testing.T) {
 	if config.Server.Host != "localhost" {
 		t.Errorf("Expected localhost, got %s", config.Server.Host)
 	}
-	if config.Server.Port != 8080 {
-		t.Errorf("Expected 8080, got %d", config.Server.Port)
+	if config.Server.Port != 4477 {
+		t.Errorf("Expected 4477, got %d", config.Server.Port)
 	}
 	if config.Logging.Level != "info" {
 		t.Errorf("Expected info, got %s", config.Logging.Level)
@@ -150,8 +150,8 @@ func TestLoadConfigWithDefaultsFallback(t *testing.T) {
 	if config.Server.Host != "localhost" {
 		t.Errorf("Expected default host 'localhost', got %s", config.Server.Host)
 	}
-	if config.Server.Port != 8080 {
-		t.Errorf("Expected default port 8080, got %d", config.Server.Port)
+	if config.Server.Port != 4477 {
+		t.Errorf("Expected default port 4477, got %d", config.Server.Port)
 	}
 }
 
@@ -165,8 +165,8 @@ func TestInvalidEnvVars(t *testing.T) {
 	config := LoadConfig()
 
 	// Should use default values when env vars are invalid
-	if config.Server.Port != 8080 {
-		t.Errorf("Expected default port 8080 for invalid env var, got %d", config.Server.Port)
+	if config.Server.Port != 4477 {
+		t.Errorf("Expected default port  for invalid env var, got %d", config.Server.Port)
 	}
 
 	// Restore original values
@@ -186,7 +186,7 @@ func TestOverrideWithEnvVars(t *testing.T) {
 	config := &RawConfig{
 		Server: RawServerConfig{
 			Host: "original.com",
-			Port: 8080,
+			Port: 4477,
 		},
 		Logging: RawLoggingConfig{
 			Level: "info",
@@ -209,8 +209,8 @@ func TestOverrideWithEnvVars(t *testing.T) {
 	}
 
 	// Check that non-overridden values remained the same
-	if config.Server.Port != 8080 {
-		t.Errorf("Expected server port 8080 (not overridden), got %d", config.Server.Port)
+	if config.Server.Port != 4477 {
+		t.Errorf("Expected server port 4477 (not overridden), got %d", config.Server.Port)
 	}
 
 	// Restore original values
@@ -241,7 +241,7 @@ func TestOverrideWithEnvVarsAllFields(t *testing.T) {
 	config := &RawConfig{
 		Server: RawServerConfig{
 			Host:         "original.com",
-			Port:         8080,
+			Port:         4477,
 			ReadTimeout:  10,
 			WriteTimeout: 10,
 		},

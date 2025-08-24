@@ -3,7 +3,7 @@
 
 service:
   binaryPath: ../service/bin/service.bin
-  port: 8080
+  port: 4477
   timeout: 30s
 
 messagebus:

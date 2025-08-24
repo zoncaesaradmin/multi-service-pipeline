@@ -132,7 +132,7 @@ func TestServerConfiguration(t *testing.T) {
 			rawconfig: &config.RawConfig{
 				Server: config.RawServerConfig{
 					Host:         testHost,
-					Port:         8080,
+					Port:         4477,
 					ReadTimeout:  10,
 					WriteTimeout: 10,
 				},
@@ -191,7 +191,7 @@ func TestApplicationInitialization(t *testing.T) {
 	cfg := &config.RawConfig{
 		Server: config.RawServerConfig{
 			Host:         testHost,
-			Port:         8080,
+			Port:         4477,
 			ReadTimeout:  10,
 			WriteTimeout: 10,
 		},
@@ -424,7 +424,7 @@ func BenchmarkApplicationCreation(b *testing.B) {
 	cfg := &config.RawConfig{
 		Server: config.RawServerConfig{
 			Host:         testHost,
-			Port:         8080,
+			Port:         4477,
 			ReadTimeout:  10,
 			WriteTimeout: 10,
 		},

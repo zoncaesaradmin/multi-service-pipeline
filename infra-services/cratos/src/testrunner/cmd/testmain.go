@@ -53,7 +53,7 @@ func serveReports() *http.Server {
 
 	port := os.Getenv("REPORT_PORT")
 	if port == "" {
-		port = "8081"
+		port = "4478"
 	}
 	fmt.Println("Starting report server on port:", port)
 	// Start HTTP server in a goroutine and signal when it's done

@@ -66,7 +66,7 @@ func TestNewApplication(t *testing.T) {
 	cfg := &config.RawConfig{
 		Server: config.RawServerConfig{
 			Host: "localhost",
-			Port: 8080,
+			Port: 4477,
 		},
 		Processing: config.RawProcessingConfig{
 			Input: config.RawInputConfig{
@@ -119,7 +119,7 @@ func TestApplicationConfig(t *testing.T) {
 	cfg := &config.RawConfig{
 		Server: config.RawServerConfig{
 			Host: "localhost",
-			Port: 8080,
+			Port: 4477,
 		},
 	}
 	logger := newMockLogger()
@@ -134,8 +134,8 @@ func TestApplicationConfig(t *testing.T) {
 		t.Errorf("Expected host 'localhost', got %s", retrievedConfig.Server.Host)
 	}
 
-	if retrievedConfig.Server.Port != 8080 {
-		t.Errorf("Expected port 8080, got %d", retrievedConfig.Server.Port)
+	if retrievedConfig.Server.Port != 4477 {
+		t.Errorf("Expected port 4477, got %d", retrievedConfig.Server.Port)
 	}
 }
 

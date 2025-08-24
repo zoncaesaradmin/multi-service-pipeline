@@ -10,7 +10,7 @@
 # Server configuration
 server:
   host: "localhost"              # Server host (env: SERVER_HOST)
-  port: 8080                     # Server port (env: SERVER_PORT)
+  port: 4477                     # Server port (env: SERVER_PORT)
   readTimeout: 10                # Read timeout in seconds (env: SERVER_READ_TIMEOUT)
   writeTimeout: 10               # Write timeout in seconds (env: SERVER_WRITE_TIMEOUT)
 

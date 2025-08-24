@@ -300,7 +300,7 @@ grep "Validation" test/results/logs/testrunner_stderr.log
 1. Check `test/results/logs/testrunner_stdout.log` for detailed error messages
 2. Review `test/results/logs/service.log` for service-side issues
 3. Verify service starts successfully in `test/results/logs/service_stdout.log`
-4. Check port conflicts (service uses localhost:8080)
+4. Check port conflicts (service uses localhost:4477)
 
 ### Message Bus Issues
 1. Check message bus directory: `ls -la /tmp/cratos-messagebus/`

@@ -2,6 +2,7 @@ package steps
 
 import (
 	"testgomodule/types"
+	"time"
 
 	"github.com/cucumber/godog"
 )
@@ -31,6 +32,7 @@ func (b *CommonStepBindings) KafkaConsumersStarted(topic string) error {
 		return err
 	}
 	b.SuiteCtx.ConsHandler = consHandler
+	time.Sleep(5 * time.Second) // wait for consumer to be ready
 	b.SuiteCtx.L.Infof("Kafka consumers started on topic %s.", topic)
 	// reset
 	b.SuiteCtx.ConsHandler.Reset()

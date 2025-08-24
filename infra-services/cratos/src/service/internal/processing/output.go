@@ -126,6 +126,7 @@ func (o *OutputHandler) sendMessage(channelMsg *models.ChannelMessage) error {
 		Topic:   o.config.OutputTopic,
 		Value:   channelMsg.Data,
 		Headers: channelMsg.Meta,
+		Key:     channelMsg.Key,
 	}
 
 	_, _, err := o.producer.Send(context.Background(), message)
@@ -133,7 +134,7 @@ func (o *OutputHandler) sendMessage(channelMsg *models.ChannelMessage) error {
 		return fmt.Errorf("failed to send message to topic %s: %w", o.config.OutputTopic, err)
 	}
 
-	o.logger.Debugw("Message sent successfully", "topic", o.config.OutputTopic, "size", len(channelMsg.Data))
+	o.logger.Debugw("Message sent successfully", "topic", o.config.OutputTopic, "size", len(channelMsg.Data), "headers", channelMsg.Meta)
 	return nil
 }
 

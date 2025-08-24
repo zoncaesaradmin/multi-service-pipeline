@@ -45,8 +45,8 @@ processing:
 
   output:
     outputTopic: "cisco_nir-prealerts"      # Output topic (env: PROCESSING_OUTPUT_TOPIC)
-    batchSize: 50                           # Output batch size (env: PROCESSING_OUTPUT_BATCH_SIZE)
-    flushTimeout: 5000ms                    # Flush timeout (env: PROCESSING_OUTPUT_FLUSH_TIMEOUT_MS)
+    batchSize: 1                            # Output batch size (env: PROCESSING_OUTPUT_BATCH_SIZE)
+    flushTimeout: 1000ms                    # Flush timeout (env: PROCESSING_OUTPUT_FLUSH_TIMEOUT_MS)
     channelBufferSize: 1000                 # Output channel buffer size (env: PROCESSING_OUTPUT_BUFFER_SIZE)
     kafkaConfigFile: "kafka-producer.yaml"  # Kafka producer config file (env: PROCESSING_OUTPUT_KAFKA_CONFIG_FILE)
 

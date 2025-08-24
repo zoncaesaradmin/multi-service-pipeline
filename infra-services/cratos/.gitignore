@@ -127,3 +127,4 @@ config.local.yml
 test/results/
 test/coverage/
 test/service.pid
+test/testrunner.pid

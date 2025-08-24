@@ -166,7 +166,7 @@ func TestInvalidEnvVars(t *testing.T) {
 
 	// Should use default values when env vars are invalid
 	if config.Server.Port != 4477 {
-		t.Errorf("Expected default port  for invalid env var, got %d", config.Server.Port)
+		t.Errorf("Expected default port 4477 for invalid env var, got %d", config.Server.Port)
 	}
 
 	// Restore original values

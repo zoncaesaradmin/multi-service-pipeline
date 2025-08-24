@@ -107,13 +107,13 @@ func (i *InputHandler) consumeLoop() {
 				i.logger.Debugw("Received kafka data message", "size", len(message.Value))
 
 				// Create a ChannelMessage from the Kafka message
-				channelMsg := models.NewDataMessage(message.Value, "kafka")
+				channelMsg := models.NewDataMessage(message.Value, message.Key)
 				for k, v := range message.Headers {
 					channelMsg.Meta[k] = v
 				}
 
 				i.inputCh <- channelMsg
-				i.logger.Debug("Message sent to input channel")
+				i.logger.Debugw("Input message received", "key", message.Key, "headers", message.Headers)
 
 				// Commit the message
 				if err := i.consumer.Commit(context.Background(), message); err != nil {

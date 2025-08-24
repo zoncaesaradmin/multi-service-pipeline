@@ -66,7 +66,7 @@ func startServer(mux *http.ServeMux, cfg *config.RawConfig, application *app.App
 
 	// Create server
 	srv := &http.Server{
-		Addr:         fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port),
+		Addr:         fmt.Sprintf(":%d", cfg.Server.Port),
 		Handler:      mux,
 		ReadTimeout:  time.Duration(cfg.Server.ReadTimeout) * time.Second,
 		WriteTimeout: time.Duration(cfg.Server.WriteTimeout) * time.Second,
@@ -74,7 +74,7 @@ func startServer(mux *http.ServeMux, cfg *config.RawConfig, application *app.App
 
 	// Start server in a goroutine
 	go func() {
-		logger.Debugf("Starting http server on %s:%d", cfg.Server.Host, cfg.Server.Port)
+		logger.Debugf("Starting http server on %s:%d", "0.0.0.0", cfg.Server.Port)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Fatalf("Failed to start server: %v", err)
 		}

@@ -50,7 +50,7 @@ func (b *StepBindings) SendInputDataToTopic(dataFile string, topic string) error
 
 func (b *StepBindings) WaitTillDataReceivedOnTopicWithTimeoutSec(topic string, timeoutSec int) error {
 	b.Cctx.L.Infof("Started waiting for data on Kafka topic %s for %d seconds...\n", topic, timeoutSec)
-	timeoutTicker := time.NewTicker(10 * time.Millisecond)
+	timeoutTicker := time.NewTicker(100 * time.Millisecond)
 	defer timeoutTicker.Stop()
 	timeoutCh := time.After(time.Duration(timeoutSec) * time.Second)
 	for {

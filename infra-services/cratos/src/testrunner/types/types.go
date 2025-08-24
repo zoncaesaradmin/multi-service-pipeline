@@ -116,7 +116,7 @@ func (i *ConsumerHandler) consumeLoop() {
 			return
 		default:
 			// Poll for messages
-			message, err := i.consumer.Poll(100)
+			message, err := i.consumer.Poll(1000)
 			if err != nil {
 				i.logger.Warnw("Error polling for messages", "error", err)
 				continue

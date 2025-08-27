@@ -41,12 +41,27 @@ type Consumer interface {
 	// Subscribe subscribes to topics
 	Subscribe(topics []string) error
 
-	// Poll polls for messages with timeout
-	Poll(timeout time.Duration) (*Message, error)
+	// OnMessage sets a callback for incoming messages
+	OnMessage(fn func(*Message))
+
+	// OnAssign sets a callback for partition assignment events
+	OnAssign(fn func([]PartitionAssignment))
+
+	// OnRevoke sets a callback for partition revocation events
+	OnRevoke(fn func([]PartitionAssignment))
 
 	// Commit manually commits the offset for a message
 	Commit(ctx context.Context, message *Message) error
 
+	// AssignedPartitions returns the currently assigned partitions
+	AssignedPartitions() []PartitionAssignment
+
 	// Close closes the consumer
 	Close() error
+}
+
+// PartitionAssignment is an agnostic representation of a partition assignment
+type PartitionAssignment struct {
+	Topic     string
+	Partition int32
 }

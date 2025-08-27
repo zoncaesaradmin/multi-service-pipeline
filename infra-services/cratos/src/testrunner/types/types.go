@@ -7,7 +7,6 @@ import (
 	"sharedgomodule/logging"
 	"sharedgomodule/messagebus"
 	"sharedgomodule/utils"
-	"time"
 )
 
 // this is a custom suite context structure that can be passed to the steps
@@ -51,14 +50,29 @@ func (i *ConsumerHandler) Start() error {
 	// Create context for cancellation
 	i.ctx, i.cancel = context.WithCancel(context.Background())
 
+	// Register OnMessage callback
+	i.consumer.OnMessage(func(message *messagebus.Message) {
+		if message != nil {
+			if EnsureMapMatches(i.expectedMap, message.Headers) {
+				i.logger.Debugw("Received valid test data message", "size", len(message.Value))
+				i.receivedCount++
+				if i.receivedCount == i.expectedCount {
+					i.receivedAll = true
+				}
+			} else {
+				i.logger.Debugw("Received some other data message", "size", len(message.Value))
+			}
+			if err := i.consumer.Commit(context.Background(), message); err != nil {
+				i.logger.Warnw("Failed to commit message", "error", err)
+			}
+		}
+	})
+
 	// Subscribe to topics
 	if err := i.consumer.Subscribe(topics); err != nil {
 		i.logger.Errorf("failed to subscribe to topics: %w", err)
 		return fmt.Errorf("failed to subscribe to topics: %w", err)
 	}
-
-	// Start consuming in a goroutine
-	go i.consumeLoop()
 
 	return nil
 }
@@ -104,50 +118,7 @@ func (i *ConsumerHandler) Reset() {
 	i.expectedMap = make(map[string]string)
 }
 
-func (i *ConsumerHandler) consumeLoop() {
-	defer func() {
-		if r := recover(); r != nil {
-			i.logger.Errorw("Consumer handler panic recovered", "panic", r)
-		}
-	}()
-
-	for {
-		select {
-		case <-i.ctx.Done():
-			i.logger.Info("Consumer handler consume loop stopped")
-			return
-		default:
-			// Poll for messages
-			message, err := i.consumer.Poll(1000 * time.Millisecond)
-			if err != nil {
-				i.logger.Warnw("Error polling for messages", "error", err)
-				continue
-			}
-
-			if message != nil {
-
-				// ensure data is valid test data only
-				// ensure data received matches expectations
-				if EnsureMapMatches(i.expectedMap, message.Headers) {
-					i.logger.Debugw("Received valid test data message", "size", len(message.Value))
-					i.receivedCount++
-					if i.receivedCount == i.expectedCount {
-						// simple indication for now that data is received
-						// to be enhanced to include checks based on sent test data
-						i.receivedAll = true
-					}
-				} else {
-					i.logger.Debugw("Received some other data message", "size", len(message.Value))
-				}
-
-				// Commit the message
-				if err := i.consumer.Commit(context.Background(), message); err != nil {
-					i.logger.Warnw("Failed to commit message", "error", err)
-				}
-			}
-		}
-	}
-}
+// ...removed: consumeLoop, now handled by OnMessage callback...
 
 type ProducerHandler struct {
 	producer messagebus.Producer

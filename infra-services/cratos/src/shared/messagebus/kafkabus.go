@@ -226,9 +226,38 @@ func (p *KafkaProducer) Close() error {
 	return nil
 }
 
-// KafkaConsumer Kafka implementation for production
 type KafkaConsumer struct {
-	consumer *kafka.Consumer
+	consumer           *kafka.Consumer
+	assignedPartitions []PartitionAssignment
+	onAssign           func([]PartitionAssignment)
+	onRevoke           func([]PartitionAssignment)
+	onMessage          func(*Message)
+	onError            func(error)
+}
+
+// OnMessage sets a callback for incoming messages
+func (c *KafkaConsumer) OnMessage(fn func(*Message)) {
+	c.onMessage = fn
+}
+
+// OnAssign sets a callback for partition assignment events
+func (c *KafkaConsumer) OnAssign(fn func([]PartitionAssignment)) {
+	c.onAssign = fn
+}
+
+// OnRevoke sets a callback for partition revocation events
+func (c *KafkaConsumer) OnRevoke(fn func([]PartitionAssignment)) {
+	c.onRevoke = fn
+}
+
+// AssignedPartitions returns the currently assigned partitions
+func (c *KafkaConsumer) AssignedPartitions() []PartitionAssignment {
+	return c.assignedPartitions
+}
+
+// Set callback for error events
+func (c *KafkaConsumer) OnError(fn func(error)) {
+	c.onError = fn
 }
 
 // Helper to check if error is transient for consumer
@@ -303,48 +332,82 @@ func NewConsumer(configMap map[string]any, cgroup string) Consumer {
 		panic(fmt.Sprintf("Failed to create Kafka consumer: %v", err))
 	}
 
-	return &KafkaConsumer{
+	kc := &KafkaConsumer{
 		consumer: consumer,
+	}
+	go kc.handleEvents()
+	return kc
+}
+
+// Set callback for partition assignment
+// ...existing code...
+
+// Internal: unified event handler for rebalance and messages
+func (c *KafkaConsumer) handleEvents() {
+	for event := range c.consumer.Events() {
+		switch e := event.(type) {
+		case kafka.AssignedPartitions:
+			// Convert kafka.TopicPartition to PartitionAssignment
+			var assignments []PartitionAssignment
+			for _, tp := range e.Partitions {
+				topic := ""
+				if tp.Topic != nil {
+					topic = *tp.Topic
+				}
+				assignments = append(assignments, PartitionAssignment{
+					Topic:     topic,
+					Partition: tp.Partition,
+				})
+			}
+			c.assignedPartitions = assignments
+			if c.onAssign != nil {
+				c.onAssign(assignments)
+			}
+			c.consumer.Assign(e.Partitions)
+		case kafka.RevokedPartitions:
+			var revocations []PartitionAssignment
+			for _, tp := range e.Partitions {
+				topic := ""
+				if tp.Topic != nil {
+					topic = *tp.Topic
+				}
+				revocations = append(revocations, PartitionAssignment{
+					Topic:     topic,
+					Partition: tp.Partition,
+				})
+			}
+			if c.onRevoke != nil {
+				c.onRevoke(revocations)
+			}
+			c.consumer.Unassign()
+			c.assignedPartitions = nil
+		case *kafka.Message:
+			msg := &Message{
+				Topic:     *e.TopicPartition.Topic,
+				Key:       string(e.Key),
+				Value:     e.Value,
+				Headers:   make(map[string]string),
+				Partition: e.TopicPartition.Partition,
+				Offset:    int64(e.TopicPartition.Offset),
+				Timestamp: e.Timestamp,
+			}
+			for _, header := range e.Headers {
+				msg.Headers[header.Key] = string(header.Value)
+			}
+			if c.onMessage != nil {
+				c.onMessage(msg)
+			}
+		case kafka.Error:
+			if c.onError != nil {
+				c.onError(e)
+			}
+		}
 	}
 }
 
 // Subscribe subscribes to topics
 func (c *KafkaConsumer) Subscribe(topics []string) error {
 	return c.consumer.SubscribeTopics(topics, nil)
-}
-
-// Poll polls for messages
-func (c *KafkaConsumer) Poll(timeout time.Duration) (*Message, error) {
-	var lastErr error
-	maxRetries := 5
-	for attempt := 0; attempt < maxRetries; attempt++ {
-		kafkaMessage, err := c.consumer.ReadMessage(timeout)
-		if err != nil {
-			if kafkaErr, ok := err.(kafka.Error); ok && kafkaErr.Code() == kafka.ErrTimedOut {
-				return nil, nil // Timeout is not an error
-			}
-			if isTransientKafkaConsumerError(err) {
-				lastErr = err
-				time.Sleep(time.Duration(500*(attempt+1)) * time.Millisecond)
-				continue
-			}
-			return nil, err
-		}
-		message := &Message{
-			Topic:     *kafkaMessage.TopicPartition.Topic,
-			Key:       string(kafkaMessage.Key),
-			Value:     kafkaMessage.Value,
-			Headers:   make(map[string]string),
-			Partition: kafkaMessage.TopicPartition.Partition,
-			Offset:    int64(kafkaMessage.TopicPartition.Offset),
-			Timestamp: kafkaMessage.Timestamp,
-		}
-		for _, header := range kafkaMessage.Headers {
-			message.Headers[header.Key] = string(header.Value)
-		}
-		return message, nil
-	}
-	return nil, fmt.Errorf("Kafka Poll failed after retries: %w", lastErr)
 }
 
 // Commit manually commits the offset

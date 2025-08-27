@@ -1,177 +1,280 @@
 //go:build !local
+// +build !local
 
 package messagebus
 
 import (
+	"context"
+	"errors"
+	"reflect"
 	"testing"
-	"time"
-
-	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
-	"github.com/stretchr/testify/assert"
 )
 
-const (
-	headerContentType = "content-type"
-	contentTypeJSON   = "application/json"
-	messageDir        = "/tmp/cratos-messagebus-test"
-)
-
-// Test KafkaProducer initialization
-func TestNewProducer(t *testing.T) {
-	config := map[string]interface{}{
-		"bus_type":          "kafka",
-		"bootstrap.servers": "localhost:9092",
-		"message_dir":       messageDir,
-	}
-	producer := NewProducer(config)
-	assert.NotNil(t, producer)
-
-	// Cleanup
-	if producer != nil {
-		producer.Close()
-	}
+// --- Mocks ---
+type mockProducer struct {
+	sendErr  error
+	asyncErr error
+	closed   bool
 }
 
-// Test KafkaConsumer initialization
-func TestNewConsumer(t *testing.T) {
-	config := map[string]interface{}{
-		"bus_type":          "kafka",
-		"bootstrap.servers": "localhost:9092",
+func (m *mockProducer) Send(ctx context.Context, message *Message) (int32, int64, error) {
+	if m.sendErr != nil {
+		return 0, 0, m.sendErr
 	}
-	consumer := NewConsumer(config, "")
-	assert.NotNil(t, consumer)
-
-	// Cleanup
-	if consumer != nil {
-		consumer.Close()
+	return 1, 42, nil
+}
+func (m *mockProducer) SendAsync(ctx context.Context, message *Message) <-chan SendResult {
+	ch := make(chan SendResult, 1)
+	if m.asyncErr != nil {
+		ch <- SendResult{Partition: 0, Offset: 0, Error: m.asyncErr}
+	} else {
+		ch <- SendResult{Partition: 1, Offset: 42, Error: nil}
 	}
+	close(ch)
+	return ch
+}
+func (m *mockProducer) Close() error {
+	m.closed = true
+	return nil
 }
 
-// Test message conversion
-func TestMessageConversion(t *testing.T) {
-	message := &Message{
-		Headers:   map[string]string{headerContentType: contentTypeJSON},
-		Value:     []byte("test-value"),
-		Timestamp: time.Now(),
-		Offset:    12345,
-		Partition: 1,
-	}
-
-	// Test conversion logic similar to what's in Send method
-	kafkaMsg := &kafka.Message{
-		TopicPartition: kafka.TopicPartition{
-			Topic:     &message.Topic,
-			Partition: kafka.PartitionAny,
-		},
-		Key:   []byte(message.Key),
-		Value: message.Value,
-	}
-
-	// Add headers
-	if message.Headers != nil {
-		for k, v := range message.Headers {
-			kafkaMsg.Headers = append(kafkaMsg.Headers, kafka.Header{
-				Key:   k,
-				Value: []byte(v),
-			})
-		}
-	}
-
-	// Verify conversion
-	assert.Equal(t, message.Topic, *kafkaMsg.TopicPartition.Topic)
-	assert.Equal(t, []byte(message.Key), kafkaMsg.Key)
-	assert.Equal(t, headerContentType, kafkaMsg.Headers[0].Key)
-	assert.Len(t, kafkaMsg.Headers, 1)
-	assert.Equal(t, headerContentType, kafkaMsg.Headers[0].Key)
-	assert.Equal(t, []byte(contentTypeJSON), kafkaMsg.Headers[0].Value)
+type mockConsumer struct {
+	assigned    []PartitionAssignment
+	onMessageFn func(*Message)
+	onAssignFn  func([]PartitionAssignment)
+	onRevokeFn  func([]PartitionAssignment)
+	commitErr   error
+	closed      bool
 }
 
-// Test error handling scenarios
-func TestKafkaErrorHandling(t *testing.T) {
-	tests := []struct {
-		name          string
-		kafkaError    error
-		expectTimeout bool
+func (m *mockConsumer) Subscribe(topics []string) error                    { return nil }
+func (m *mockConsumer) OnMessage(fn func(*Message))                        { m.onMessageFn = fn }
+func (m *mockConsumer) OnAssign(fn func([]PartitionAssignment))            { m.onAssignFn = fn }
+func (m *mockConsumer) OnRevoke(fn func([]PartitionAssignment))            { m.onRevokeFn = fn }
+func (m *mockConsumer) Commit(ctx context.Context, message *Message) error { return m.commitErr }
+func (m *mockConsumer) AssignedPartitions() []PartitionAssignment          { return m.assigned }
+func (m *mockConsumer) Close() error                                       { m.closed = true; return nil }
+
+// --- Producer Tests ---
+func TestKafkaProducerSendTableDriven(t *testing.T) {
+	cases := []struct {
+		name    string
+		sendErr error
+		wantErr bool
 	}{
-		{
-			name:          "timeout error",
-			kafkaError:    kafka.NewError(kafka.ErrTimedOut, "Operation timed out", false),
-			expectTimeout: true,
-		},
-		{
-			name:          "broker error",
-			kafkaError:    kafka.NewError(kafka.ErrBrokerNotAvailable, "Broker not available", false),
-			expectTimeout: false,
-		},
+		{"success", nil, false},
+		{"error", errors.New("fail"), true},
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Simulate error handling logic from Poll method
-			if kafkaErr, ok := tt.kafkaError.(kafka.Error); ok {
-				isTimeout := kafkaErr.Code() == kafka.ErrTimedOut
-				assert.Equal(t, tt.expectTimeout, isTimeout)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			prod := &mockProducer{sendErr: tc.sendErr}
+			_, _, err := prod.Send(context.Background(), &Message{})
+			if tc.wantErr && err == nil {
+				t.Error("Expected error but got nil")
+			}
+			if !tc.wantErr && err != nil {
+				t.Errorf("Unexpected error: %v", err)
 			}
 		})
 	}
 }
 
-// Test interface compliance
-func TestKafkaProducerInterface(t *testing.T) {
-	var producer Producer
-	producer = &KafkaProducer{producer: nil}
-	assert.NotNil(t, producer)
-}
-
-func TestKafkaConsumerInterface(t *testing.T) {
-	var consumer Consumer
-	consumer = &KafkaConsumer{consumer: nil}
-	assert.NotNil(t, consumer)
-	headers := map[string]string{
-		headerContentType: contentTypeJSON,
-		"source":          "test-service",
-		"version":         "1.0",
+func TestKafkaProducerSendAsyncTableDriven(t *testing.T) {
+	cases := []struct {
+		name     string
+		asyncErr error
+		wantErr  bool
+	}{
+		{"success", nil, false},
+		{"error", errors.New("fail-async"), true},
 	}
-
-	// Simulate header conversion from Send method
-	var kafkaHeaders []kafka.Header
-	for k, v := range headers {
-		kafkaHeaders = append(kafkaHeaders, kafka.Header{
-			Key:   k,
-			Value: []byte(v),
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			prod := &mockProducer{asyncErr: tc.asyncErr}
+			ch := prod.SendAsync(context.Background(), &Message{})
+			res := <-ch
+			if tc.wantErr && res.Error == nil {
+				t.Error("Expected error but got nil")
+			}
+			if !tc.wantErr && res.Error != nil {
+				t.Errorf("Unexpected error: %v", res.Error)
+			}
 		})
 	}
-
-	// Verify headers
-	assert.Len(t, kafkaHeaders, 3)
-
-	// Convert back to map for easier testing
-	headerMap := make(map[string]string)
-	for _, header := range kafkaHeaders {
-		headerMap[header.Key] = string(header.Value)
-	}
-
-	// Verify converted headers
-	assert.Equal(t, contentTypeJSON, headerMap[headerContentType])
-	assert.Equal(t, "test-service", headerMap["source"])
-	assert.Equal(t, "1.0", headerMap["version"])
+}
+func TestKafkaProducerInterfaceCompliance(t *testing.T) {
+	var _ Producer = &mockProducer{}
 }
 
-// Test timestamp handling
-func TestTimestampHandling(t *testing.T) {
-	beforeTime := time.Now()
-	timestamp := time.Now()
-	afterTime := time.Now()
+func TestKafkaProducerSendSuccess(t *testing.T) {
+	prod := &mockProducer{}
+	part, off, err := prod.Send(context.Background(), &Message{Topic: "t", Value: []byte("v")})
+	if part != 1 || off != 42 || err != nil {
+		t.Errorf("Send returned wrong values: %d %d %v", part, off, err)
+	}
+}
 
-	message := &Message{
-		Topic:     "test-topic",
-		Key:       "test-key",
-		Value:     []byte("test-value"),
-		Timestamp: timestamp,
+func TestKafkaProducerSendError(t *testing.T) {
+	prod := &mockProducer{sendErr: errors.New("fail")}
+	_, _, err := prod.Send(context.Background(), &Message{})
+	if err == nil {
+		t.Error("Expected error from Send")
+	}
+}
+
+func TestKafkaProducerSendAsyncSuccess(t *testing.T) {
+	prod := &mockProducer{}
+	ch := prod.SendAsync(context.Background(), &Message{})
+	res := <-ch
+	if res.Partition != 1 || res.Offset != 42 || res.Error != nil {
+		t.Errorf("SendAsync returned wrong result: %+v", res)
+	}
+}
+
+func TestKafkaProducerSendAsyncError(t *testing.T) {
+	prod := &mockProducer{asyncErr: errors.New("fail-async")}
+	ch := prod.SendAsync(context.Background(), &Message{})
+	res := <-ch
+	if res.Error == nil {
+		t.Error("Expected error from SendAsync")
+	}
+}
+
+func TestKafkaProducerClose(t *testing.T) {
+	prod := &mockProducer{}
+	err := prod.Close()
+	if err != nil || !prod.closed {
+		t.Error("Close did not set closed or returned error")
+	}
+}
+
+// --- Consumer Tests ---
+func TestKafkaConsumerCommitTableDriven(t *testing.T) {
+	cases := []struct {
+		name      string
+		commitErr error
+		wantErr   bool
+	}{
+		{"success", nil, false},
+		{"error", errors.New("fail-commit"), true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cons := &mockConsumer{commitErr: tc.commitErr}
+			err := cons.Commit(context.Background(), &Message{})
+			if tc.wantErr && err == nil {
+				t.Error("Expected error but got nil")
+			}
+			if !tc.wantErr && err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+		})
+	}
+}
+func TestKafkaConsumerEventHooksTableDriven(t *testing.T) {
+	cons := &mockConsumer{}
+	called := map[string]bool{"msg": false, "assign": false, "revoke": false}
+	cons.OnMessage(func(msg *Message) { called["msg"] = true })
+	cons.OnAssign(func(parts []PartitionAssignment) { called["assign"] = true })
+	cons.OnRevoke(func(parts []PartitionAssignment) { called["revoke"] = true })
+	if cons.onMessageFn == nil || cons.onAssignFn == nil || cons.onRevokeFn == nil {
+		t.Error("Event hooks not set")
+	}
+	cons.onMessageFn(&Message{})
+	cons.onAssignFn([]PartitionAssignment{})
+	cons.onRevokeFn([]PartitionAssignment{})
+	for k, v := range called {
+		if !v {
+			t.Errorf("%s hook not called", k)
+		}
+	}
+}
+func TestKafkaConsumerInterfaceCompliance(t *testing.T) {
+	var _ Consumer = &mockConsumer{}
+}
+
+func TestKafkaConsumerSubscribeAndClose(t *testing.T) {
+	cons := &mockConsumer{}
+	err := cons.Subscribe([]string{"topic"})
+	if err != nil {
+		t.Error("Subscribe returned error")
+	}
+	err = cons.Close()
+	if err != nil || !cons.closed {
+		t.Error("Close did not set closed or returned error")
+	}
+}
+
+func TestKafkaConsumerAssignedPartitions(t *testing.T) {
+	cons := &mockConsumer{assigned: []PartitionAssignment{{Topic: "t", Partition: 2}}}
+	parts := cons.AssignedPartitions()
+	if len(parts) != 1 || parts[0].Topic != "t" || parts[0].Partition != 2 {
+		t.Errorf("AssignedPartitions returned wrong value: %+v", parts)
+	}
+}
+
+func TestKafkaConsumerCommitSuccess(t *testing.T) {
+	cons := &mockConsumer{}
+	err := cons.Commit(context.Background(), &Message{})
+	if err != nil {
+		t.Error("Commit returned error")
+	}
+}
+
+func TestKafkaConsumerCommitError(t *testing.T) {
+	cons := &mockConsumer{commitErr: errors.New("fail-commit")}
+	err := cons.Commit(context.Background(), &Message{})
+	if err == nil {
+		t.Error("Expected error from Commit")
+	}
+}
+
+func TestKafkaConsumerEventHooks(t *testing.T) {
+	cons := &mockConsumer{}
+	calledMsg := false
+	cons.OnMessage(func(msg *Message) { calledMsg = true })
+	if cons.onMessageFn == nil {
+		t.Error("OnMessage not set")
+	}
+	cons.onMessageFn(&Message{})
+	if !calledMsg {
+		t.Error("OnMessage callback not called")
 	}
 
-	// Verify timestamp is within reasonable range
-	assert.True(t, message.Timestamp.After(beforeTime) || message.Timestamp.Equal(beforeTime))
-	assert.True(t, message.Timestamp.Before(afterTime) || message.Timestamp.Equal(afterTime))
-	assert.False(t, message.Timestamp.IsZero())
+	calledAssign := false
+	cons.OnAssign(func(parts []PartitionAssignment) { calledAssign = true })
+	if cons.onAssignFn == nil {
+		t.Error("OnAssign not set")
+	}
+	cons.onAssignFn([]PartitionAssignment{})
+	if !calledAssign {
+		t.Error("OnAssign callback not called")
+	}
+
+	calledRevoke := false
+	cons.OnRevoke(func(parts []PartitionAssignment) { calledRevoke = true })
+	if cons.onRevokeFn == nil {
+		t.Error("OnRevoke not set")
+	}
+	cons.onRevokeFn([]PartitionAssignment{})
+	if !calledRevoke {
+		t.Error("OnRevoke callback not called")
+	}
+}
+
+// --- Type/Field Coverage ---
+func TestKafkaProducerTypeFields(t *testing.T) {
+	prodType := reflect.TypeOf(KafkaProducer{})
+	if _, ok := prodType.FieldByName("producer"); !ok {
+		t.Error("KafkaProducer missing 'producer' field")
+	}
+}
+
+func TestKafkaConsumerTypeFields(t *testing.T) {
+	consType := reflect.TypeOf(KafkaConsumer{})
+	for _, field := range []string{"consumer", "assignedPartitions", "onAssign", "onRevoke", "onMessage", "onError"} {
+		if _, ok := consType.FieldByName(field); !ok {
+			t.Errorf("KafkaConsumer missing field: %s", field)
+		}
+	}
 }

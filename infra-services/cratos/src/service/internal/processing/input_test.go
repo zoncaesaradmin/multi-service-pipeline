@@ -9,12 +9,31 @@ import (
 
 type mockConsumer struct {
 	subscribedTopics []string
-	pollMessage      *messagebus.Message
-	pollError        error
 	commitError      error
 	closeError       error
 	closed           bool
 	subscribeError   error
+	onMessageFn      func(*messagebus.Message)
+	lastMessage      *messagebus.Message
+}
+
+// Implement OnAssign for mockConsumer
+func (m *mockConsumer) OnAssign(fn func([]messagebus.PartitionAssignment)) {}
+
+// Implement OnRevoke for mockConsumer
+func (m *mockConsumer) OnRevoke(fn func([]messagebus.PartitionAssignment)) {}
+
+// Implement OnMessage for mockConsumer
+func (m *mockConsumer) OnMessage(fn func(*messagebus.Message)) {
+	m.onMessageFn = fn
+	if m.lastMessage != nil {
+		go fn(m.lastMessage)
+	}
+}
+
+// Implement AssignedPartitions for mockConsumer to satisfy messagebus.Consumer interface
+func (m *mockConsumer) AssignedPartitions() []messagebus.PartitionAssignment {
+	return nil
 }
 
 func (m *mockConsumer) Subscribe(topics []string) error {
@@ -24,15 +43,11 @@ func (m *mockConsumer) Subscribe(topics []string) error {
 	m.subscribedTopics = topics
 	return nil
 }
-func (m *mockConsumer) Poll(timeout time.Duration) (*messagebus.Message, error) {
-	if m.pollError != nil {
-		return nil, m.pollError
-	}
-	return m.pollMessage, nil
-}
+
 func (m *mockConsumer) Commit(ctx context.Context, message *messagebus.Message) error {
 	return m.commitError
 }
+
 func (m *mockConsumer) Close() error {
 	m.closed = true
 	return m.closeError
@@ -175,7 +190,7 @@ func TestConsumeLoopForwardsMessageAndCommits(t *testing.T) {
 	logger := &mockLogger{}
 	handler := NewInputHandler(config, logger)
 	msg := &messagebus.Message{Value: []byte("payload")}
-	mockCons := &mockConsumer{pollMessage: msg}
+	mockCons := &mockConsumer{lastMessage: msg}
 	handler.consumer = mockCons
 	handler.Start()
 	defer handler.Stop()
@@ -187,23 +202,6 @@ func TestConsumeLoopForwardsMessageAndCommits(t *testing.T) {
 	case <-time.After(100 * time.Millisecond):
 		t.Error("Did not receive message in input channel")
 	}
-}
-
-func TestConsumeLoopHandlesPollError(t *testing.T) {
-	config := InputConfig{
-		Topics:            []string{topicB},
-		PollTimeout:       10 * time.Millisecond,
-		ChannelBufferSize: 1,
-		KafkaConfigMap:    map[string]any{kafkaBootstrapServers: kafkaLocalhost9092},
-	}
-	logger := &mockLogger{}
-	handler := NewInputHandler(config, logger)
-	mockCons := &mockConsumer{pollError: context.DeadlineExceeded}
-	handler.consumer = mockCons
-	handler.Start()
-	defer handler.Stop()
-	// Should not panic or block
-	time.Sleep(20 * time.Millisecond)
 }
 
 func TestGetStatsReturnsCorrectValues(t *testing.T) {

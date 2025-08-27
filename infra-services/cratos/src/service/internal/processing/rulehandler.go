@@ -56,14 +56,26 @@ func (rh *RuleEngineHandler) Start() error {
 	// Create context for cancellation
 	rh.ctx, rh.cancel = context.WithCancel(context.Background())
 
+	// Register OnMessage callback
+	rh.consumer.OnMessage(func(message *messagebus.Message) {
+		if message != nil {
+			rh.logger.Debugw("RULE HANDLER - Received message", "size", len(message.Value))
+			err := rh.reInst.HandleRuleEvent(message.Value)
+			if err != nil {
+				rh.logger.Errorw("RULE HANDLER - Failed to handle rule event", "error", err)
+			}
+			// Commit the message
+			if err := rh.consumer.Commit(context.Background(), message); err != nil {
+				rh.logger.Errorw("RULE HANDLER - Failed to commit message", "error", err)
+			}
+		}
+	})
+
 	// Subscribe to topics
 	if err := rh.consumer.Subscribe([]string{rh.config.RulesTopic}); err != nil {
 		rh.logger.Errorw("Failed to subscribe to rules topic", "error", err)
 		return fmt.Errorf("failed to subscribe to rules topic: %w", err)
 	}
-
-	// Start consuming in a goroutine
-	go rh.consumeLoop()
 
 	return nil
 }
@@ -85,43 +97,7 @@ func (rh *RuleEngineHandler) Stop() error {
 	return nil
 }
 
-// consumeLoop continuously polls for rule messages
-func (rh *RuleEngineHandler) consumeLoop() {
-	defer func() {
-		if r := recover(); r != nil {
-			rh.logger.Errorw("RULE HANDLER - panic recovered", "panic", r)
-		}
-	}()
-
-	for {
-		select {
-		case <-rh.ctx.Done():
-			rh.logger.Info("RULE HANDLER - consume loop stopped")
-			return
-		default:
-			// Poll for messages
-			message, err := rh.consumer.Poll(rh.config.PollTimeout)
-			if err != nil {
-				rh.logger.Warnw("RULE HANDLER - Error polling for messages", "error", err)
-				continue
-			}
-
-			if message != nil {
-				rh.logger.Debugw("RULE HANDLER - Received message", "size", len(message.Value))
-
-				err := rh.reInst.HandleRuleEvent(message.Value)
-				if err != nil {
-					rh.logger.Errorw("RULE HANDLER - Failed to handle rule event", "error", err)
-				}
-
-				// Commit the message
-				if err := rh.consumer.Commit(context.Background(), message); err != nil {
-					rh.logger.Errorw("RULE HANDLER - Failed to commit message", "error", err)
-				}
-			}
-		}
-	}
-}
+// ...removed: consumeLoop, now handled by OnMessage callback...
 
 func (rh *RuleEngineHandler) GetStats() map[string]interface{} {
 	return map[string]interface{}{

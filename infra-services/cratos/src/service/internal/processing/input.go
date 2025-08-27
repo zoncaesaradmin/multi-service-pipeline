@@ -52,14 +52,28 @@ func (i *InputHandler) Start() error {
 	// Create context for cancellation
 	i.ctx, i.cancel = context.WithCancel(context.Background())
 
+	// Register OnMessage callback
+	i.consumer.OnMessage(func(message *messagebus.Message) {
+		if message != nil {
+			i.logger.Debugw("Received kafka data message", "size", len(message.Value))
+			channelMsg := models.NewDataMessage(message.Value, message.Key)
+			for k, v := range message.Headers {
+				channelMsg.Meta[k] = v
+			}
+			i.inputCh <- channelMsg
+			i.logger.Debugw("Input message received", "key", message.Key, "headers", message.Headers)
+			// Commit the message
+			if err := i.consumer.Commit(context.Background(), message); err != nil {
+				i.logger.Warnw("Failed to commit message", "error", err)
+			}
+		}
+	})
+
 	// Subscribe to topics
 	if err := i.consumer.Subscribe(i.config.Topics); err != nil {
 		i.logger.Errorf("failed to subscribe to topics: %w", err)
 		return fmt.Errorf("failed to subscribe to topics: %w", err)
 	}
-
-	// Start consuming in a goroutine
-	go i.consumeLoop()
 
 	return nil
 }
@@ -82,47 +96,7 @@ func (i *InputHandler) Stop() error {
 	return nil
 }
 
-// consumeLoop continuously polls for messages and forwards to input channel
-func (i *InputHandler) consumeLoop() {
-	defer func() {
-		if r := recover(); r != nil {
-			i.logger.Errorw("Input handler panic recovered", "panic", r)
-		}
-	}()
-
-	for {
-		select {
-		case <-i.ctx.Done():
-			i.logger.Info("Input handler consume loop stopped")
-			return
-		default:
-			// Poll for messages
-			message, err := i.consumer.Poll(i.config.PollTimeout)
-			if err != nil {
-				i.logger.Warnw("Error polling for messages", "error", err)
-				continue
-			}
-
-			if message != nil {
-				i.logger.Debugw("Received kafka data message", "size", len(message.Value))
-
-				// Create a ChannelMessage from the Kafka message
-				channelMsg := models.NewDataMessage(message.Value, message.Key)
-				for k, v := range message.Headers {
-					channelMsg.Meta[k] = v
-				}
-
-				i.inputCh <- channelMsg
-				i.logger.Debugw("Input message received", "key", message.Key, "headers", message.Headers)
-
-				// Commit the message
-				if err := i.consumer.Commit(context.Background(), message); err != nil {
-					i.logger.Warnw("Failed to commit message", "error", err)
-				}
-			}
-		}
-	}
-}
+// ...removed: consumeLoop, now handled by OnMessage callback...
 
 // GetStats returns statistics about the input handler
 func (i *InputHandler) GetStats() map[string]interface{} {

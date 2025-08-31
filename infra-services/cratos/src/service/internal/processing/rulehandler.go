@@ -60,9 +60,11 @@ func (rh *RuleEngineHandler) Start() error {
 	rh.consumer.OnMessage(func(message *messagebus.Message) {
 		if message != nil {
 			rh.logger.Debugw("RULE HANDLER - Received message", "size", len(message.Value))
-			err := rh.reInst.HandleRuleEvent(message.Value)
+			res, err := rh.reInst.HandleRuleEvent(message.Value)
 			if err != nil {
 				rh.logger.Errorw("RULE HANDLER - Failed to handle rule event", "error", err)
+			} else if res != nil && len(res.RuleJSON) > 0 {
+				rh.logger.Debugw("RULE HANDLER - Converted rule JSON", "action", res.Action, "size", len(res.RuleJSON))
 			}
 			// Commit the message
 			if err := rh.consumer.Commit(context.Background(), message); err != nil {

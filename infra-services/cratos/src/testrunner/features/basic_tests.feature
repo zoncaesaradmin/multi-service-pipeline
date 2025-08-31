@@ -14,7 +14,7 @@ Feature: Basic test for data reception without hitting any rule
     And ensure_test_data_kafka_consumer_on_topic "cisco_nir-prealerts"
 
   # test if basic input and output of service are working fine
-  Scenario: IT_SCENARIO_BASE_001
+  Scenario: IT_001_Basic_data_reception_without_rules
     And send_input_config_to_topic "sampleconfig.json" "cisco_nir-alertRules"
     And send_input_data_to_topic "samplefulldata1.json", "cisco_nir-anomalies"
     And wait_till_data_received_on_topic_with_timeout_sec "cisco_nir-prealerts", 20

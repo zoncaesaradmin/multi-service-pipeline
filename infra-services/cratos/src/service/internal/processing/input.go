@@ -45,6 +45,12 @@ func (i *InputHandler) GetInputChannel() <-chan *models.ChannelMessage {
 	return i.inputCh
 }
 
+// GetInputSink returns a send-only handle to the input channel so other components
+// can inject messages into the processing pipeline
+func (i *InputHandler) GetInputSink() chan<- *models.ChannelMessage {
+	return i.inputCh
+}
+
 // Start starts the input handler
 func (i *InputHandler) Start() error {
 	i.logger.Infow("Starting input handler", "topics", i.config.Topics)

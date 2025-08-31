@@ -2,6 +2,7 @@ package ruleenginelib
 
 import (
 	"encoding/json"
+	"fmt"
 )
 
 // Constants for rule engine match keys
@@ -38,6 +39,17 @@ type ActionSeverity struct {
 	SeverityValue string `json:"severityValue,omitempty"`
 }
 
+// RuleMsgResult encapsulates the outcome of processing a rule message.
+// Action always reflects the incoming message action (even on errors after
+// successful unmarshal). RuleJSON will contain the normalized rule bytes
+// ready for the rule engine when applicable (create / update with non-empty
+// payload). It is nil for delete operations (rule UUID is still carried in
+// the payload) or when the action is invalid / irrelevant
+type RuleMsgResult struct {
+	Action   string
+	RuleJSON []byte
+}
+
 type RuleMessage struct {
 	Metadata AlertRuleConfigMetadata `json:"metadata"`
 	Rules    []any                   `json:"payload"`
@@ -69,46 +81,49 @@ func IsValidRuleMsg(msgType string) bool {
 	}
 }
 
-func (re *RuleEngine) HandleRuleEvent(msgBytes []byte) error {
+func (re *RuleEngine) HandleRuleEvent(msgBytes []byte) (*RuleMsgResult, error) {
 	var rInput RuleMessage
-	err := json.Unmarshal(msgBytes, &rInput)
 	re.Logger.Infof("RELIB - received rule msg: %v", string(msgBytes))
-	if err != nil {
+	if err := json.Unmarshal(msgBytes, &rInput); err != nil {
 		re.Logger.Infof("Failed to unmarshal rule message: %v", err.Error())
 		// log and ignore invalid messages
-		return nil
+		return nil, err
 	}
 
 	re.Logger.Debugf("RELIB - received msg unmarshalled: %+v", rInput)
 
 	msgType := rInput.Metadata.Action
-	if IsValidRuleMsg(msgType) {
-		re.Logger.Infof("RELIB - processing valid rule for operation: %s", msgType)
-		jsonBytes, err := json.Marshal(rInput.Rules)
-		if err != nil {
-			re.Logger.Infof("RELIB - failed to marshal rule payload: %v", err.Error())
-			return nil
-		}
+	result := &RuleMsgResult{Action: msgType}
 
-		re.Logger.Infof("RELIB - processed rule payload: %s", string(jsonBytes))
-
-		ruleJsonBytes, err := ConvertToRuleEngineFormat(jsonBytes)
-		if err != nil {
-			re.Logger.Infof("RELIB - failed to convert rule format: %v", err.Error())
-			return nil
-		}
-		if len(ruleJsonBytes) == 0 {
-			re.Logger.Info("RELIB - invalid empty rule to process, ignored")
-			return nil
-		}
-
-		re.Logger.Infof("RELIB - rule to be processed %s", string(ruleJsonBytes))
-		re.handleRuleMsgEvents(ruleJsonBytes, msgType)
-	} else {
+	if !IsValidRuleMsg(msgType) {
 		re.Logger.Debug("RELIB - ignore invalid/non-relevant rule")
+		return result, nil
 	}
 
-	return nil
+	re.Logger.Infof("RELIB - processing valid rule for operation: %s", msgType)
+	jsonBytes, err := json.Marshal(rInput.Rules)
+	if err != nil {
+		re.Logger.Infof("RELIB - failed to marshal rule payload: %v", err.Error())
+		return result, nil
+	}
+
+	re.Logger.Infof("RELIB - processed rule payload: %s", string(jsonBytes))
+
+	ruleJsonBytes, err := ConvertToRuleEngineFormat(jsonBytes)
+	if err != nil {
+		re.Logger.Infof("RELIB - failed to convert rule format: %v", err.Error())
+		return result, err
+	}
+	if len(ruleJsonBytes) == 0 {
+		re.Logger.Info("RELIB - invalid empty rule to process, ignored")
+		return result, fmt.Errorf("empty rule after conversion")
+	}
+
+	re.Logger.Infof("RELIB - rule to be processed %s", string(ruleJsonBytes))
+	re.handleRuleMsgEvents(ruleJsonBytes, msgType)
+
+	result.RuleJSON = ruleJsonBytes
+	return result, nil
 }
 
 func (re *RuleEngine) handleRuleMsgEvents(rmsg []byte, msgType string) {
@@ -139,6 +154,6 @@ func (re *RuleEngine) initAlertRules() {
 }
 
 type RuleEngineType interface {
-	HandleRuleEvent([]byte) error
+	HandleRuleEvent([]byte) (*RuleMsgResult, error)
 	EvaluateRules(Data) (bool, string, *RuleEntry)
 }

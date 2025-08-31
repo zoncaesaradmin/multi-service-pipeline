@@ -1,3 +1,6 @@
+//go:build !local
+// +build !local
+
 package datastore
 
 import (

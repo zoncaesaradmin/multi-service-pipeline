@@ -7,21 +7,31 @@ import (
 	context "context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"sync"
 )
 
-// LocalDatastoreClient is an in-memory implementation of OpenSearchClient for local/testing use
-// Data is stored in a map: index -> id -> document
-// No persistence, no concurrency safety
-
+// LocalDatastoreClient is a file-based implementation of OpenSearchClient for local/testing use
+// Data is stored in a file: index -> id -> document
+// Persistence and concurrency safety provided
 type LocalDatastoreClient struct {
-	data map[string]map[string]json.RawMessage
+	filePath string
+	mu       sync.RWMutex
+	data     map[string]map[string]json.RawMessage
 }
 
-func NewLocalDatastoreClient() OpenSearchClient {
-	return &LocalDatastoreClient{data: make(map[string]map[string]json.RawMessage)}
+func NewLocalDatastoreClient(filePath string) *LocalDatastoreClient {
+	c := &LocalDatastoreClient{
+		filePath: filePath,
+		data:     make(map[string]map[string]json.RawMessage),
+	}
+	_ = c.load()
+	return c
 }
 
 func (c *LocalDatastoreClient) Index(ctx context.Context, index, id string, body interface{}) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if c.data[index] == nil {
 		c.data[index] = make(map[string]json.RawMessage)
 	}
@@ -30,10 +40,12 @@ func (c *LocalDatastoreClient) Index(ctx context.Context, index, id string, body
 		return err
 	}
 	c.data[index][id] = b
-	return nil
+	return c.save()
 }
 
 func (c *LocalDatastoreClient) BulkIndex(ctx context.Context, index string, docs []BulkDoc) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if c.data[index] == nil {
 		c.data[index] = make(map[string]json.RawMessage)
 	}
@@ -48,10 +60,15 @@ func (c *LocalDatastoreClient) BulkIndex(ctx context.Context, index string, docs
 		}
 		c.data[index][doc.ID] = b
 	}
-	return nil
+	return c.save()
 }
 
 func (c *LocalDatastoreClient) Get(ctx context.Context, index, id string, out interface{}) error {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if err := c.load(); err != nil {
+		return err
+	}
 	if c.data[index] == nil {
 		return fmt.Errorf("index not found")
 	}
@@ -63,6 +80,11 @@ func (c *LocalDatastoreClient) Get(ctx context.Context, index, id string, out in
 }
 
 func (c *LocalDatastoreClient) Search(ctx context.Context, index string, query interface{}, page, pageSize int, out interface{}) (total int, err error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if err := c.load(); err != nil {
+		return 0, err
+	}
 	if c.data[index] == nil {
 		return 0, nil
 	}
@@ -88,14 +110,21 @@ func (c *LocalDatastoreClient) Search(ctx context.Context, index string, query i
 }
 
 func (c *LocalDatastoreClient) Delete(ctx context.Context, index, id string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if c.data[index] == nil {
 		return fmt.Errorf("index not found")
 	}
 	delete(c.data[index], id)
-	return nil
+	return c.save()
 }
 
 func (c *LocalDatastoreClient) ScrollQuery(ctx context.Context, index string, query interface{}, pageSize int, callback func([]json.RawMessage) bool) error {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if err := c.load(); err != nil {
+		return err
+	}
 	if c.data[index] == nil {
 		return nil
 	}
@@ -118,4 +147,25 @@ func (c *LocalDatastoreClient) ScrollQuery(ctx context.Context, index string, qu
 
 func (c *LocalDatastoreClient) Close() error {
 	return nil
+}
+
+func (c *LocalDatastoreClient) save() error {
+	f, err := os.Create(c.filePath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return json.NewEncoder(f).Encode(c.data)
+}
+
+func (c *LocalDatastoreClient) load() error {
+	f, err := os.Open(c.filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	defer f.Close()
+	return json.NewDecoder(f).Decode(&c.data)
 }

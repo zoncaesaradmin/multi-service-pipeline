@@ -231,7 +231,9 @@ func (c *LocalConsumer) AssignedPartitions() []PartitionAssignment {
 
 // runWatcher continuously checks for new messages and triggers OnMessage
 func (c *LocalConsumer) runWatcher(ctx context.Context) {
-	defer close(c.watcherDone)
+	if c.watcherDone != nil {
+		close(c.watcherDone)
+	}
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 	for {
@@ -240,34 +242,39 @@ func (c *LocalConsumer) runWatcher(ctx context.Context) {
 			return
 		case <-ticker.C:
 			c.mutex.Lock()
-			for _, topic := range c.topics {
-				topicDir := filepath.Join(messageBusDir, topic)
-				if _, err := os.Stat(topicDir); os.IsNotExist(err) {
-					continue
-				}
-				if _, exists := c.lastRead[topic]; !exists {
-					c.lastRead[topic] = -1
-				}
-				lastOffset := c.lastRead[topic]
-				nextOffset := lastOffset + 1
-				filename := filepath.Join(topicDir, fmt.Sprintf("%010d.json", nextOffset))
-				if _, err := os.Stat(filename); os.IsNotExist(err) {
-					continue
-				}
-				messageData, err := os.ReadFile(filename)
-				if err != nil {
-					continue
-				}
-				var message Message
-				if err := json.Unmarshal(messageData, &message); err != nil {
-					continue
-				}
-				c.lastRead[topic] = nextOffset
-				if c.onMessage != nil {
-					go c.onMessage(&message)
-				}
-			}
+			c.pollTopicsForMessages()
 			c.mutex.Unlock()
+		}
+	}
+}
+
+// pollTopicsForMessages checks all topics for new messages and triggers OnMessage
+func (c *LocalConsumer) pollTopicsForMessages() {
+	for _, topic := range c.topics {
+		topicDir := filepath.Join(messageBusDir, topic)
+		if _, err := os.Stat(topicDir); os.IsNotExist(err) {
+			continue
+		}
+		if _, exists := c.lastRead[topic]; !exists {
+			c.lastRead[topic] = -1
+		}
+		lastOffset := c.lastRead[topic]
+		nextOffset := lastOffset + 1
+		filename := filepath.Join(topicDir, fmt.Sprintf("%010d.json", nextOffset))
+		if _, err := os.Stat(filename); os.IsNotExist(err) {
+			continue
+		}
+		messageData, err := os.ReadFile(filename)
+		if err != nil {
+			continue
+		}
+		var message Message
+		if err := json.Unmarshal(messageData, &message); err != nil {
+			continue
+		}
+		c.lastRead[topic] = nextOffset
+		if c.onMessage != nil {
+			go c.onMessage(&message)
 		}
 	}
 }

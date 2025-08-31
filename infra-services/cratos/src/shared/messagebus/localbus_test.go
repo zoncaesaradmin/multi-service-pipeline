@@ -104,7 +104,7 @@ func TestCleanupMessageBusAndStats(t *testing.T) {
 }
 
 func TestLocalConsumerInterfaceHooks(t *testing.T) {
-	cons := &LocalConsumer{lastRead: make(map[string]int64)}
+	cons := &LocalConsumer{lastRead: make(map[string]int64), watcherDone: make(chan struct{})}
 	assignCalled := false
 	revokeCalled := false
 	msgCalled := false

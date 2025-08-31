@@ -84,6 +84,7 @@ func IsValidRuleMsg(msgType string) bool {
 func (re *RuleEngine) HandleRuleEvent(msgBytes []byte) (*RuleMsgResult, error) {
 	var rInput RuleMessage
 	re.Logger.Infof("RELIB - received rule msg: %v", string(msgBytes))
+
 	if err := json.Unmarshal(msgBytes, &rInput); err != nil {
 		re.Logger.Infof("Failed to unmarshal rule message: %v", err.Error())
 		// log and ignore invalid messages
@@ -101,10 +102,11 @@ func (re *RuleEngine) HandleRuleEvent(msgBytes []byte) (*RuleMsgResult, error) {
 	}
 
 	re.Logger.Infof("RELIB - processing valid rule for operation: %s", msgType)
+
 	jsonBytes, err := json.Marshal(rInput.Rules)
 	if err != nil {
 		re.Logger.Infof("RELIB - failed to marshal rule payload: %v", err.Error())
-		return result, nil
+		return result, err
 	}
 
 	re.Logger.Infof("RELIB - processed rule payload: %s", string(jsonBytes))

@@ -4,168 +4,128 @@
 package datastore
 
 import (
-	context "context"
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
+	"sharedgomodule/logging"
+	"strings"
 	"sync"
+	"time"
 )
 
-// LocalDatastoreClient is a file-based implementation of OpenSearchClient for local/testing use
-// Data is stored in a file: index -> id -> document
-// Persistence and concurrency safety provided
-type LocalDatastoreClient struct {
-	filePath string
-	mu       sync.RWMutex
-	data     map[string]map[string]json.RawMessage
+// LocalClient implements DatabaseClient for local file-based storage
+type LocalClient struct {
+	logger  logging.Logger
+	dataDir string
+	mutex   sync.RWMutex
 }
 
-func NewLocalDatastoreClient(filePath string) *LocalDatastoreClient {
-	c := &LocalDatastoreClient{
-		filePath: filePath,
-		data:     make(map[string]map[string]json.RawMessage),
+// NewLocalClient creates a new local file-based datastore client
+func NewLocalClient(logger logging.Logger) DatabaseClient {
+	dataDir := "/tmp/cratos-datastore-local"
+	if customDir := os.Getenv("LOCAL_DATASTORE_DIR"); customDir != "" {
+		dataDir = customDir
 	}
-	_ = c.load()
-	return c
+	if err := os.MkdirAll(dataDir, 0755); err != nil {
+		logger.Errorw("Failed to create local datastore directory", "error", err, "dir", dataDir)
+	}
+	return &LocalClient{
+		logger:  logger,
+		dataDir: dataDir,
+	}
 }
 
-func (c *LocalDatastoreClient) Index(ctx context.Context, index, id string, body interface{}) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.data[index] == nil {
-		c.data[index] = make(map[string]json.RawMessage)
+func (lc *LocalClient) UpsertIndex(indexName string, mapFilePath string) error {
+	lc.mutex.Lock()
+	defer lc.mutex.Unlock()
+
+	indexDir := filepath.Join(lc.dataDir, indexName)
+	if err := os.MkdirAll(indexDir, 0755); err != nil {
+		return fmt.Errorf("failed to create index directory %s: %w", indexDir, err)
 	}
-	b, err := json.Marshal(body)
+	// Create a metadata file for the index
+	metadataFile := filepath.Join(indexDir, "_metadata.json")
+	metadata := map[string]interface{}{
+		"index_name":   indexName,
+		"mapping_file": mapFilePath,
+		"created_at":   time.Now().UTC().Format(time.RFC3339),
+	}
+
+	metadataBytes, err := json.MarshalIndent(metadata, "", "  ")
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to marshal index  metatdata: %w", err)
 	}
-	c.data[index][id] = b
-	return c.save()
+	if err := os.WriteFile(metadataFile, metadataBytes, 0644); err != nil {
+		return fmt.Errorf("failed to write index metadata: %w", err)
+	}
+
+	lc.logger.Infow("Local index created/updated", "index", indexName, "dir", indexDir)
+	return nil
 }
 
-func (c *LocalDatastoreClient) BulkIndex(ctx context.Context, index string, docs []BulkDoc) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.data[index] == nil {
-		c.data[index] = make(map[string]json.RawMessage)
-	}
-	for _, doc := range docs {
-		if doc.Action == "delete" {
-			delete(c.data[index], doc.ID)
-			continue
-		}
-		b, err := json.Marshal(doc.Body)
-		if err != nil {
-			return err
-		}
-		c.data[index][doc.ID] = b
-	}
-	return c.save()
-}
+func (lc *LocalClient) ExecuteQueryWithScrollCallback(index string, query interface{}, scrollSize int, scrollTimeout string, process func(batch []map[string]interface{}) error) error {
 
-func (c *LocalDatastoreClient) Get(ctx context.Context, index, id string, out interface{}) error {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	if err := c.load(); err != nil {
-		return err
-	}
-	if c.data[index] == nil {
-		return fmt.Errorf("index not found")
-	}
-	b, ok := c.data[index][id]
-	if !ok {
-		return fmt.Errorf("document not found")
-	}
-	return json.Unmarshal(b, out)
-}
+	lc.mutex.RLock()
+	defer lc.mutex.RUnlock()
 
-func (c *LocalDatastoreClient) Search(ctx context.Context, index string, query interface{}, page, pageSize int, out interface{}) (total int, err error) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	if err := c.load(); err != nil {
-		return 0, err
-	}
-	if c.data[index] == nil {
-		return 0, nil
-	}
-	var items []json.RawMessage
-	for _, b := range c.data[index] {
-		items = append(items, b)
-	}
-	total = len(items)
-	start := (page - 1) * pageSize
-	end := start + pageSize
-	if start > total {
-		start = total
-	}
-	if end > total {
-		end = total
-	}
-	paged := items[start:end]
-	pagedBytes, err := json.Marshal(paged)
-	if err != nil {
-		return total, err
-	}
-	return total, json.Unmarshal(pagedBytes, out)
-}
-
-func (c *LocalDatastoreClient) Delete(ctx context.Context, index, id string) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.data[index] == nil {
-		return fmt.Errorf("index not found")
-	}
-	delete(c.data[index], id)
-	return c.save()
-}
-
-func (c *LocalDatastoreClient) ScrollQuery(ctx context.Context, index string, query interface{}, pageSize int, callback func([]json.RawMessage) bool) error {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	if err := c.load(); err != nil {
-		return err
-	}
-	if c.data[index] == nil {
+	indexDir := filepath.Join(lc.dataDir, index)
+	if _, err := os.Stat(indexDir); os.IsNotExist(err) {
+		lc.logger.Warnw("Index directory does not exist", "index", index, "dir", indexDir)
 		return nil
 	}
-	var items []json.RawMessage
-	for _, b := range c.data[index] {
-		items = append(items, b)
+	// Read all JSON files in the index directory
+	files, err := filepath.Glob(filepath.Join(indexDir, "doc_*.json"))
+	if err != nil {
+		return fmt.Errorf("failed to list documents in index %s: %w", index, err)
 	}
-	for i := 0; i < len(items); i += pageSize {
-		end := i + pageSize
-		if end > len(items) {
-			end = len(items)
+
+	var allDocs []map[string]interface{}
+	for _, file := range files {
+		data, err := os.ReadFile(file)
+		if err != nil {
+			lc.logger.Warnw("Failed to read document file", "file", file, "error", err)
+			continue
 		}
-		batch := items[i:end]
-		if !callback(batch) {
-			break
+
+		var doc map[string]interface{}
+		if err := json.Unmarshal(data, &doc); err != nil {
+			lc.logger.Warnw("Failed to parse document JSON", "file", file, "error", err)
+			continue
+		}
+
+		// Add file-based ID if not present
+		if _, exists := doc["_id"]; !exists {
+			fileName := filepath.Base(file)
+			docId := strings.TrimPrefix(fileName, "doc_")
+			docId = strings.TrimSuffix(docId, ".json")
+			doc["_id"] = docId
+		}
+
+		allDocs = append(allDocs, doc)
+	}
+
+	// Process documents in batches
+	for i := 0; i < len(allDocs); i += scrollSize {
+		end := i + scrollSize
+		if end > len(allDocs) {
+			end = len(allDocs)
+		}
+
+		batch := allDocs[i:end]
+		if len(batch) > 0 {
+			if err := process(batch); err != nil {
+				if err == ErrStopScroll {
+					break
+				}
+				return err
+			}
 		}
 	}
 	return nil
 }
 
-func (c *LocalDatastoreClient) Close() error {
-	return nil
-}
-
-func (c *LocalDatastoreClient) save() error {
-	f, err := os.Create(c.filePath)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	return json.NewEncoder(f).Encode(c.data)
-}
-
-func (c *LocalDatastoreClient) load() error {
-	f, err := os.Open(c.filePath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return err
-	}
-	defer f.Close()
-	return json.NewDecoder(f).Decode(&c.data)
+func newDatabaseClient(logger logging.Logger) DatabaseClient {
+	logger.Info("Initializing local file-based datastore client")
+	return NewLocalClient(logger)
 }

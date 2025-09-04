@@ -1,33 +1,55 @@
 package datastore
 
 import (
-	context "context"
-	"encoding/json"
+	"context"
+	"errors"
+	"sharedgomodule/logging"
+	"strings"
 )
 
-// OpenSearchClient defines the interface for interacting with OpenSearch/Elasticsearch
-// This interface is designed for optimal bulk reads, writes, and paginated queries.
-type OpenSearchClient interface {
-	// Index a single document
-	Index(ctx context.Context, index string, id string, body interface{}) error
+// ErrStopScroll is returned by the scroll callback to stop scrolling
+var ErrStopScroll = errors.New("stop scroll")
 
-	// BulkIndex indexes multiple documents efficiently
-	BulkIndex(ctx context.Context, index string, docs []BulkDoc) error
+// DatabaseClient defines the interface for datastore operations
+type DatabaseClient interface {
+	// Index management
+	UpsertIndex(indexName string, mapFilePath string) error
 
-	// Get retrieves a document by ID
-	Get(ctx context.Context, index string, id string, out interface{}) error
+	// Scroll operations
+	ExecuteQueryWithScrollCallback(index string, query interface{}, scrollSize int, scrollTimeout string, process func(batch []map[string]interface{}) error) error
+}
 
-	// Search performs a query and returns results with pagination
-	Search(ctx context.Context, index string, query interface{}, page, pageSize int, out interface{}) (total int, err error)
+var EsIndices string = "activeanomalydb"
 
-	// Delete removes a document by ID
-	Delete(ctx context.Context, index string, id string) error
+// TODO: fix this
+var EsTemplatePath string = "/opt/cratos/conf"
 
-	// ScrollQuery executes a query with scroll and invokes callback for each batch of results
-	ScrollQuery(ctx context.Context, index string, query interface{}, pageSize int, callback func([]json.RawMessage) bool) error
+// Consolidated client instance
+var dbClient DatabaseClient
 
-	// Close releases any resources held by the client
-	Close() error
+// GetDatabaseClient returns the singleton database client
+func GetDatabaseClient() DatabaseClient { return dbClient }
+
+// SetDatabaseClient allows injection from initialization code
+func SetDatabaseClient(c DatabaseClient) { dbClient = c }
+
+func Init(ctx context.Context, logger logging.Logger, indexList string) {
+	// Initialize the consolidated client - using unified implementation
+	dbClient = newDatabaseClient(logger)
+
+	indices := strings.Split(indexList, ",")
+	for _, ind := range indices {
+		if len(ind) == 0 {
+			continue
+		}
+		mappingPath := EsTemplatePath + "/" + ind + ".json"
+		err := dbClient.UpsertIndex(EsIndexPrefix()+ind, mappingPath)
+		if err != nil {
+			logger.Errorw("datastore init - failed to update schema for index", "error", err, "index", ind)
+		} else {
+			logger.Infow("Successfully initialized index", "index", ind)
+		}
+	}
 }
 
 // BulkDoc represents a document for bulk operations

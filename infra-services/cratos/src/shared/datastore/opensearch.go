@@ -4,155 +4,119 @@
 package datastore
 
 import (
-	context "context"
-	"encoding/json"
 	"fmt"
+	"net/http"
+	"os"
+	"sharedgomodule/logging"
+	"sync"
+	"time"
 
-	"github.com/bytedance/sonic"
-	"github.com/disaster37/opensearch/v2"
+	elastic "github.com/disaster37/opensearch/v2"
 )
 
-type OpenSearchClientImpl struct {
-	client *opensearch.Client
+// Config represents the Opensearch configuration
+type Config struct {
+	URLs          []string `yaml:"urls"`
+	SSLCALocation string   `yaml:""`
 }
 
-// NewOpenSearchClient creates a new OpenSearch client.
-// Example usage:
-//
-//	client, err := NewOpenSearchClient(opensearch.SetURL("http://localhost:9200"))
-func NewOpenSearchClient(options ...opensearch.ClientOptionFunc) (OpenSearchClient, error) {
-	client, err := opensearch.NewClient(options...)
-	if err != nil {
+type OpenSearchClient struct {
+	client             *elastic.Client
+	logger             logging.Logger
+	httpClient         *http.Client
+	url                string
+	urls               []string
+	isSecure           bool
+	credsRefreshTimer  *time.Timer
+	credsRefreshMutex  sync.RWMutex
+	credsRefreshNeeded bool
+	config             *Config
+}
+
+// NewOpenSearchClient creates a new OpenSearch datastore client.
+func NewOpenSearchClient(logger logging.Logger) (DatabaseClient, error) {
+	client := &OpenSearchClient{
+		logger: logger,
+	}
+
+	// load configuration
+	if err := client.loadconfig(); err != nil {
+		client.logger.Errorw("Failed to load OpenSearch configuration", "error", err)
+		return nil, fmt.Errorf("failed to load configuration: %w", err)
+	}
+
+	if err := client.initializeClient(); err != nil {
 		return nil, err
 	}
-	return &OpenSearchClientImpl{client: client}, nil
+
+	// Start credential refresh timer if secure
+	if client.isSecure && os.Getenv("OPENSEARCH_AUTO_REFRESH_CREDS") == "true" {
+		client.startCredsRefreshTimer()
+	}
+
+	return client, nil
 }
 
-func (c *OpenSearchClientImpl) Index(ctx context.Context, index, id string, body interface{}) error {
-	resp, err := c.client.Index().Index(index).Id(id).BodyJson(body).Do(ctx)
-	if err != nil {
-		return err
-	}
-	if resp.Result != "created" && resp.Result != "updated" {
-		return fmt.Errorf("index error: %v", resp.Result)
-	}
+func (osc *OpenSearchClient) loadconfig() error {
 	return nil
 }
 
-func (c *OpenSearchClientImpl) BulkIndex(ctx context.Context, index string, docs []BulkDoc) error {
-	bulk := c.client.Bulk()
-	for _, doc := range docs {
-		switch doc.Action {
-		case "index", "create":
-			req := opensearch.NewBulkIndexRequest().Index(index).Doc(doc.Body)
-			if doc.ID != "" {
-				req.Id(doc.ID)
-			}
-			bulk.Add(req)
-		case "delete":
-			req := opensearch.NewBulkDeleteRequest().Index(index)
-			if doc.ID != "" {
-				req.Id(doc.ID)
-			}
-			bulk.Add(req)
-		}
-	}
-	resp, err := bulk.Do(ctx)
-	if err != nil {
-		return err
-	}
-	if resp.Errors {
-		return fmt.Errorf("bulk error: %v", resp)
-	}
+func (osc *OpenSearchClient) loadYAMLConfig() (*Config, error) {
+	return nil, nil
+}
+
+func (osc *OpenSearchClient) loadConfigFromEnv() error {
 	return nil
 }
 
-func (c *OpenSearchClientImpl) Get(ctx context.Context, index, id string, out interface{}) error {
-	resp, err := c.client.Get().Index(index).Id(id).Do(ctx)
-	if err != nil {
-		return err
-	}
-	if !resp.Found {
-		return fmt.Errorf("document not found")
-	}
-	return sonic.Unmarshal(resp.Source, out)
+func (osc *OpenSearchClient) applyEnvOverrides(config *Config) {
 }
 
-func (c *OpenSearchClientImpl) Search(ctx context.Context, index string, query interface{}, page, pageSize int, out interface{}) (total int, err error) {
-	from := (page - 1) * pageSize
-	resp, err := c.client.Search(index).
-		From(from).
-		Size(pageSize).
-		Source(query).
-		Do(ctx)
-	if err != nil {
-		return 0, err
-	}
-	total = int(resp.Hits.TotalHits.Value)
-	var items []json.RawMessage
-	for _, hit := range resp.Hits.Hits {
-		items = append(items, hit.Source)
-	}
-	data, err := sonic.Marshal(items)
-	if err != nil {
-		return total, err
-	}
-	return total, sonic.Unmarshal(data, out)
-}
-
-func (c *OpenSearchClientImpl) Delete(ctx context.Context, index, id string) error {
-	resp, err := c.client.Delete().Index(index).Id(id).Do(ctx)
-	if err != nil {
-		return err
-	}
-	if resp.Result != "deleted" {
-		return fmt.Errorf("delete error: %v", resp.Result)
-	}
+func (osc *OpenSearchClient) validateConfig(config *Config) error {
 	return nil
 }
 
-func (c *OpenSearchClientImpl) Close() error {
-	// opensearch.Client does not require explicit close, but implement if needed
+func (osc *OpenSearchClient) initializeClient() error {
 	return nil
 }
 
-// ScrollQuery executes a query with scroll and invokes callback for each batch of results
-func (c *OpenSearchClientImpl) ScrollQuery(ctx context.Context, index string, query interface{}, pageSize int, callback func([]json.RawMessage) bool) error {
-	// Marshal query to JSON and set as request body
-	body, err := json.Marshal(query)
-	if err != nil {
-		return fmt.Errorf("failed to marshal query: %w", err)
-	}
-	scroll := c.client.Scroll(index).Size(pageSize).Body(string(body))
-	for {
-		resp, err := scroll.Do(ctx)
-		if err != nil {
-			if err == opensearch.ErrNoClient {
-				return fmt.Errorf("no opensearch client available")
-			}
-			if resp != nil && resp.ScrollId != "" {
-				c.client.ClearScroll().ScrollId(resp.ScrollId).Do(ctx)
-			}
-			// Instead of returning error, break on EOF for mock compatibility
-			if err.Error() == "EOF" {
-				break
-			}
-			return err
-		}
-		if len(resp.Hits.Hits) == 0 {
-			break
-		}
-		var items []json.RawMessage
-		for _, hit := range resp.Hits.Hits {
-			items = append(items, hit.Source)
-		}
-		if !callback(items) {
-			break
-		}
-		if resp.ScrollId == "" {
-			break
-		}
-		scroll = c.client.Scroll().ScrollId(resp.ScrollId)
-	}
+func (osc *OpenSearchClient) setupHTTPClient() error {
 	return nil
+}
+
+func (osc *OpenSearchClient) startCredsRefreshTimer() {
+}
+
+func (osc *OpenSearchClient) checkAndRefreshCreds() error {
+	return nil
+}
+
+func (osc *OpenSearchClient) reconnect() error {
+	return nil
+}
+
+func (osc *OpenSearchClient) UpsertIndex(indexName string, mapFilePath string) error {
+	return nil
+}
+
+func (osc *OpenSearchClient) applyPlatformSettings(mapping *map[string]interface{}) {
+}
+
+func (osc *OpenSearchClient) refreshCredentials() error {
+	return nil
+}
+
+func (osc *OpenSearchClient) ExecuteQueryWithScrollCallback(index string, query interface{}, scrollSize int, scrollTimeout string, process func(batch []map[string]interface{}) error) error {
+	return nil
+}
+
+func newDatabaseClient(logger logging.Logger) DatabaseClient {
+	logger.Info("Initializing OpenSearch datastore client")
+	client, err := NewOpenSearchClient(logger)
+	if err != nil {
+		logger.Errorw("Failed to create OpenSearch client, this should not happen in production", "error", err)
+		// In production, we should not fall back, but fail fast
+		panic(fmt.Sprintf("Failed to create Opensearch client: %v", err))
+	}
+	return client
 }

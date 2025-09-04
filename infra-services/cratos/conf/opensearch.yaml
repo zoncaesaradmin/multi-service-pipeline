@@ -1,0 +1,31 @@
+# Opensearch client configuration
+# used by shared/database/esdb.go newEsCLient()
+
+# One or more Opensearch endpoints
+# You can specify a single string.
+# url: "http://localhost:9200"
+# or a list of URLs:
+urls:
+  - "https://opensearch:9200"
+
+# TLS options
+# Client certificates location (default: /home/app/client_credentials/elasticsearch)
+# cert_path: "/home/app/client_credentials/elasticsearch"
+# Explicit cert files if you don't use the default above
+# ca: "/home/app/client_credentials/elasticsearch/cacert.crt"
+# cert: "/home/app/client_credentials/elasticsearch/server.crt"
+# key: "/home/app/client_credentials/elasticsearch/server8.key"
+# Set to true to skip TLS certificate verification (not recommended in production)
+insecure: false
+# If present (Kafka-style), true means verify certs; false disables verification
+enable.ssl.certificate.verification: true
+
+# Client behaviour
+sniff: false
+healthcheck: true
+max_retries: 3
+
+# Optional index prefix used when creating/searching indices
+# If set, a trailing '-' will be ensured (e.g., "insights-" becomes the prefix)
+# You can also set via env: ES_INDEX_PREFIX or OPENSEARCH_INDEX_PREFIX
+index_prefix: ""

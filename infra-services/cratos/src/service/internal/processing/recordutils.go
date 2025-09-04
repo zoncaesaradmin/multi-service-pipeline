@@ -36,7 +36,7 @@ func ConvertAlertObjectToRuleEngineInput(aObj *alert.Alert) map[string]any {
 	for _, objField := range aObj.EntityNameList {
 		switch strings.ToLower(objField.ObjectType) {
 		case "leaf":
-			reInput[relib.MatchKeyLeaf] = objField.ObjectValue
+			reInput[relib.MatchKeySwitch] = objField.ObjectValue
 		case "interface":
 			reInput[relib.MatchKeyInterface] = objField.ObjectValue
 		case "vni":

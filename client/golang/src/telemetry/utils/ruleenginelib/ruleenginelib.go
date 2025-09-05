@@ -11,8 +11,9 @@ const (
 	MatchKeyCategory   = "category"
 	MatchKeyTitle      = "title"
 	MatchKeySeverity   = "severity"
-	MatchKeyLeaf       = "leaf"
+	MatchKeySwitch     = "switch"
 	MatchKeyInterface  = "interface"
+	MatchKeyIp         = "ip"
 	MatchKeyVrf        = "vrf"
 	MatchKeyVni        = "vni"
 	MatchKeySubnet     = "subnet"
@@ -32,7 +33,9 @@ const (
 )
 
 type AlertRuleConfigMetadata struct {
-	Action string `json:"action"`
+	RuleType  string `json:"ruleType"`
+	AlertType string `json:"alertType"`
+	Action    string `json:"action"`
 }
 
 type ActionSeverity struct {
@@ -51,8 +54,9 @@ type RuleMsgResult struct {
 }
 
 type RuleMessage struct {
-	Metadata AlertRuleConfigMetadata `json:"metadata"`
-	Rules    []any                   `json:"payload"`
+	Metadata                AlertRuleConfigMetadata `json:"metadata"`
+	Rules                   []any                   `json:"payload,omitempty"`
+	AnomalyThresholdPayload []any                   `json:"anomalyThresholdPayload,omitempty"`
 }
 
 type LoggerInfo struct {
@@ -103,7 +107,18 @@ func (re *RuleEngine) HandleRuleEvent(msgBytes []byte) (*RuleMsgResult, error) {
 
 	re.Logger.Infof("RELIB - processing valid rule for operation: %s", msgType)
 
-	jsonBytes, err := json.Marshal(rInput.Rules)
+	// Determine which payload to use based on what's present in the message
+	var payloadToMarshal []any
+	if len(rInput.Rules) > 0 {
+		payloadToMarshal = rInput.Rules
+	} else if len(rInput.AnomalyThresholdPayload) > 0 {
+		payloadToMarshal = rInput.AnomalyThresholdPayload
+	} else {
+		re.Logger.Debug("RELIB - no payload found in rule message")
+		return result, fmt.Errorf("no payload in rule message")
+	}
+
+	jsonBytes, err := json.Marshal(payloadToMarshal)
 	if err != nil {
 		re.Logger.Infof("RELIB - failed to marshal rule payload: %v", err.Error())
 		return result, err
@@ -129,6 +144,7 @@ func (re *RuleEngine) HandleRuleEvent(msgBytes []byte) (*RuleMsgResult, error) {
 }
 
 func (re *RuleEngine) handleRuleMsgEvents(rmsg []byte, msgType string) {
+	re.Logger.Debugf("RELIB - handleRuleMsgEvents called with msgType: %s, ruleData: %s", msgType, string(rmsg))
 	switch msgType {
 	case RuleOpCreate:
 		// Handle create rule event
@@ -145,6 +161,7 @@ func (re *RuleEngine) handleRuleMsgEvents(rmsg []byte, msgType string) {
 	default:
 		re.Logger.Infof("RELIB - unknown rule msg event type: %s", msgType)
 	}
+	re.Logger.Debugf("RELIB - handleRuleMsgEvents completed for msgType: %s", msgType)
 }
 
 // initAlertRules initializes the rules from already existing rules configured

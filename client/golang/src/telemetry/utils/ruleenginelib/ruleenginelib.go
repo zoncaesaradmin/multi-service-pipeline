@@ -114,7 +114,7 @@ func (re *RuleEngine) HandleRuleEvent(msgBytes []byte) (*RuleMsgResult, error) {
 		payloadToMarshal = rInput.AnomalyThresholdPayload
 	} else {
 		re.Logger.Info("RELIB - no payload found in rule message")
-		return result, fmt.Errorf("no payload in rule message")
+		return result, fmt.Errorf("no payload found in rule message")
 	}
 
 	jsonBytes, err := json.Marshal(payloadToMarshal)

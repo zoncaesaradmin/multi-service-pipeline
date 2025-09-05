@@ -1,8 +1,10 @@
 package processing
 
-import relib "telemetry/utils/ruleenginelib"
+import (
+	relib "telemetry/utils/ruleenginelib"
+)
 
-// EvalResult represents the result of the rule evaluation
+// EvalResult represents the result of rule evaluation
 type EvalResult struct {
 	Actions []ActionResult `json:"actions"`
 }
@@ -30,7 +32,6 @@ type RuleEngineAdapter struct {
 	engine *relib.RuleEngine
 }
 
-// NewRuleEngineAdapter creates a new RuleEngineAdapter
 func NewRuleEngineAdapter(lInfo relib.LoggerInfo, ruleTypes []string) *RuleEngineAdapter {
 	return &RuleEngineAdapter{
 		engine: relib.CreateRuleEngineInstance(lInfo, ruleTypes),
@@ -42,9 +43,6 @@ func (r *RuleEngineAdapter) HandleRuleEvent(data []byte) (*RuleEventResult, erro
 	if err != nil {
 		return nil, err
 	}
-	if res == nil {
-		return nil, nil
-	}
 	return &RuleEventResult{
 		RuleJSON: res.RuleJSON,
 		Action:   res.Action,
@@ -53,7 +51,7 @@ func (r *RuleEngineAdapter) HandleRuleEvent(data []byte) (*RuleEventResult, erro
 
 func (r *RuleEngineAdapter) EvaluateRules(data interface{}) (bool, string, *EvalResult) {
 	// Since we don't know the exact signature of the underlying EvaluateRules method,
-	// we will use a more generic approach
+	// we'll use a more generic approach
 
 	// Try to call the method and handle the result generically
 	// This is a simplified implementation that assumes the method exists

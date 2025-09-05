@@ -77,7 +77,7 @@ func (p *Pipeline) Start() error {
 	p.logger.Infow("InitDBProcessing parameters", "inputSink_nil", inputSink == nil)
 
 	InitDBProcessing(context.Background(), p.plogger.WithField("component", "dbproc"), inputSink)
-	p.logger.Infow("InitDBProcessing called successfully")
+	p.logger.Info("InitDBProcessing called successfully")
 
 	p.logger.Info("Processing pipeline started successfully")
 	return nil

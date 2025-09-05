@@ -21,27 +21,29 @@ type ChannelMessage struct {
 	Data      []byte             `json:"data"`
 	Meta      map[string]string  `json:"meta"`
 	Key       string             `json:"key"`
+	Partition int32              `json:"partition"`
 }
 
 // NewChannelMessage creates a new channel message with the given type and data
-func NewChannelMessage(msgType ChannelMessageType, data []byte, source string) *ChannelMessage {
+func NewChannelMessage(msgType ChannelMessageType, data []byte, source string, partition int32) *ChannelMessage {
 	return &ChannelMessage{
 		Type:      msgType,
 		Timestamp: time.Now(),
 		Data:      data,
 		Meta:      make(map[string]string),
 		Key:       source,
+		Partition: partition,
 	}
 }
 
 // NewDataMessage creates a new data message
-func NewDataMessage(data []byte, source string) *ChannelMessage {
-	return NewChannelMessage(ChannelMessageTypeData, data, source)
+func NewDataMessage(data []byte, source string, partition int32) *ChannelMessage {
+	return NewChannelMessage(ChannelMessageTypeData, data, source, partition)
 }
 
 // NewControlMessage creates a new control message
 func NewControlMessage(data []byte, source string) *ChannelMessage {
-	return NewChannelMessage(ChannelMessageTypeControl, data, source)
+	return NewChannelMessage(ChannelMessageTypeControl, data, source, 0)
 }
 
 // IsDataMessage checks if the message is a data message

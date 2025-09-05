@@ -1,5 +1,6 @@
 package ruleenginelib
 
+/*
 import (
 	"encoding/json"
 	"strings"
@@ -184,3 +185,4 @@ func GetAllConfiguredAlertRules() [][]byte {
 	// context and requirements of the application.
 	return nil
 }
+*/

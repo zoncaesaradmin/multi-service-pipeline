@@ -120,7 +120,7 @@ func TestOutputHandlerGetOutputChannel(t *testing.T) {
 	}
 
 	// Test that we can send a message to the channel
-	testMsg := models.NewDataMessage([]byte("test"), "test")
+	testMsg := models.NewDataMessage([]byte("test"), "test", 0)
 	select {
 	case channel <- testMsg:
 		// Success
@@ -200,7 +200,7 @@ func TestOutputHandlerBatching(t *testing.T) {
 	channel := handler.GetOutputChannel()
 	for i := 0; i < 5; i++ {
 		testData := []byte("test message")
-		testMsg := models.NewDataMessage(testData, "test")
+		testMsg := models.NewDataMessage(testData, "test", 0)
 		channel <- testMsg
 	}
 

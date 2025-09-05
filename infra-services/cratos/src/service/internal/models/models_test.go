@@ -21,7 +21,7 @@ func TestNewChannelMessage(t *testing.T) {
 	msgType := ChannelMessageTypeData
 
 	before := time.Now()
-	msg := NewChannelMessage(msgType, testData, source)
+	msg := NewChannelMessage(msgType, testData, source, 0)
 	after := time.Now()
 
 	if msg == nil {
@@ -46,7 +46,7 @@ func TestNewDataMessage(t *testing.T) {
 	testData := []byte("test data payload")
 	source := "data-source"
 
-	msg := NewDataMessage(testData, source)
+	msg := NewDataMessage(testData, source, 0)
 
 	if msg == nil {
 		t.Fatal("NewDataMessage returned nil")
@@ -214,7 +214,7 @@ func TestHealthResponse(t *testing.T) {
 
 func TestChannelMessageEdgeCases(t *testing.T) {
 	t.Run("NewChannelMessage with nil data", func(t *testing.T) {
-		msg := NewChannelMessage(ChannelMessageTypeControl, nil, "test-source")
+		msg := NewChannelMessage(ChannelMessageTypeControl, nil, "test-source", 0)
 
 		if msg.Type != ChannelMessageTypeControl {
 			t.Errorf("Expected type %s, got %s", ChannelMessageTypeControl, msg.Type)
@@ -226,7 +226,7 @@ func TestChannelMessageEdgeCases(t *testing.T) {
 	})
 
 	t.Run("NewDataMessage with empty data", func(t *testing.T) {
-		msg := NewDataMessage([]byte{}, "source")
+		msg := NewDataMessage([]byte{}, "source", 0)
 
 		if msg.Type != ChannelMessageTypeData {
 			t.Errorf("Expected type %s, got %s", ChannelMessageTypeData, msg.Type)
@@ -238,7 +238,7 @@ func TestChannelMessageEdgeCases(t *testing.T) {
 	})
 
 	t.Run("methods work with constructed messages", func(t *testing.T) {
-		dataMsg := NewDataMessage([]byte("test"), "source")
+		dataMsg := NewDataMessage([]byte("test"), "source", 0)
 		controlMsg := NewControlMessage([]byte("stop"), "source")
 
 		if !dataMsg.IsDataMessage() || dataMsg.IsControlMessage() {
@@ -255,9 +255,9 @@ func TestMessageTimestamps(t *testing.T) {
 	t.Run("all constructors set timestamps", func(t *testing.T) {
 		before := time.Now()
 
-		dataMsg := NewDataMessage([]byte("data"), "source")
+		dataMsg := NewDataMessage([]byte("data"), "source", 0)
 		controlMsg := NewControlMessage([]byte("control"), "source")
-		channelMsg := NewChannelMessage(ChannelMessageTypeData, []byte("test"), "source")
+		channelMsg := NewChannelMessage(ChannelMessageTypeData, []byte("test"), "source", 0)
 
 		after := time.Now()
 
@@ -271,8 +271,8 @@ func TestMessageTimestamps(t *testing.T) {
 	})
 
 	t.Run("timestamps are unique for rapid creation", func(t *testing.T) {
-		msg1 := NewDataMessage([]byte("data1"), "source")
-		msg2 := NewDataMessage([]byte("data2"), "source")
+		msg1 := NewDataMessage([]byte("data1"), "source", 0)
+		msg2 := NewDataMessage([]byte("data2"), "source", 0)
 
 		// Allow for very small time differences (nanosecond precision)
 		if msg1.Timestamp.Equal(msg2.Timestamp) {

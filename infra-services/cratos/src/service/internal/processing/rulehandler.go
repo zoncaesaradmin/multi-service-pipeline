@@ -23,7 +23,7 @@ type RuleEngineHandler struct {
 	consumer messagebus.Consumer
 	config   RuleEngineConfig
 	logger   logging.Logger
-	reInst   *relib.RuleEngine
+	reInst   RuleEngineInterface // Changed from *relib.RuleEngine
 	ctx      context.Context
 	cancel   context.CancelFunc
 }
@@ -40,7 +40,8 @@ func NewRuleHandler(config RuleEngineConfig, logger logging.Logger) *RuleEngineH
 		FilePath:    filePath,
 		Level:       config.Logging.Level.String(),
 	}
-	reInst := relib.CreateRuleEngineInstance(lInfo, []string{relib.RuleTypeMgmt})
+	// Use the adapter instead of direct library
+	reInst := NewRuleEngineAdapter(lInfo, []string{relib.RuleTypeMgmt})
 
 	return &RuleEngineHandler{
 		consumer: consumer,
@@ -56,6 +57,17 @@ func (rh *RuleEngineHandler) Start() error {
 	// Create context for cancellation
 	rh.ctx, rh.cancel = context.WithCancel(context.Background())
 
+	// Register error callback to handle consumer errors
+	if errorConsumer, ok := rh.consumer.(interface{ OnError(func(error)) }); ok {
+		errorConsumer.OnError(func(err error) {
+			if err != nil {
+				rh.logger.Warnw("RULE HANDLER - consumer error", "error", err, "error_type", fmt.Sprintf("%T", err))
+			} else {
+				rh.logger.Warnw("RULE HANDLER - Consumer reported nil error (possible connection issue)")
+			}
+		})
+	}
+
 	// Register OnMessage callback
 	rh.consumer.OnMessage(func(message *messagebus.Message) {
 		if message != nil {
@@ -65,6 +77,7 @@ func (rh *RuleEngineHandler) Start() error {
 				rh.logger.Errorw("RULE HANDLER - Failed to handle rule event", "error", err)
 			} else if res != nil && len(res.RuleJSON) > 0 {
 				rh.logger.Debugw("RULE HANDLER - Converted rule JSON", "action", res.Action, "size", len(res.RuleJSON))
+				//sendToDBBatchProcessor(rh.ctx, rh.logger, res.RuleJSON, res.Action)
 			}
 			// Commit the message
 			if err := rh.consumer.Commit(context.Background(), message); err != nil {
@@ -99,7 +112,9 @@ func (rh *RuleEngineHandler) Stop() error {
 	return nil
 }
 
-// ...removed: consumeLoop, now handled by OnMessage callback...
+func sendToDBBatchProcessor(ctx context.Context, logger logging.Logger, ruleBytes []byte, action string) {
+	logger.Infow("DB_BATCH - sending rule to DB batch processor", "action", action, "size", len(ruleBytes))
+}
 
 func (rh *RuleEngineHandler) GetStats() map[string]interface{} {
 	return map[string]interface{}{
@@ -141,7 +156,7 @@ func (rh *RuleEngineHandler) applyRuleToRecord(aObj *alert.Alert) (*alert.Alert,
 					aObj.AckTs = time.Now().UTC().Format(time.RFC3339)
 					aObj.AutoAck = true
 				} else if action.Type == "CUSTOMIZE_ANOMALY" {
-					aObj.IsCustomReco = true
+					aObj.IsRuleCustomReco = true
 					actionPayload, err := json.Marshal(action.Payload)
 					if err != nil {
 						continue
@@ -155,7 +170,7 @@ func (rh *RuleEngineHandler) applyRuleToRecord(aObj *alert.Alert) (*alert.Alert,
 					if err != nil {
 						continue
 					}
-					aObj.CustomRecoStr = cact.CustomMessage
+					aObj.RuleCustomRecoStr = cact.CustomMessage
 				}
 			}
 		} else {

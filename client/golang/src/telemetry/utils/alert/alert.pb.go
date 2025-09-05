@@ -1164,8 +1164,8 @@ type Alert struct {
 	Remediation              []*Remediation         `protobuf:"bytes,83,rep,name=remediation,proto3" json:"remediation,omitempty"`
 	ServiceName              string                 `protobuf:"bytes,84,opt,name=serviceName,proto3" json:"serviceName,omitempty"`
 	ClusterName              string                 `protobuf:"bytes,85,opt,name=clusterName,proto3" json:"clusterName,omitempty"`
-	IsCustomReco             bool                   `protobuf:"varint,86,opt,name=isCustomReco,proto3" json:"isCustomReco,omitempty"`
-	CustomRecoStr            []string               `protobuf:"bytes,87,rep,name=customRecoStr,proto3" json:"customRecoStr,omitempty"`
+	IsRuleCustomReco         bool                   `protobuf:"varint,86,opt,name=isRuleCustomReco,proto3" json:"isRuleCustomReco,omitempty"`
+	RuleCustomRecoStr        []string               `protobuf:"bytes,87,rep,name=ruleCustomRecoStr,proto3" json:"ruleCustomRecoStr,omitempty"`
 	unknownFields            protoimpl.UnknownFields
 	sizeCache                protoimpl.SizeCache
 }
@@ -1795,16 +1795,16 @@ func (x *Alert) GetClusterName() string {
 	return ""
 }
 
-func (x *Alert) GetIsCustomReco() bool {
+func (x *Alert) GetIsRuleCustomReco() bool {
 	if x != nil {
-		return x.IsCustomReco
+		return x.IsRuleCustomReco
 	}
 	return false
 }
 
-func (x *Alert) GetCustomRecoStr() []string {
+func (x *Alert) GetRuleCustomRecoStr() []string {
 	if x != nil {
-		return x.CustomRecoStr
+		return x.RuleCustomRecoStr
 	}
 	return nil
 }
@@ -2028,7 +2028,7 @@ const file_alert_proto_rawDesc = "" +
 	"identifier\x12\x12\n" +
 	"\x04name\x18\x03 \x01(\tR\x04name\x12\x1c\n" +
 	"\tisPrimary\x18\x04 \x01(\bR\tisPrimary\x12\x1c\n" +
-	"\tisHealthy\x18\x05 \x01(\bR\tisHealthy\"\xda\x17\n" +
+	"\tisHealthy\x18\x05 \x01(\bR\tisHealthy\"\xea\x17\n" +
 	"\x05Alert\x12\x18\n" +
 	"\astartTs\x18\x01 \x01(\tR\astartTs\x12\x14\n" +
 	"\x05endTs\x18\x02 \x01(\tR\x05endTs\x12\x1e\n" +
@@ -2133,9 +2133,9 @@ const file_alert_proto_rawDesc = "" +
 	"\fcompositeKey\x18R \x01(\tR\fcompositeKey\x124\n" +
 	"\vremediation\x18S \x03(\v2\x12.alert.RemediationR\vremediation\x12 \n" +
 	"\vserviceName\x18T \x01(\tR\vserviceName\x12 \n" +
-	"\vclusterName\x18U \x01(\tR\vclusterName\x12\"\n" +
-	"\fisCustomReco\x18V \x01(\bR\fisCustomReco\x12$\n" +
-	"\rcustomRecoStr\x18W \x03(\tR\rcustomRecoStr\"{\n" +
+	"\vclusterName\x18U \x01(\tR\vclusterName\x12*\n" +
+	"\x10isRuleCustomReco\x18V \x01(\bR\x10isRuleCustomReco\x12,\n" +
+	"\x11ruleCustomRecoStr\x18W \x03(\tR\x11ruleCustomRecoStr\"{\n" +
 	"\vRemediation\x12\x12\n" +
 	"\x04desc\x18\x01 \x01(\tR\x04desc\x12\x16\n" +
 	"\x06method\x18\x02 \x01(\tR\x06method\x12.\n" +

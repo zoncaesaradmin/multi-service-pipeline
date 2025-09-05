@@ -2,16 +2,16 @@
 # used by shared/database/esdb.go newEsCLient()
 
 # One or more Opensearch endpoints
-# You can specify a single string.
+# You can specify a single string:
 # url: "http://localhost:9200"
 # or a list of URLs:
 urls:
-  - "https://opensearch:9200"
+  - "https://localhost:9200"
 
 # TLS options
 # Client certificates location (default: /home/app/client_credentials/elasticsearch)
 # cert_path: "/home/app/client_credentials/elasticsearch"
-# Explicit cert files if you don't use the default above
+# Explicit cert files if you don't use the defaults above
 # ca: "/home/app/client_credentials/elasticsearch/cacert.crt"
 # cert: "/home/app/client_credentials/elasticsearch/server.crt"
 # key: "/home/app/client_credentials/elasticsearch/server8.key"

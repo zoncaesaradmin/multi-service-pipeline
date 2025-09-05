@@ -203,8 +203,8 @@ message Alert {
     repeated Remediation remediation = 83;
     string serviceName = 84;
     string clusterName = 85;
-    bool isCustomReco = 86;
-    repeated string customRecoStr = 87;
+    bool isRuleCustomReco = 86;
+    repeated string ruleCustomRecoStr = 87;
 }
 
 message Remediation {

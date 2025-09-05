@@ -6,6 +6,7 @@ import (
 
 	"servicegomodule/internal/config"
 	"servicegomodule/internal/processing"
+	"sharedgomodule/datastore"
 	"sharedgomodule/logging"
 )
 
@@ -22,6 +23,12 @@ type Application struct {
 // NewApplication creates a new application instance
 func NewApplication(cfg *config.RawConfig, logger logging.Logger) *Application {
 	ctx, cancel := context.WithCancel(context.Background())
+
+	// Initialize datastore before processing pipeline
+	logger.Info("Initializing datastore...")
+	datastoreIndices := "activeanomalydb" // Default indices, could be from config
+	datastore.Init(ctx, logger.WithField("component", "datastore"), datastoreIndices)
+	logger.Info("Datastore initialized")
 
 	// Create processing pipeline with configuration from config file
 	processingConfig := processing.DefaultConfig(cfg)

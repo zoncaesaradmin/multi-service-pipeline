@@ -1,6 +1,7 @@
 package processing
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"servicegomodule/internal/config"
@@ -70,6 +71,14 @@ func (p *Pipeline) Start() error {
 		return fmt.Errorf("failed to start input handler: %w", err)
 	}
 
+	// Now that input channel is initialized, start DB processing with the input sink
+	p.logger.Info("About to call InitDBProcessing")
+	inputSink := p.inputHandler.GetInputSink()
+	p.logger.Infow("InitDBProcessing parameters", "inputSink_nil", inputSink == nil)
+
+	InitDBProcessing(context.Background(), p.plogger.WithField("component", "dbproc"), inputSink)
+	p.logger.Infow("InitDBProcessing called successfully")
+
 	p.logger.Info("Processing pipeline started successfully")
 	return nil
 }
@@ -78,6 +87,9 @@ func (p *Pipeline) Stop() error {
 	p.logger.Info("Stopping processing pipeline")
 
 	var errs []error
+
+	// Stop DB processing first to finish pending work
+	StopDBProcessing(p.plogger.WithField("component", "dbproc"))
 
 	if err := p.inputHandler.Stop(); err != nil {
 		errs = append(errs, fmt.Errorf("error stopping input handler: %w", err))

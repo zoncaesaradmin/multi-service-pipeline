@@ -46,7 +46,7 @@ func (i *InputHandler) GetInputChannel() <-chan *models.ChannelMessage {
 }
 
 // GetInputSink returns a send-only handle to the input channel so other components
-// can inject messages into the processing pipeline
+// can inject messages into the processing pipeline.
 func (i *InputHandler) GetInputSink() chan<- *models.ChannelMessage {
 	return i.inputCh
 }
@@ -62,7 +62,7 @@ func (i *InputHandler) Start() error {
 	i.consumer.OnMessage(func(message *messagebus.Message) {
 		if message != nil {
 			i.logger.Debugw("Received kafka data message", "size", len(message.Value))
-			channelMsg := models.NewDataMessage(message.Value, message.Key)
+			channelMsg := models.NewDataMessage(message.Value, message.Key, message.Partition)
 			for k, v := range message.Headers {
 				channelMsg.Meta[k] = v
 			}

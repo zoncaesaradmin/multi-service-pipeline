@@ -143,7 +143,7 @@ func TestProcessorMessageFlow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to marshal AlertStream: %v", err)
 	}
-	inputMessage := models.NewDataMessage(data, "test")
+	inputMessage := models.NewDataMessage(data, "test", 0)
 
 	// Send the message
 	inputCh <- inputMessage

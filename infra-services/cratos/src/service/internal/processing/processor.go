@@ -86,6 +86,7 @@ func (p *Processor) processMessage(message *models.ChannelMessage) error {
 			Type:      message.Type,
 			Data:      message.Data,
 			Timestamp: message.Timestamp,
+			Partition: message.Partition,
 		}
 
 		p.outputCh <- outputMessage
@@ -124,7 +125,7 @@ func (p *Processor) processMessage(message *models.ChannelMessage) error {
 		}
 
 		// Create a new message with processed data
-		outputMessage := models.NewDataMessage(processedData, message.Key)
+		outputMessage := models.NewDataMessage(processedData, message.Key, message.Partition)
 		for k, v := range message.Meta {
 			outputMessage.Meta[k] = v
 		}

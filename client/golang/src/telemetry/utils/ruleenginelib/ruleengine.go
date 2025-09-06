@@ -4,8 +4,6 @@ import (
 	"sync"
 )
 
-type MatchedResults []Action
-
 type EvaluatorOptions struct {
 	AllowUndefinedVars bool
 	FirstMatch         bool
@@ -20,7 +18,6 @@ var defaultOptions = &EvaluatorOptions{
 type RuleEngine struct {
 	EvaluatorOptions
 	RuleMap   map[string]RuleBlock
-	Results   MatchedResults
 	Mutex     sync.Mutex
 	Logger    *Logger
 	RuleTypes []string

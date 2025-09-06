@@ -2,11 +2,11 @@ package processing
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"sharedgomodule/logging"
 	"sharedgomodule/messagebus"
 	"sharedgomodule/utils"
+	"strings"
 	"sync"
 	"telemetry/utils/alert"
 	relib "telemetry/utils/ruleenginelib"
@@ -219,43 +219,19 @@ func (rh *RuleEngineHandler) applyRuleToRecord(aObj *alert.Alert) (*alert.Alert,
 			// rule matched
 			aObj.RuleId = ruleUuid
 			for _, action := range evalResults.Actions {
-				rh.logger.Infof("RECORD PROC - action type: %s", action.Type)
-				if action.Type == "severity" {
-					actionPayload, err := json.Marshal(action.Payload)
-					if err != nil {
-						rh.logger.Errorw("RECORD PROC - Failed to marshal action payload", "error", err)
-						continue
-					}
-					type ActionSeverity struct {
-						SeverityValue string `json:"severityValue,omitempty"`
-					}
-					var sact ActionSeverity
-					err = json.Unmarshal(actionPayload, &sact)
-					if err != nil {
-						rh.logger.Errorw("RECORD PROC - Failed to unmarshal action payload", "error", err)
-						return aObj, err
-					}
-					aObj.Severity = sact.SeverityValue
-				} else if action.Type == "ACKNOWLEDGE" {
+				rh.logger.Infof("RECORD PROC - action type: %s", action.ActionType)
+				switch action.ActionType {
+				case relib.RuleActionSeverityOverride:
+					aObj.Severity = action.ActionValueStr
+				case relib.RuleActionAcknowledge:
 					aObj.Acknowledged = true
 					aObj.AckTs = time.Now().UTC().Format(time.RFC3339)
 					aObj.AutoAck = true
-				} else if action.Type == "CUSTOMIZE_ANOMALY" {
+				case relib.RuleActionCustomizeRecommendation:
 					aObj.IsRuleCustomReco = true
-					actionPayload, err := json.Marshal(action.Payload)
-					if err != nil {
-						continue
-					}
-					type ActionCustomReco struct {
-						ApplyToExisting bool     `json:"applyToExisting"`
-						CustomMessage   []string `json:"customMessage"`
-					}
-					var cact ActionCustomReco
-					err = json.Unmarshal(actionPayload, &cact)
-					if err != nil {
-						continue
-					}
-					aObj.RuleCustomRecoStr = cact.CustomMessage
+					aObj.RuleCustomRecoStr = strings.Split(action.ActionValueStr, ",")
+				default:
+					rh.logger.Warnf("RECORD PROC - unknown action type: %s", action.ActionType)
 				}
 			}
 		} else {

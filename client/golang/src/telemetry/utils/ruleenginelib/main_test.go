@@ -35,107 +35,53 @@ func TestBaseFunc(t *testing.T) {
 
 func TestConvertFunc(t *testing.T) {
 	j := `{
-		"metadata": {
-    		"action": "CREATE_ALERT_RULE"
-  		},
-		"payload": [
-    	{
-      		"alertRuleUuid": "03dw-werffd-sdf",
-      		"siteId": "swmp3",
-      		"ruleName": "rule1",
-      		"ruleDescription": "All anomalies",
-      		"customMessage": ["Welcome to customer recommendations."],
-      		"customAck": false,
-      		"actions": [
-       	 		{
-          			"action": "ACKNOWLEDGE",
-          			"applyToActiveAnomlay": false
-        		}
-      		],
-      		"matchCriteriaUuid": "osdf-8230-asdf",
-      		"state": true,
-      		"lastModifiedTime": 1613722639423,
-      		"matchRule": {
-        		"severityMatchCriteria": {
-          			"valueEquals": [
-            			"EVENT_SEVERITY_CRITICAL"
-          			]
-        		},
-        		"affectedObjectMatchCriteria": [
-          			{
-          				"objectType": "leaf",
-          				"valueEquals": [
-          					"n1",
-          					"n2"
-          				]
-          			}
-          		],
-        		"categoryMatchCriteria": {
-          			"valueEquals": [
-            			"CONNECTIVITY"
-          			]
-        		},
-        		"subCategoryMatchCriteria": null,
-        		"eventNameMatchCriteria": {
-          			"valueEquals": [
-            			"CONNECTIVITY_FLAP"
-          			]
-        		},
-        		"checkCodeMatchCriteria": null
-      		}
-    	},
-    	{
-      		"alertRuleUuid": "03dw-werffd-sdf",
-      		"siteId": "swmp4",
-      		"ruleName": "rule1",
-      		"ruleDescription": "All anomalies",
-      		"customMessage": ["Welcome to customer recommendations."],
-      		"customAck": false,
-      		"actions": [
-       	 		{
-          			"action": "ACKNOWLEDGE",
-          			"applyToActiveAnomlay": false
-        		}
-      		],
-      		"matchCriteriaUuid": "osdf-8230-asdf",
-      		"state": true,
-      		"lastModifiedTime": 1613722639423,
-      		"matchRule": {
-        		"severityMatchCriteria": {
-          			"valueEquals": [
-            			"EVENT_SEVERITY_CRITICAL"
-          			]
-        		},
-        		"affectedObjectMatchCriteria": [
-          			{
-          				"objectType": "leaf",
-          				"valueEquals": [
-          					"n1",
-          					"n2"
-          				]
-          			}
-          		],
-        		"categoryMatchCriteria": {
-          			"valueEquals": [
-            			"CONNECTIVITY"
-          			]
-        		},
-        		"subCategoryMatchCriteria": null,
-        		"eventNameMatchCriteria": {
-          			"valueEquals": [
-            			"CONNECTIVITY_FLAP"
-          			]
-        		},
-        		"checkCodeMatchCriteria": null
-      		}
-    	}
-		],
-  		"loggerpayload": {
-    		"serviceName": "",
-    		"moduleName": "",
-    		"logLevel": ""
-  		}
-	}`
+         "metadata": {
+           "ruleType": "ALERT_RULES",
+           "alertType": "anomaly",
+           "action": "CREATE_ALERT_RULE"
+         },
+         "alertRulePayload": [
+           {
+             "uuid": "ABCD-1234-EFGH-5678",
+             "name": "test-prio",
+             "priority": 1756993805,
+             "description": "Alert when CPU usage exceeds threshold",
+             "state": "true",
+             "customizeAnomaly": {
+               "customMessage": "CPU usage is too high, correct it"
+             },
+             "associatedInsightGroupUuids": ["group-456", "group-789"],
+             "alertRuleActions": [
+               {
+                 "action": "CUSTOMIZE_ANOMALY",
+                 "applyToActiveAnomaly": "false"
+               },
+               {
+                 "action": "ACKNOWLEDGE",
+                 "applyToActiveAnomaly": "false"
+               }
+             ],
+             "alertRuleMatchCriteria": [
+               {
+                 "categoryMatchCriteria": [
+                   {
+                     "valueEquals": "CONNECTIVITY"
+                   }
+                 ],
+                 "eventNameMatchCriteria": [
+                   {
+                     "valueEquals": "BGP_PEER_CONNECTION_DOWN"
+                   }
+                 ],
+                 "uuid": "ABCD-1234-EFGH-7654",
+                 "alertRuleId": "ABCD-1234-EFGH-XTAZ",
+                 "siteId": "fabric-1"
+               }
+             ],
+             "lastModifiedTime": 1756993805053,
+             "links": [
+             ]
+    }]}`
 
 	var rInput AlertRuleMsg
 	msgBytes := []byte(j)

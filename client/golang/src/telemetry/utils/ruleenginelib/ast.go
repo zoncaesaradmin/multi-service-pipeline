@@ -19,10 +19,9 @@ type AstCondition struct {
 }
 
 // Fired when a identifier matches a rule
-type Action struct {
-	Type    string      `json:"type"`
-	ReApply bool        `json:"applyToExisting"`
-	Payload interface{} `json:"payload"`
+type RuleAction struct {
+	ActionType     string
+	ActionValueStr string
 }
 
 type RuleBlock struct {
@@ -38,7 +37,7 @@ type RuleBlock struct {
 
 type RuleEntry struct {
 	Condition AstCondition `json:"condition"`
-	Actions   []Action     `json:"actions"`
+	Actions   []RuleAction `json:"actions"`
 }
 
 // parse JSON string as Rule
@@ -48,4 +47,27 @@ func ParseJSON(j string) *RuleBlock {
 		panic("expected valid JSON")
 	}
 	return rule
+}
+
+///////////////////
+
+type RuleEngineDef struct {
+	rules []*RuleDefinition // sorted by Priority ascending
+}
+
+type RuleDefinition struct {
+	AlertRuleUUID         string `json:"alertRuleUUID,omitempty"`
+	Name                  string `json:"name,omitempty"`
+	Priority              int64  `json:"priority,omitempty"`
+	Description           string `json:"description,omitempty"`
+	Enabled               bool   `json:"enabled"`
+	LastModifiedTime      int64  `json:"lastModifiedTime,omitempty"`
+	MatchCriteriaBySiteId map[string][]*RuleMatchCondition
+	Actions               []*RuleAction
+}
+
+type RuleMatchCondition struct {
+	ConditionUUID     string       `json:"conditionUUID,omitempty"`
+	PrimaryMatchValue string       `json:"primaryMatchValue,omitempty"`
+	Condition         AstCondition `json:"condition"`
 }

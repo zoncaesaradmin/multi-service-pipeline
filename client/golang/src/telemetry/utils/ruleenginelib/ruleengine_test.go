@@ -30,7 +30,7 @@ func TestEvaluateStructAndRule(t *testing.T) {
 		Condition: AstCondition{
 			All: []AstConditional{{Fact: "planet", Operator: "eq", Value: "Earth"}},
 		},
-		Actions: []Action{},
+		Actions: []RuleAction{},
 	}
 	data := Data{"planet": "Earth"}
 	if !re.EvaluateStruct(rule, data) {

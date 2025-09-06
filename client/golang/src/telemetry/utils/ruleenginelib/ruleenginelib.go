@@ -32,6 +32,13 @@ const (
 	RuleOpDelete = "DELETE_ALERT_RULE"
 )
 
+// action types supported and used in RuleAction.ActionType
+const (
+	RuleActionAcknowledge             = "ACKNOWLEDGE"
+	RuleActionSeverityOverride        = "SEVERITY_OVERRIDE"
+	RuleActionCustomizeRecommendation = "CUSTOMIZE_RECOMMENDATION"
+)
+
 type ActionSeverity struct {
 	SeverityValue string `json:"severityValue,omitempty"`
 }

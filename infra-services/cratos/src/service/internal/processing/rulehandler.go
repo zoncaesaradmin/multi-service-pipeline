@@ -213,12 +213,12 @@ func (rh *RuleEngineHandler) applyRuleToRecord(aObj *alert.Alert) (*alert.Alert,
 	if needsRuleProcessing(aObj) {
 		convRecord := ConvertAlertObjectToRuleEngineInput(aObj)
 		rh.logger.WithField("recId", recordIdentifier(aObj)).Infof("RECORD PROC - converted data: %v", convRecord)
-		ruleHit, ruleUuid, evalResults := rh.reInst.EvaluateRules(relib.Data(convRecord))
-		if ruleHit {
-			rh.logger.Infof("RECORD PROC - rule hit for record %s, rule UUID: %s, eval results: %v", recordIdentifier(aObj), ruleUuid, evalResults)
+		lookupResult := rh.reInst.EvaluateRules(relib.Data(convRecord))
+		if lookupResult.IsRuleHit {
+			rh.logger.Infof("RECORD PROC - rule hit for record %s, rule UUID: %s, eval results: %v", recordIdentifier(aObj), lookupResult.RuleUUID, lookupResult.CriteriaHit)
 			// rule matched
-			aObj.RuleId = ruleUuid
-			for _, action := range evalResults.Actions {
+			aObj.RuleId = lookupResult.RuleUUID
+			for _, action := range lookupResult.Actions {
 				rh.logger.Infof("RECORD PROC - action type: %s", action.ActionType)
 				switch action.ActionType {
 				case relib.RuleActionSeverityOverride:

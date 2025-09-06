@@ -13,7 +13,7 @@ var options *Options
 
 func EvaluateConditional(conditional *AstConditional, dataValue interface{}) bool {
 	if conditional.Value == nil {
-		panic(fmt.Sprintf("conditional %s has no value", conditional.Fact))
+		panic(fmt.Sprintf("conditional %s has no value", conditional.Identifier))
 	}
 	ok, err := EvaluateOperator(dataValue, conditional.Value, conditional.Operator)
 	if err != nil {
@@ -23,13 +23,13 @@ func EvaluateConditional(conditional *AstConditional, dataValue interface{}) boo
 }
 
 func GetFactValue(condition *AstConditional, data Data) interface{} {
-	value := data[condition.Fact]
+	value := data[condition.Identifier]
 
 	if value == nil {
 		if options.AllowUndefinedVars {
 			return false
 		}
-		panic(fmt.Sprintf("value for identifier %s not found", condition.Fact))
+		panic(fmt.Sprintf("value for identifier %s not found", condition.Identifier))
 	}
 
 	return value

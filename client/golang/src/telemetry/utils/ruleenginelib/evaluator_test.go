@@ -13,17 +13,17 @@ func TestEvaluateConditional(t *testing.T) {
 		expected    bool
 	}{
 		{&AstConditional{
-			Fact:     "name",
-			Operator: "eq",
-			Value:    "Icheka",
+			Identifier: "name",
+			Operator:   "eq",
+			Value:      "Icheka",
 		},
 			"Icheka",
 			true,
 		},
 		{&AstConditional{
-			Fact:     "name",
-			Operator: "eq",
-			Value:    "Icheka",
+			Identifier: "name",
+			Operator:   "eq",
+			Value:      "Icheka",
 		},
 			"Ronie",
 			false,
@@ -53,14 +53,14 @@ func TestEvaluateAllCondition(t *testing.T) {
 			}{
 				conditions: []AstConditional{
 					{
-						Fact:     "planet",
-						Operator: "eq",
-						Value:    "Neptune",
+						Identifier: "planet",
+						Operator:   "eq",
+						Value:      "Neptune",
 					},
 					{
-						Fact:     "colour",
-						Operator: "eq",
-						Value:    "black",
+						Identifier: "colour",
+						Operator:   "eq",
+						Value:      "black",
 					},
 				},
 				identifier: Data{
@@ -77,14 +77,14 @@ func TestEvaluateAllCondition(t *testing.T) {
 			}{
 				conditions: []AstConditional{
 					{
-						Fact:     "planet",
-						Operator: "eq",
-						Value:    "Saturn",
+						Identifier: "planet",
+						Operator:   "eq",
+						Value:      "Saturn",
 					},
 					{
-						Fact:     "colour",
-						Operator: "eq",
-						Value:    "black",
+						Identifier: "colour",
+						Operator:   "eq",
+						Value:      "black",
 					},
 				},
 				identifier: Data{
@@ -119,38 +119,14 @@ func TestEvaluateAnyCondition(t *testing.T) {
 			}{
 				conditions: []AstConditional{
 					{
-						Fact:     "planet",
-						Operator: "eq",
-						Value:    "Neptune",
+						Identifier: "planet",
+						Operator:   "eq",
+						Value:      "Neptune",
 					},
 					{
-						Fact:     "colour",
-						Operator: "eq",
-						Value:    "black",
-					},
-				},
-				identifier: Data{
-					"planet": "Neptune",
-					"colour": "black",
-				},
-			},
-			expected: true,
-		},
-		{
-			payload: struct {
-				conditions []AstConditional
-				identifier Data
-			}{
-				conditions: []AstConditional{
-					{
-						Fact:     "planet",
-						Operator: "eq",
-						Value:    "Saturn",
-					},
-					{
-						Fact:     "colour",
-						Operator: "eq",
-						Value:    "black",
+						Identifier: "colour",
+						Operator:   "eq",
+						Value:      "black",
 					},
 				},
 				identifier: Data{
@@ -167,14 +143,38 @@ func TestEvaluateAnyCondition(t *testing.T) {
 			}{
 				conditions: []AstConditional{
 					{
-						Fact:     "planet",
-						Operator: "eq",
-						Value:    "Saturn",
+						Identifier: "planet",
+						Operator:   "eq",
+						Value:      "Saturn",
 					},
 					{
-						Fact:     "colour",
-						Operator: "eq",
-						Value:    "white",
+						Identifier: "colour",
+						Operator:   "eq",
+						Value:      "black",
+					},
+				},
+				identifier: Data{
+					"planet": "Neptune",
+					"colour": "black",
+				},
+			},
+			expected: true,
+		},
+		{
+			payload: struct {
+				conditions []AstConditional
+				identifier Data
+			}{
+				conditions: []AstConditional{
+					{
+						Identifier: "planet",
+						Operator:   "eq",
+						Value:      "Saturn",
+					},
+					{
+						Identifier: "colour",
+						Operator:   "eq",
+						Value:      "white",
 					},
 				},
 				identifier: Data{

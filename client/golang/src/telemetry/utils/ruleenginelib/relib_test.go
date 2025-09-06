@@ -1,38 +1,11 @@
 // ...existing code...
 package ruleenginelib
 
-/*
 import (
 	"encoding/json"
 	"fmt"
 	"testing"
 )
-
-func TestBaseFunc(t *testing.T) {
-	j := `{"payload": [{
-		"conditions": [{
-			"all": [{
-				"identifier": "myVar",
-				"operator": "eq",
-				"value": "hello world"
-			}]
-		}],
-		"actions": [{
-			"type": "result",
-			"payload": {
-				"data": {
-					"say": "Hello World!"
-				}
-			}
-		}]
-	}]}`
-
-	rule := ParseJSON(j)
-	if fmt.Sprintf("%T", rule) != "*ruleenginelib.RuleBlock" {
-		t.Fatalf("expected rule to be *ruleenginelib.RuleBlock, got %T", rule)
-	}
-	fmt.Printf("Parsed rule: %+v\n", rule.RuleEntries[0])
-}
 
 func TestConvertFunc(t *testing.T) {
 	j := `{
@@ -67,11 +40,27 @@ func TestConvertFunc(t *testing.T) {
                  "categoryMatchCriteria": [
                    {
                      "valueEquals": "CONNECTIVITY"
+                   },
+                   {
+                     "valueEquals": "HARDWARE"
+                   }
+                 ],
+                 "affectedObjectMatchCriteria": [
+                   {
+                     "objectType": "switch",
+                     "valueEquals": "leaf-1"
+                   },
+                   {
+                     "objectType": "interface",
+                     "valueEquals": "eth1/3"
                    }
                  ],
                  "eventNameMatchCriteria": [
                    {
                      "valueEquals": "BGP_PEER_CONNECTION_DOWN"
+                   },
+                   {
+                     "valueEquals": "AUTOMATIC_PRIVATE_SUBNET_IP"
                    }
                  ],
                  "uuid": "ABCD-1234-EFGH-7654",
@@ -95,21 +84,18 @@ func TestConvertFunc(t *testing.T) {
 		return
 	}
 
-	fmt.Printf("RELIB - received msg unmarshalled: %+v\n", rInput)
+	fmt.Printf("received msg unmarshalled: %+v\n", rInput)
 
 	ruleJsonBytes, err := ConvertToRuleEngineFormat(rInput.AlertRules)
 	if err != nil {
-		fmt.Printf("RELIB - failed to convert rule format: %v\n", err.Error())
+		fmt.Printf("failed to convert rule format: %v\n", err.Error())
 		return
 	}
 	if len(ruleJsonBytes) == 0 {
-		fmt.Printf("RELIB - invalid empty rule to process, ignored\n")
-		t.Errorf("RELIB - invalid empty rule to process, ignored\n")
+		fmt.Printf("invalid empty rule to process, ignored\n")
+		t.Errorf("invalid empty rule to process, ignored\n")
 		return
 	}
 
-	fmt.Printf("RELIB - rule converted %s\n", string(ruleJsonBytes))
-	//re.handleRuleMsgEvents(ruleJsonBytes, msgType)
-	//result.RuleJSON = ruleJsonBytes
+	fmt.Printf("converted rules - %s\n", string(ruleJsonBytes))
 }
-*/

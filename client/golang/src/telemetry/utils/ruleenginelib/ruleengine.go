@@ -17,26 +17,25 @@ var defaultOptions = &EvaluatorOptions{
 // RuleEngine represents the main rule engine with its configuration and state
 type RuleEngine struct {
 	EvaluatorOptions
-	RuleMap   map[string]RuleBlock
+	RuleMap   map[string]*RuleDefinition
 	Mutex     sync.Mutex
 	Logger    *Logger
 	RuleTypes []string
-	rules     []*RuleDefinition // sorted by Priority ascending
 }
 
 type RuleDefinition struct {
-	AlertRuleUUID         string `json:"alertRuleUUID,omitempty"`
-	Name                  string `json:"name,omitempty"`
-	Priority              int64  `json:"priority,omitempty"`
-	Description           string `json:"description,omitempty"`
-	Enabled               bool   `json:"enabled"`
-	LastModifiedTime      int64  `json:"lastModifiedTime,omitempty"`
-	MatchCriteriaBySiteId map[string][]*RuleMatchCondition
-	Actions               []*RuleAction
+	AlertRuleUUID        string                           `json:"alertRuleUUID,omitempty"`
+	Name                 string                           `json:"name,omitempty"`
+	Priority             int64                            `json:"priority,omitempty"`
+	Description          string                           `json:"description,omitempty"`
+	Enabled              bool                             `json:"enabled"`
+	LastModifiedTime     int64                            `json:"lastModifiedTime,omitempty"`
+	MatchCriteriaEntries map[string][]*RuleMatchCondition `json:"matchCriteriaEntries,omitempty"`
+	Actions              []*RuleAction                    `json:"actions,omitempty"`
 }
 
 type RuleMatchCondition struct {
-	ConditionUUID     string       `json:"conditionUUID,omitempty"`
+	CriteriaUUID      string       `json:"criteriaUUID,omitempty"`
 	PrimaryMatchValue string       `json:"primaryMatchValue,omitempty"`
 	Condition         AstCondition `json:"condition"`
 }
@@ -49,36 +48,71 @@ func (re *RuleEngine) EvaluateMatchCondition(aCond AstCondition, dataMap Data) b
 }
 
 // AddRule adds a new rule to the engine
-func (re *RuleEngine) AddRule(rule string) *RuleEngine {
-	ruleBlock := ParseJSON(rule)
+func (re *RuleEngine) AddRule(rules string) error {
+	parsedRules := ParseJSON(rules)
 	re.Mutex.Lock()
 	defer re.Mutex.Unlock()
-	re.RuleMap[ruleBlock.UUID] = *ruleBlock
-	return re
+	for _, rule := range parsedRules {
+		re.RuleMap[rule.AlertRuleUUID] = rule
+	}
+	return nil
 }
 
 // DeleteRule removes a rule from the engine by its UUID
 func (re *RuleEngine) DeleteRule(rule string) {
-	ruleBlock := ParseJSON(rule)
+	parsedRules := ParseJSON(rule)
 	re.Mutex.Lock()
 	defer re.Mutex.Unlock()
-	delete(re.RuleMap, ruleBlock.UUID)
+	for _, rule := range parsedRules {
+		delete(re.RuleMap, rule.AlertRuleUUID)
+	}
 }
 
 // EvaluateRules evaluates all rules against the provided data
-func (re *RuleEngine) EvaluateRules(data Data) (bool, string, *RuleEntry) {
+func (re *RuleEngine) EvaluateRules(data Data) RuleLookupResult {
 	re.Mutex.Lock()
 	defer re.Mutex.Unlock()
-	for _, ruleBlock := range re.RuleMap {
-		for _, rule := range ruleBlock.RuleEntries {
-			if re.EvaluateMatchCondition(rule.Condition, data) {
+	for _, rule := range re.RuleMap {
+		if result := re.evaluateSingleRule(rule, data); result.IsRuleHit {
+			return result
+		}
+	}
+	return RuleLookupResult{}
+}
+
+// evaluateSingleRule checks all match criteria entries for a rule and returns a RuleLookupResult if a match is found
+func (re *RuleEngine) evaluateSingleRule(rule *RuleDefinition, data Data) RuleLookupResult {
+	for _, matchCriteriaEntries := range rule.MatchCriteriaEntries {
+		for _, matchEntry := range matchCriteriaEntries {
+			if re.EvaluateMatchCondition(matchEntry.Condition, data) {
 				if defaultOptions.FirstMatch {
-					return true, ruleBlock.UUID, rule
+					return RuleLookupResult{
+						IsRuleHit: true,
+						RuleUUID:  rule.AlertRuleUUID,
+						// Create a new RuleHitCriteria directly
+						CriteriaHit: RuleHitCriteria{
+							Any: append([]AstConditional{}, matchEntry.Condition.Any...),
+							All: append([]AstConditional{}, matchEntry.Condition.All...),
+						},
+						Actions: deepCopyActions(rule.Actions),
+					}
 				}
 			}
 		}
 	}
-	return false, "", nil
+	return RuleLookupResult{}
+}
+
+// Helper function to create a deep copy of actions
+func deepCopyActions(actions []*RuleAction) []RuleHitAction {
+	actionsCopy := make([]RuleHitAction, len(actions))
+	for i, action := range actions {
+		actionsCopy[i] = RuleHitAction{
+			ActionType:     action.ActionType,
+			ActionValueStr: action.ActionValueStr,
+		}
+	}
+	return actionsCopy
 }
 
 // NewRuleEngineInstance creates a new instance of RuleEngine with the given options
@@ -90,7 +124,7 @@ func NewRuleEngineInstance(options *EvaluatorOptions, logger *Logger) *RuleEngin
 
 	return &RuleEngine{
 		EvaluatorOptions: *opts,
-		RuleMap:          make(map[string]RuleBlock, 0),
+		RuleMap:          make(map[string]*RuleDefinition, 0),
 		Logger:           logger,
 	}
 }

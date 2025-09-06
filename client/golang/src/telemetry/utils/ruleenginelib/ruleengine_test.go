@@ -13,34 +13,66 @@ func TestNewRuleEngineInstance(t *testing.T) {
 
 func TestEvaluateStructAndRule(t *testing.T) {
 	re := NewRuleEngineInstance(nil, nil)
-	rule := &RuleEntry{
-		Condition: AstCondition{
-			All: []AstConditional{{Fact: "planet", Operator: "eq", Value: "Earth"}},
-		},
-		Actions: []RuleAction{},
+	condition := AstCondition{
+		All: []AstConditional{{Identifier: "planet", Operator: "eq", Value: "Earth"}},
 	}
 	data := Data{"planet": "Earth"}
-	if !re.EvaluateMatchCondition(rule.Condition, data) {
+	if !re.EvaluateMatchCondition(condition, data) {
 		t.Error("EvaluateMatchCondition should return true for matching data")
 	}
-	if !EvaluateAstCondition(rule.Condition, data, &Options{AllowUndefinedVars: true}) {
+	if !EvaluateAstCondition(condition, data, &Options{AllowUndefinedVars: true}) {
 		t.Error("EvaluateAstCondition should return true for matching data")
 	}
 }
 
 func TestEvaluateRules(t *testing.T) {
 	re := NewRuleEngineInstance(nil, nil)
-	ruleJSON := `{"uuid":"test-uuid","payload":[{"condition":{"any":[],"all":[{"identifier":"planet","operator":"eq","value":"Earth"}]},"actions":[]}],"state":true}`
-	re.AddRule(ruleJSON)
+	// Create a test rule definition manually
+	ruleDefinition := &RuleDefinition{
+		AlertRuleUUID: "test-uuid",
+		Name:          "Test Rule",
+		Enabled:       true,
+		MatchCriteriaEntries: map[string][]*RuleMatchCondition{
+			"default": {
+				{
+					CriteriaUUID: "condition-1",
+					Condition: AstCondition{
+						All: []AstConditional{
+							{Identifier: "planet", Operator: "eq", Value: "Earth"},
+						},
+					},
+				},
+			},
+		},
+		Actions: []*RuleAction{
+			{ActionType: "TEST_ACTION", ActionValueStr: "test-value"},
+		},
+	}
+
+	// Add the rule to the engine
+	re.RuleMap["test-uuid"] = ruleDefinition
+
+	// Test with matching data
 	data := Data{"planet": "Earth"}
-	matched, uuid, entry := re.EvaluateRules(data)
-	if !matched || uuid != "test-uuid" || entry == nil {
-		t.Errorf("EvaluateRules should match and return correct uuid and entry, got matched=%v uuid=%v entry=%v", matched, uuid, entry)
+	result := re.EvaluateRules(data)
+
+	if !result.IsRuleHit {
+		t.Error("EvaluateRules should return IsRuleHit=true for matching data")
+	}
+
+	if result.RuleUUID != "test-uuid" {
+		t.Errorf("EvaluateRules should return correct UUID, got %s", result.RuleUUID)
+	}
+
+	if len(result.Actions) != 1 {
+		t.Errorf("EvaluateRules should return one action, got %d", len(result.Actions))
+	} else if result.Actions[0].ActionType != "TEST_ACTION" {
+		t.Errorf("EvaluateRules should return correct action type, got %s", result.Actions[0].ActionType)
 	}
 }
 
 func TestEvaluateConditionSwitch(t *testing.T) {
-	conds := []AstConditional{{Fact: "planet", Operator: "eq", Value: "Earth"}}
+	conds := []AstConditional{{Identifier: "planet", Operator: "eq", Value: "Earth"}}
 	data := Data{"planet": "Earth"}
 	if !EvaluateCondition(&conds, "all", data) {
 		t.Error("EvaluateCondition 'all' should return true")
@@ -54,4 +86,38 @@ func TestEvaluateConditionSwitch(t *testing.T) {
 		}
 	}()
 	EvaluateCondition(&conds, "invalid", data)
+}
+
+func TestDeepCopyActions(t *testing.T) {
+	// Create original actions
+	originalActions := []*RuleAction{
+		{ActionType: "ACTION1", ActionValueStr: "value1"},
+		{ActionType: "ACTION2", ActionValueStr: "value2"},
+	}
+
+	// Copy the actions
+	copiedActions := deepCopyActions(originalActions)
+
+	// Verify the copied actions have the same values
+	if len(copiedActions) != len(originalActions) {
+		t.Errorf("deepCopyActions should create same number of actions, got %d expected %d",
+			len(copiedActions), len(originalActions))
+	}
+
+	for i, orig := range originalActions {
+		if copiedActions[i].ActionType != orig.ActionType {
+			t.Errorf("Copied action %d should have same ActionType, got %s expected %s",
+				i, copiedActions[i].ActionType, orig.ActionType)
+		}
+		if copiedActions[i].ActionValueStr != orig.ActionValueStr {
+			t.Errorf("Copied action %d should have same ActionValueStr, got %s expected %s",
+				i, copiedActions[i].ActionValueStr, orig.ActionValueStr)
+		}
+	}
+
+	// Modify original to verify deep copy
+	originalActions[0].ActionType = "MODIFIED"
+	if copiedActions[0].ActionType == "MODIFIED" {
+		t.Error("Modifying original action should not affect copied actions")
+	}
 }

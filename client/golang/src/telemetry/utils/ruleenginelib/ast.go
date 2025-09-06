@@ -6,9 +6,9 @@ import (
 
 // Conditionals are the basic units of rules
 type AstConditional struct {
-	Fact     string      `json:"identifier"`
-	Operator string      `json:"operator"`
-	Value    interface{} `json:"value"`
+	Identifier string      `json:"identifier"`
+	Operator   string      `json:"operator"`
+	Value      interface{} `json:"value"`
 }
 
 // A Condition is a group of conditionals within a binding context
@@ -24,27 +24,11 @@ type RuleAction struct {
 	ActionValueStr string
 }
 
-type RuleBlock struct {
-	Type             string       `json:"ruleType,omitempty"`
-	SubType          string       `json:"ruleSubType,omitempty"`
-	Name             string       `json:"name,omitempty"`
-	UUID             string       `json:"uuid,omitempty"`
-	Description      string       `json:"description,omitempty"`
-	LastModifiedTime int64        `json:"lastModifiedTime,omitempty"`
-	State            bool         `json:"state"`
-	RuleEntries      []*RuleEntry `json:"payload,omitempty"`
-}
-
-type RuleEntry struct {
-	Condition AstCondition `json:"condition"`
-	Actions   []RuleAction `json:"actions"`
-}
-
 // parse JSON string as Rule
-func ParseJSON(j string) *RuleBlock {
-	var rule *RuleBlock
-	if err := json.Unmarshal([]byte(j), &rule); err != nil {
+func ParseJSON(j string) []*RuleDefinition {
+	var rules []*RuleDefinition
+	if err := json.Unmarshal([]byte(j), &rules); err != nil {
 		panic("expected valid JSON")
 	}
-	return rule
+	return rules
 }

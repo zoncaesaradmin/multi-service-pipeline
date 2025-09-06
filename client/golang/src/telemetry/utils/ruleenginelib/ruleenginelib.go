@@ -21,8 +21,9 @@ const (
 
 // Constants for rule types
 const (
-	RuleTypeMgmt   = "ALERT_RULES"
-	RuleTypeSource = "GLOBAL_CATEGORY_RULES"
+	RuleTypeMgmt      = "ALERT_RULES"
+	RuleTypeSource    = "GLOBAL_CATEGORY_RULES"
+	DefaultPrimaryKey = "DEFAULT_PRIMARY_KEY"
 )
 
 // Constants for CRUD operations on rule
@@ -41,6 +42,27 @@ const (
 
 type ActionSeverity struct {
 	SeverityValue string `json:"severityValue,omitempty"`
+}
+
+// external type for rule lookup result
+type RuleLookupResult struct {
+	IsRuleHit bool `json:"isRuleHit"`
+	// below are relevant only if IsRuleHit is true
+	RuleUUID    string          `json:"ruleUUID"`
+	CriteriaHit RuleHitCriteria `json:"criteria"`
+	Actions     []RuleHitAction `json:"actions"`
+}
+
+// external type for rule lookup result actions
+type RuleHitAction struct {
+	ActionType     string `json:"actionType"`
+	ActionValueStr string `json:"actionValueStr"`
+}
+
+// external type for rule lookup result match condition
+type RuleHitCriteria struct {
+	Any []AstConditional `json:"any"`
+	All []AstConditional `json:"all"`
 }
 
 // RuleMsgResult encapsulates the outcome of processing a rule message.
@@ -168,5 +190,5 @@ func (re *RuleEngine) initAlertRules() {
 
 type RuleEngineType interface {
 	HandleRuleEvent([]byte) (*RuleMsgResult, error)
-	EvaluateRules(Data) (bool, string, *RuleEntry)
+	EvaluateRules(Data) RuleLookupResult
 }

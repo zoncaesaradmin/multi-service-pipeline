@@ -48,26 +48,3 @@ func ParseJSON(j string) *RuleBlock {
 	}
 	return rule
 }
-
-///////////////////
-
-type RuleEngineDef struct {
-	rules []*RuleDefinition // sorted by Priority ascending
-}
-
-type RuleDefinition struct {
-	AlertRuleUUID         string `json:"alertRuleUUID,omitempty"`
-	Name                  string `json:"name,omitempty"`
-	Priority              int64  `json:"priority,omitempty"`
-	Description           string `json:"description,omitempty"`
-	Enabled               bool   `json:"enabled"`
-	LastModifiedTime      int64  `json:"lastModifiedTime,omitempty"`
-	MatchCriteriaBySiteId map[string][]*RuleMatchCondition
-	Actions               []*RuleAction
-}
-
-type RuleMatchCondition struct {
-	ConditionUUID     string       `json:"conditionUUID,omitempty"`
-	PrimaryMatchValue string       `json:"primaryMatchValue,omitempty"`
-	Condition         AstCondition `json:"condition"`
-}

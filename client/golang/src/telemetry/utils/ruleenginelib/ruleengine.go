@@ -21,11 +21,29 @@ type RuleEngine struct {
 	Mutex     sync.Mutex
 	Logger    *Logger
 	RuleTypes []string
+	rules     []*RuleDefinition // sorted by Priority ascending
 }
 
-// EvaluateStruct evaluates a single rule against the provided data
-func (re *RuleEngine) EvaluateStruct(rule *RuleEntry, dataMap Data) bool {
-	return EvaluateRule(rule, dataMap, &Options{
+type RuleDefinition struct {
+	AlertRuleUUID         string `json:"alertRuleUUID,omitempty"`
+	Name                  string `json:"name,omitempty"`
+	Priority              int64  `json:"priority,omitempty"`
+	Description           string `json:"description,omitempty"`
+	Enabled               bool   `json:"enabled"`
+	LastModifiedTime      int64  `json:"lastModifiedTime,omitempty"`
+	MatchCriteriaBySiteId map[string][]*RuleMatchCondition
+	Actions               []*RuleAction
+}
+
+type RuleMatchCondition struct {
+	ConditionUUID     string       `json:"conditionUUID,omitempty"`
+	PrimaryMatchValue string       `json:"primaryMatchValue,omitempty"`
+	Condition         AstCondition `json:"condition"`
+}
+
+// EvaluateMatchCondition evaluates a single match criteria entry against the provided data
+func (re *RuleEngine) EvaluateMatchCondition(aCond AstCondition, dataMap Data) bool {
+	return EvaluateAstCondition(aCond, dataMap, &Options{
 		AllowUndefinedVars: re.AllowUndefinedVars,
 	})
 }
@@ -53,7 +71,7 @@ func (re *RuleEngine) EvaluateRules(data Data) (bool, string, *RuleEntry) {
 	defer re.Mutex.Unlock()
 	for _, ruleBlock := range re.RuleMap {
 		for _, rule := range ruleBlock.RuleEntries {
-			if re.EvaluateStruct(rule, data) {
+			if re.EvaluateMatchCondition(rule.Condition, data) {
 				if defaultOptions.FirstMatch {
 					return true, ruleBlock.UUID, rule
 				}

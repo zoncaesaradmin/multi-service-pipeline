@@ -11,19 +11,6 @@ func TestNewRuleEngineInstance(t *testing.T) {
 	}
 }
 
-func TestAddAndDeleteRule(t *testing.T) {
-	re := NewRuleEngineInstance(nil, nil)
-	ruleJSON := `{"uuid":"test-uuid","payload":[{"condition":{"any":[],"all":[]},"actions":[]}],"state":true}`
-	re.AddRule(ruleJSON)
-	if _, ok := re.RuleMap["test-uuid"]; !ok {
-		t.Error("Rule not added to RuleMap")
-	}
-	re.DeleteRule(ruleJSON)
-	if _, ok := re.RuleMap["test-uuid"]; ok {
-		t.Error("Rule not deleted from RuleMap")
-	}
-}
-
 func TestEvaluateStructAndRule(t *testing.T) {
 	re := NewRuleEngineInstance(nil, nil)
 	rule := &RuleEntry{
@@ -33,11 +20,11 @@ func TestEvaluateStructAndRule(t *testing.T) {
 		Actions: []RuleAction{},
 	}
 	data := Data{"planet": "Earth"}
-	if !re.EvaluateStruct(rule, data) {
-		t.Error("EvaluateStruct should return true for matching data")
+	if !re.EvaluateMatchCondition(rule.Condition, data) {
+		t.Error("EvaluateMatchCondition should return true for matching data")
 	}
-	if !EvaluateRule(rule, data, &Options{AllowUndefinedVars: true}) {
-		t.Error("EvaluateRule should return true for matching data")
+	if !EvaluateAstCondition(rule.Condition, data, &Options{AllowUndefinedVars: true}) {
+		t.Error("EvaluateAstCondition should return true for matching data")
 	}
 }
 

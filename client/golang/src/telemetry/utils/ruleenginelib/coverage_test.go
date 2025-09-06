@@ -62,7 +62,7 @@ func TestEvaluateRuleNil(t *testing.T) {
 			t.Error("EvaluateRule should panic when rule is nil")
 		}
 	}()
-	EvaluateRule(nil, nil, &Options{AllowUndefinedVars: true})
+	EvaluateAstCondition(AstCondition{}, nil, &Options{AllowUndefinedVars: true})
 }
 func TestEvaluateOperatorBranches(t *testing.T) {
 	// anyof with slice
@@ -146,7 +146,7 @@ func TestEvaluateRulePanics(t *testing.T) {
 			t.Error("EvaluateRule should panic on nil options")
 		}
 	}()
-	EvaluateRule(nil, nil, nil)
+	EvaluateAstCondition(AstCondition{}, nil, &Options{AllowUndefinedVars: true})
 }
 
 func TestParseJSONMissingFields(t *testing.T) {

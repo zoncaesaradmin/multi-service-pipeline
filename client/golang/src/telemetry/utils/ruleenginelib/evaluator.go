@@ -74,19 +74,19 @@ func EvaluateCondition(conditions *[]AstConditional, kind string, dataMap Data) 
 	}
 }
 
-func EvaluateRule(rule *RuleEntry, dataMap Data, opts *Options) bool {
+func EvaluateAstCondition(aCond AstCondition, dataMap Data, opts *Options) bool {
 	options = opts
 	any, all := false, false
 
-	if len(rule.Condition.Any) == 0 {
+	if len(aCond.Any) == 0 {
 		any = true
 	} else {
-		any = EvaluateCondition(&rule.Condition.Any, "any", dataMap)
+		any = EvaluateCondition(&aCond.Any, "any", dataMap)
 	}
-	if len(rule.Condition.All) == 0 {
+	if len(aCond.All) == 0 {
 		all = true
 	} else {
-		all = EvaluateCondition(&rule.Condition.All, "all", dataMap)
+		all = EvaluateCondition(&aCond.All, "all", dataMap)
 	}
 
 	return any && all

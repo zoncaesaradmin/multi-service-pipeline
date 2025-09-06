@@ -3,7 +3,7 @@ package ruleenginelib
 // Root struct to hold the entire JSON payload of rule message
 type AlertRuleMsg struct {
 	Metadata   AlertRuleMetadata `json:"metadata"`
-	AlertRules []AlertRule       `json:"alertRulePayload,omitempty"`
+	AlertRules []AlertRuleConfig `json:"alertRulePayload,omitempty"`
 }
 
 type AlertRuleMetadata struct {
@@ -12,30 +12,30 @@ type AlertRuleMetadata struct {
 	RuleEventType string `json:"action"`
 }
 
-type AlertRule struct {
-	UUID                        string                   `json:"uuid"`
-	Name                        string                   `json:"name"`
-	Priority                    int64                    `json:"priority,omitempty"`
-	Description                 string                   `json:"description,omitempty"`
-	State                       string                   `json:"state,omitempty"`
-	CustomizeAnomaly            CustomizeAnomaly         `json:"customizeAnomaly,omitempty"`
-	AssociatedInsightGroupUuids []string                 `json:"associatedInsightGroupUuids,omitempty"`
-	AlertRuleActions            []AlertRuleAction        `json:"alertRuleActions,omitempty"`
-	AlertRuleMatchCriteria      []AlertRuleMatchCriteria `json:"alertRuleMatchCriteria,omitempty"`
-	LastModifiedTime            int64                    `json:"lastModifiedTime"`
-	Links                       []interface{}            `json:"links,omitempty"`
+type AlertRuleConfig struct {
+	UUID                        string                    `json:"uuid"`
+	Name                        string                    `json:"name"`
+	Priority                    int64                     `json:"priority,omitempty"`
+	Description                 string                    `json:"description,omitempty"`
+	State                       string                    `json:"state,omitempty"`
+	CustomizeAnomaly            CustomizeAnomalyConfig    `json:"customizeAnomaly,omitempty"`
+	AssociatedInsightGroupUuids []string                  `json:"associatedInsightGroupUuids,omitempty"`
+	AlertRuleActions            []RuleActionConfig        `json:"alertRuleActions,omitempty"`
+	AlertRuleMatchCriteria      []RuleMatchCriteriaConfig `json:"alertRuleMatchCriteria,omitempty"`
+	LastModifiedTime            int64                     `json:"lastModifiedTime"`
+	Links                       []interface{}             `json:"links,omitempty"`
 }
 
-type CustomizeAnomaly struct {
+type CustomizeAnomalyConfig struct {
 	CustomMessage string `json:"customMessage,omitempty"`
 }
 
-type AlertRuleAction struct {
+type RuleActionConfig struct {
 	Action               string `json:"action"`
 	ApplyToActiveAnomaly string `json:"applyToActiveAnomaly,omitempty"`
 }
 
-type AlertRuleMatchCriteria struct {
+type RuleMatchCriteriaConfig struct {
 	CategoryMatchCriteria  []MatchCriteria `json:"categoryMatchCriteria,omitempty"`
 	EventNameMatchCriteria []MatchCriteria `json:"eventNameMatchCriteria,omitempty"`
 	UUID                   string          `json:"uuid"`
@@ -47,7 +47,8 @@ type MatchCriteria struct {
 	ValueEquals string `json:"valueEquals"`
 }
 
-func ConvertToRuleEngineFormat(rules []AlertRule) ([]byte, error) {
+// convert rule msg format to rule engine format
+func ConvertToRuleEngineFormat(rules []AlertRuleConfig) ([]byte, error) {
 	var newruleBytes []byte
 	return newruleBytes, nil
 }

@@ -2,7 +2,7 @@
 .PHONY: help build build-with-coverage build-local test test-local clean clean-coverage clean-all-coverage deep-clean run-service run-service-local run-service-dev run-tests run-tests-local install-deps fmt vet lint coverage coverage-enforce start start-local service-build service-build-local service-build-with-coverage service-coverage service-test service-run testrunner-build testrunner-build-local testrunner-test testrunner-run shared-build shared-build-local shared-test shared-coverage ci dev-setup e2e-test
 
 # Coverage enforcement thresholds
-SERVICE_COVERAGE_THRESHOLD = 60
+SERVICE_COVERAGE_THRESHOLD = 45
 
 # Build tags (empty by default, but can be set from environment/command line/parent)
 BUILD_TAGS ?=

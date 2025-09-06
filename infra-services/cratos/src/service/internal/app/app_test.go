@@ -56,6 +56,28 @@ func (m *mockLogger) Clone() logging.Logger                                     
 func (m *mockLogger) Close() error                                                       { return nil }
 
 func TestNewApplication(t *testing.T) {
+	// Set up environment variables required for OpenSearch client
+	originalURL := os.Getenv("OPENSEARCH_URL")
+	originalSkipVerify := os.Getenv("OPENSEARCH_SKIP_TLS_VERIFY")
+
+	// Set test values
+	os.Setenv("OPENSEARCH_URL", "https://localhost:9200")
+	os.Setenv("OPENSEARCH_SKIP_TLS_VERIFY", "true")
+
+	// Restore original values after test
+	defer func() {
+		if originalURL == "" {
+			os.Unsetenv("OPENSEARCH_URL")
+		} else {
+			os.Setenv("OPENSEARCH_URL", originalURL)
+		}
+		if originalSkipVerify == "" {
+			os.Unsetenv("OPENSEARCH_SKIP_TLS_VERIFY")
+		} else {
+			os.Setenv("OPENSEARCH_SKIP_TLS_VERIFY", originalSkipVerify)
+		}
+	}()
+
 	tempDir := t.TempDir()
 	kafkaConfigPath := filepath.Join(tempDir, "kafka-consumer.yaml")
 	err := os.WriteFile(kafkaConfigPath, []byte("bootstrap.servers: localhost:9092\n"), 0644)

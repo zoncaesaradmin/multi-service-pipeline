@@ -21,8 +21,8 @@ const (
 
 // Constants for rule types
 const (
-	RuleTypeMgmt   = "RULE_TYPE_MGMT"
-	RuleTypeSource = "RULE_TYPE_SOURCE"
+	RuleTypeMgmt   = "ALERT_RULES"
+	RuleTypeSource = "GLOBAL_CATEGORY_RULES"
 )
 
 // Constants for CRUD operations on rule
@@ -31,12 +31,6 @@ const (
 	RuleOpUpdate = "UPDATE_ALERT_RULE"
 	RuleOpDelete = "DELETE_ALERT_RULE"
 )
-
-type AlertRuleConfigMetadata struct {
-	RuleType  string `json:"ruleType"`
-	AlertType string `json:"alertType"`
-	Action    string `json:"action"`
-}
 
 type ActionSeverity struct {
 	SeverityValue string `json:"severityValue,omitempty"`
@@ -51,12 +45,6 @@ type ActionSeverity struct {
 type RuleMsgResult struct {
 	Action   string
 	RuleJSON []byte
-}
-
-type RuleMessage struct {
-	Metadata                AlertRuleConfigMetadata `json:"metadata"`
-	Rules                   []any                   `json:"payload,omitempty"`
-	AnomalyThresholdPayload []any                   `json:"anomalyThresholdPayload,omitempty"`
 }
 
 type LoggerInfo struct {
@@ -76,7 +64,7 @@ func CreateRuleEngineInstance(lInfo LoggerInfo, ruleTypes []string) *RuleEngine 
 	return nre
 }
 
-func IsValidRuleMsg(msgType string) bool {
+func isValidEventType(msgType string) bool {
 	switch msgType {
 	case RuleOpCreate, RuleOpUpdate, RuleOpDelete:
 		return true
@@ -85,8 +73,26 @@ func IsValidRuleMsg(msgType string) bool {
 	}
 }
 
+func isRuleTypeOfInterest(rType string, validTypes []string) bool {
+	for _, vType := range validTypes {
+		if vType == rType {
+			return true
+		}
+	}
+	return false
+}
+
+func isRelevantRule(meta AlertRuleMetadata, validTypes []string) bool {
+	if !isRuleTypeOfInterest(meta.RuleType, validTypes) {
+		return false
+	}
+	if !isValidEventType(meta.RuleEventType) {
+		return false
+	}
+	return true
+}
 func (re *RuleEngine) HandleRuleEvent(msgBytes []byte) (*RuleMsgResult, error) {
-	var rInput RuleMessage
+	var rInput AlertRuleMsg
 	re.Logger.Infof("RELIB - received rule msg: %v", string(msgBytes))
 	if err := json.Unmarshal(msgBytes, &rInput); err != nil {
 		re.Logger.Infof("Failed to unmarshal rule message: %v", err.Error())
@@ -96,36 +102,17 @@ func (re *RuleEngine) HandleRuleEvent(msgBytes []byte) (*RuleMsgResult, error) {
 
 	re.Logger.Debugf("RELIB - received msg unmarshalled: %+v", rInput)
 
-	msgType := rInput.Metadata.Action
+	msgType := rInput.Metadata.RuleEventType
 	result := &RuleMsgResult{Action: msgType}
 
-	if !IsValidRuleMsg(msgType) {
+	if !isRelevantRule(rInput.Metadata, re.RuleTypes) {
 		re.Logger.Debug("RELIB - ignore invalid/non-relevant rule")
 		return result, nil
 	}
 
 	re.Logger.Infof("RELIB - processing valid rule for operation: %s", msgType)
 
-	// Determine which payload to use based on what's present in the message
-	var payloadToMarshal []any
-	if len(rInput.Rules) > 0 {
-		payloadToMarshal = rInput.Rules
-	} else if len(rInput.AnomalyThresholdPayload) > 0 {
-		payloadToMarshal = rInput.AnomalyThresholdPayload
-	} else {
-		re.Logger.Info("RELIB - no payload found in rule message")
-		return result, fmt.Errorf("no payload found in rule message")
-	}
-
-	jsonBytes, err := json.Marshal(payloadToMarshal)
-	if err != nil {
-		re.Logger.Infof("RELIB - failed to marshal rule payload: %v", err.Error())
-		return result, err
-	}
-
-	re.Logger.Infof("RELIB - processed rule payload: %s", string(jsonBytes))
-
-	ruleJsonBytes, err := ConvertToRuleEngineFormat(jsonBytes)
+	ruleJsonBytes, err := ConvertToRuleEngineFormat(rInput.AlertRules)
 	if err != nil {
 		re.Logger.Infof("RELIB - failed to convert rule format: %v", err.Error())
 		return result, err

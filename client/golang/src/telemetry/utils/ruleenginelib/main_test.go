@@ -137,7 +137,7 @@ func TestConvertFunc(t *testing.T) {
   		}
 	}`
 
-	var rInput RuleMessage
+	var rInput AlertRuleMsg
 	msgBytes := []byte(j)
 	//fmt.Printf("RELIB - received rule msg: %v", string(msgBytes))
 
@@ -150,23 +150,7 @@ func TestConvertFunc(t *testing.T) {
 
 	fmt.Printf("RELIB - received msg unmarshalled: %+v\n", rInput)
 
-	//msgType := rInput.Metadata.Action
-	//result := &RuleMsgResult{Action: msgType}
-
-	//fmt.Printf("RELIB - processing valid rule for operation: %s\n", msgType)
-
-	jsonBytes, err := json.Marshal(rInput.Rules)
-	if err != nil {
-		fmt.Printf("RELIB - failed to marshal rule payload: %v\n", err.Error())
-
-		// log and ignore invalid messages
-		t.Errorf("RELIB - failed to marshal rule payload: %v", err.Error())
-		return
-	}
-	//fmt.Printf("RELIB - processed rule payload: %s\n", string(jsonBytes))
-
-	//ruleJsonBytes, err := ConvertToRuleEngineFormat(jsonBytes)
-	ruleJsonBytes, err := ConvertToRuleEngineFormat(jsonBytes)
+	ruleJsonBytes, err := ConvertToRuleEngineFormat(rInput.AlertRules)
 	if err != nil {
 		fmt.Printf("RELIB - failed to convert rule format: %v\n", err.Error())
 		return

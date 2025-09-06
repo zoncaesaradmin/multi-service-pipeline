@@ -61,7 +61,7 @@ func TestNewApplication(t *testing.T) {
 	originalSkipVerify := os.Getenv("OPENSEARCH_SKIP_TLS_VERIFY")
 
 	// Set test values
-	os.Setenv("OPENSEARCH_URL", "https://localhost:9200")
+	os.Setenv("OPENSEARCH_URL", "http://localhost:9200")
 	os.Setenv("OPENSEARCH_SKIP_TLS_VERIFY", "true")
 
 	// Restore original values after test

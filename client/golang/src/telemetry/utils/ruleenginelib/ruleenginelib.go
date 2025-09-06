@@ -91,6 +91,7 @@ func isRelevantRule(meta AlertRuleMetadata, validTypes []string) bool {
 	}
 	return true
 }
+
 func (re *RuleEngine) HandleRuleEvent(msgBytes []byte) (*RuleMsgResult, error) {
 	var rInput AlertRuleMsg
 	re.Logger.Infof("RELIB - received rule msg: %v", string(msgBytes))

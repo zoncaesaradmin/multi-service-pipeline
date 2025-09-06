@@ -13,21 +13,21 @@ type AlertRuleMetadata struct {
 }
 
 type AlertRule struct {
-	UUID                    string                   `json:"uuid"`
-	Name                    string                   `json:"name"`
-	Priority                string                   `json:"priority,omitempty"`
-	Description             string                   `json:"description,omitempty"`
-	State                   string                   `json:"state,omitempty"`
-	CustomizeAnomaly        CustomizeAnomaly         `json:"customizeAnomaly,omitempty"`
-	AssociatedInsightGroups []string                 `json:"associatedInsightGroups,omitempty"`
-	AlertRuleActions        []AlertRuleAction        `json:"alertRuleActions,omitempty"`
-	AlertRuleMatchCriteria  []AlertRuleMatchCriteria `json:"alertRuleMatchCriteria,omitempty"`
-	LastModifiedTime        int64                    `json:"lastModified"`
-	Links                   []interface{}            `json:"links,omitempty"`
+	UUID                        string                   `json:"uuid"`
+	Name                        string                   `json:"name"`
+	Priority                    int64                    `json:"priority,omitempty"`
+	Description                 string                   `json:"description,omitempty"`
+	State                       string                   `json:"state,omitempty"`
+	CustomizeAnomaly            CustomizeAnomaly         `json:"customizeAnomaly,omitempty"`
+	AssociatedInsightGroupUuids []string                 `json:"associatedInsightGroupUuids,omitempty"`
+	AlertRuleActions            []AlertRuleAction        `json:"alertRuleActions,omitempty"`
+	AlertRuleMatchCriteria      []AlertRuleMatchCriteria `json:"alertRuleMatchCriteria,omitempty"`
+	LastModifiedTime            int64                    `json:"lastModifiedTime"`
+	Links                       []interface{}            `json:"links,omitempty"`
 }
 
 type CustomizeAnomaly struct {
-	CustomMessage string `json:"customMessage"`
+	CustomMessage string `json:"customMessage,omitempty"`
 }
 
 type AlertRuleAction struct {

@@ -136,7 +136,7 @@ func (rh *RuleEngineHandler) Start() error {
 				rh.logger.Debugw("RULE HANDLER - Converted rule JSON", "action", res.Action, "size", len(res.RuleJSON))
 
 				// Only leader distributes rule tasks
-				if rh.IsLeader() {
+				if rh.Leader() {
 					if rh.distributeRuleTask(res) {
 						rh.logger.Debugw("RULE HANDLER - Successfully distributed rule task", "action", res.Action)
 					}
@@ -168,11 +168,11 @@ func (rh *RuleEngineHandler) Stop() error {
 		rh.cancel()
 	}
 
-	// Close all consuers and producer
+	// Close all consumers and producer
 
 	if rh.ruleconsumer != nil {
 		if err := rh.ruleconsumer.Close(); err != nil {
-			rh.logger.Errorw("Failed to close consumer", "error", err)
+			rh.logger.Errorw("RULE HANDLER - Failed to close consumer", "error", err)
 			return err
 		}
 	}
@@ -196,7 +196,7 @@ func (rh *RuleEngineHandler) Stop() error {
 }
 
 func sendToDBBatchProcessor(ctx context.Context, logger logging.Logger, ruleBytes []byte, action string) {
-	logger.Infow("DB_BATCH - sending rule to DB batch processor", "action", action, "size", len(ruleBytes))
+	logger.Infow("DB_BATCH - sending rule to DB batch processor", "action", action)
 }
 
 func (rh *RuleEngineHandler) GetStats() map[string]interface{} {
@@ -204,7 +204,7 @@ func (rh *RuleEngineHandler) GetStats() map[string]interface{} {
 		"status":        "running",
 		"ruleTopic":     rh.config.RulesTopic,
 		"ruleTaskTopic": rh.config.RuleTaskTopic,
-		"isLeader":      rh.IsLeader(),
+		"isLeader":      rh.Leader(),
 		"poll_timeout":  rh.config.PollTimeout.String(),
 	}
 }
@@ -269,7 +269,7 @@ func (rh *RuleEngineHandler) applyRuleToRecord(aObj *alert.Alert) (*alert.Alert,
 }
 
 // return current leadership state
-func (rh *RuleEngineHandler) IsLeader() bool {
+func (rh *RuleEngineHandler) Leader() bool {
 	rh.leaderMutex.RLock()
 	defer rh.leaderMutex.RUnlock()
 	return rh.isLeader

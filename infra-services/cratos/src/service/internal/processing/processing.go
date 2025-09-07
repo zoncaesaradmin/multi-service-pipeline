@@ -211,10 +211,14 @@ func DefaultConfig(cfg *config.RawConfig) ProcConfig {
 			ProcessingDelay: processing.Processor.ProcessingDelay,
 			BatchSize:       processing.Processor.BatchSize,
 			RuleEngine: RuleEngineConfig{
-				RulesTopic:          processing.Processor.RuleProcConfig.RulesTopic,
-				PollTimeout:         processing.Processor.RuleProcConfig.PollTimeout,
-				Logging:             processing.Processor.RuleProcConfig.Logging.ConvertToLoggerConfig(),
-				RulesKafkaConfigMap: utils.LoadConfigMap(processing.Processor.RuleProcConfig.RulesKafkaConfFile),
+				RulesTopic:                  processing.Processor.RuleProcConfig.RulesTopic,
+				PollTimeout:                 processing.Processor.RuleProcConfig.PollTimeout,
+				Logging:                     processing.Processor.RuleProcConfig.Logging.ConvertToLoggerConfig(),
+				RulesKafkaConfigMap:         utils.LoadConfigMap(processing.Processor.RuleProcConfig.RulesKafkaConfFile),
+				RuleTasksTopic:              processing.Processor.RuleProcConfig.RuleTasksTopic,
+				RuleTasksLogging:            processing.Processor.RuleProcConfig.RuleTasksLogging.ConvertToLoggerConfig(),
+				RuleTasksConsKafkaConfigMap: utils.LoadConfigMap(processing.Processor.RuleProcConfig.RuleTasksConsKafkaFile),
+				RuleTasksProdKafkaConfigMap: utils.LoadConfigMap(processing.Processor.RuleProcConfig.RuleTasksProdKafkaFile),
 			},
 		},
 		Output: OutputConfig{

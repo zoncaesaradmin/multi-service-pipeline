@@ -62,11 +62,6 @@ func NewRuleHandler(config RuleEngineConfig, logger logging.Logger) *RuleEngineH
 		isLeader:     false,
 	}
 
-	// TODO: derive topic name from config file like other topics
-	if h.config.RuleTasksTopic == "" {
-		h.config.RuleTasksTopic = "cisco_nir-ruletasks"
-	}
-
 	logger.Infow("Initialized Rule Engine Handler", "ruleTopic", config.RulesTopic, "ruleTasksTopic", h.config.RuleTasksTopic)
 	return h
 }
@@ -79,11 +74,11 @@ func (rh *RuleEngineHandler) Start() error {
 
 	// Initialize producer for distributing rule tasks
 	// TODO: should get explicit kafka conf file instead of using consumer's conf file
-	rh.ruleTaskProducer = messagebus.NewProducer(rh.config.RulesKafkaConfigMap, "ruleTaskProducer"+utils.GetEnv("HOSTNAME", ""))
+	rh.ruleTaskProducer = messagebus.NewProducer(rh.config.RuleTasksProdKafkaConfigMap, "ruleTaskProducer"+utils.GetEnv("HOSTNAME", ""))
 
 	// Initialize rule task consumer with shared group for task distribution
 	ruleTaskGroup := "ruleTaskConsGroup-shared"
-	rh.ruleTaskConsumer = messagebus.NewConsumer(rh.config.RulesKafkaConfigMap, ruleTaskGroup)
+	rh.ruleTaskConsumer = messagebus.NewConsumer(rh.config.RuleTasksConsKafkaConfigMap, ruleTaskGroup)
 
 	rh.ruleTaskConsumer.OnMessage(func(message *messagebus.Message) {
 		if message == nil {

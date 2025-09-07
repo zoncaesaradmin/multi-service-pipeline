@@ -64,6 +64,11 @@ type RawRuleProcessorConfig struct {
 	PollTimeout   time.Duration    `yaml:"pollTimeout"`
 	Logging       RawLoggingConfig `yaml:"logging"`
 	KafkaConfFile string           `yaml:"kafkaConfigFile"`
+
+	RuleTasksTopic         string           `yaml:"ruleTasksTopic"`
+	RuleTasksLogging       RawLoggingConfig `yaml:"ruleTasksLogging"`
+	RuleTasksConsKafkaFile string           `yaml:"ruleTasksConsKafkaConfigFile"`
+	RuleTasksProdKafkaFile string           `yaml:"ruleTasksProdKafkaConfigFile"`
 }
 
 // OutputConfig holds output handler configuration

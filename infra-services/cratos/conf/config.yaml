@@ -36,11 +36,19 @@ processing:
     ruleEngine:
       rulesTopic: "cisco_nir-alertRules"      # Input rules topic (env: PROCESSING_RULES_TOPIC)
       pollTimeout: 1000ms                     # Poll timeout (env: PROCESSING_RULES_POLL_TIMEOUT_MS)
-      kafkaConfigFile: "kafka-consumer.yaml"  # Kafka consumer config file (env: PROCESSING_RULES_KAFKA_CONFIG_FILE)
+      kafkaConfigFile: "kafka-consumer-rules.yaml"  # Kafka consumer config file (env: PROCESSING_RULES_KAFKA_CONFIG_FILE)
       logging:
         level: "debug"
         fileName: "ruleengine.log"
         loggerName: "ruleengine"
+        serviceName: "cratos"
+      ruleTasksTopic: "cisco_nir-ruletasks"
+      ruleTasksConsKafkaConfigFile: "kafka-consumer-ruletasks.yaml"
+      ruleTasksProdKafkaConfigFile: "kafka-producer-ruletasks.yaml"
+      ruleTasksLogging:
+        level: "debug"
+        fileName: "ruletasks.log"
+        loggerName: "ruletasks"
         serviceName: "cratos"
 
   output:

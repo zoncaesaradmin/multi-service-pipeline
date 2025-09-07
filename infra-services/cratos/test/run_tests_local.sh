@@ -278,6 +278,7 @@ generate_report() {
     log_info "Generating test script report..."
 
     REPORT_FILE="$RESULTS_DIR/report.txt"
+    TEST_EXEC_REPORT="$RESULTS_DIR/logs/test_execution_report.txt"
 
     {
         echo "=================================================="
@@ -318,6 +319,7 @@ generate_report() {
         echo "- Coverage report: $RESULTS_DIR/coverage.html"
         echo "- Coverage summary: $RESULTS_DIR/coverage_summary.txt"
         echo "- This report: $REPORT_FILE"
+        echo "- Test execution details: $TEST_EXEC_REPORT"
         echo
         
     } > "$REPORT_FILE"
@@ -346,7 +348,7 @@ main() {
 
     # Ensure local bus topic directories exist for tests
     LOCAL_BUS_BASE="/tmp/cratos-messagebus"
-    for topic in cisco_nir-anomalies cisco_nir-prealerts cisco_nir-alertRules; do
+    for topic in cisco_nir-anomalies cisco_nir-prealerts cisco_nir-alertRules cisco_nir-ruletasks; do
         if [ ! -d "$LOCAL_BUS_BASE/$topic" ]; then
             mkdir -p "$LOCAL_BUS_BASE/$topic"
             log_info "Created local bus topic directory: $LOCAL_BUS_BASE/$topic"

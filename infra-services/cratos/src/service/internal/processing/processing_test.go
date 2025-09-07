@@ -107,7 +107,7 @@ func TestNewProcessor(t *testing.T) {
 					ComponentName: "ruleengine",
 					ServiceName:   "cratos",
 				},
-				KafkaConfigMap: map[string]any{"bootstrap.servers": "localhost:9092"},
+				RulesKafkaConfigMap: map[string]any{"bootstrap.servers": "localhost:9092"},
 			},
 		},
 		LoggerConfig: logging.LoggerConfig{
@@ -226,7 +226,7 @@ func TestSimpleNewPipeline(t *testing.T) {
 	const kafkaLocalhost9092 = "localhost:9092"
 	config.Input.KafkaConfigMap = map[string]any{kafkaBootstrapServers: kafkaLocalhost9092}
 	config.Output.KafkaConfigMap = map[string]any{kafkaBootstrapServers: kafkaLocalhost9092}
-	config.Processor.RuleEngine.KafkaConfigMap = map[string]any{kafkaBootstrapServers: kafkaLocalhost9092}
+	config.Processor.RuleEngine.RulesKafkaConfigMap = map[string]any{kafkaBootstrapServers: kafkaLocalhost9092}
 
 	logger := &mockLogger{}
 	pipeline := NewPipeline(config, logger)

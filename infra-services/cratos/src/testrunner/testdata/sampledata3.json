@@ -1,8 +1,0 @@
-{
-  "alertId": "ALERT-54321",
-  "severity": "info",
-  "anomalyType": "DiskSpace",
-  "nodeName": "NodeC",
-  "fabricName": "FabricC",
-  "timestamp": "2025-08-20T12:00:00Z"
-}

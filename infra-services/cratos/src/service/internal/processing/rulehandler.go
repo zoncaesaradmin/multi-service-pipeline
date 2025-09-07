@@ -14,11 +14,11 @@ import (
 )
 
 type RuleEngineConfig struct {
-	RulesTopic     string
-	PollTimeout    time.Duration
-	Logging        logging.LoggerConfig
-	KafkaConfigMap map[string]any
-	RuleTaskTopic  string
+	RulesTopic          string
+	PollTimeout         time.Duration
+	Logging             logging.LoggerConfig
+	RulesKafkaConfigMap map[string]any
+	RuleTasksTopic      string
 }
 
 type RuleEngineHandler struct {
@@ -38,7 +38,7 @@ type RuleEngineHandler struct {
 
 func NewRuleHandler(config RuleEngineConfig, logger logging.Logger) *RuleEngineHandler {
 	// use simple filename - path resolution is handled by messagebus config loader
-	consumer := messagebus.NewConsumer(config.KafkaConfigMap, "ruleConsGroup"+utils.GetEnv("HOSTNAME", ""))
+	consumer := messagebus.NewConsumer(config.RulesKafkaConfigMap, "ruleConsGroup"+utils.GetEnv("HOSTNAME", ""))
 	filePath := config.Logging.FilePath
 	if filePath == "" {
 		filePath = "/tmp/test.log"
@@ -59,11 +59,11 @@ func NewRuleHandler(config RuleEngineConfig, logger logging.Logger) *RuleEngineH
 	}
 
 	// TODO: derive topic name from config file like other topics
-	if h.config.RuleTaskTopic == "" {
-		h.config.RuleTaskTopic = "cisco_nir-ruletasks"
+	if h.config.RuleTasksTopic == "" {
+		h.config.RuleTasksTopic = "cisco_nir-ruletasks"
 	}
 
-	logger.Infow("Initialized Rule Engine Handler", "ruleTopic", config.RulesTopic, "ruleTaskTopic", h.config.RuleTaskTopic)
+	logger.Infow("Initialized Rule Engine Handler", "ruleTopic", config.RulesTopic, "ruleTasksTopic", h.config.RuleTasksTopic)
 	return h
 }
 
@@ -75,11 +75,11 @@ func (rh *RuleEngineHandler) Start() error {
 
 	// Initialize producer for distributing rule tasks
 	// TODO: should get explicit kafka conf file instead of using consumer's conf file
-	rh.ruleTaskProducer = messagebus.NewProducer(rh.config.KafkaConfigMap)
+	rh.ruleTaskProducer = messagebus.NewProducer(rh.config.RulesKafkaConfigMap)
 
 	// Initialize rule task consumer with shared group for task distribution
 	ruleTaskGroup := "ruleTaskConsGroup-shared"
-	rh.ruleTaskConsumer = messagebus.NewConsumer(rh.config.KafkaConfigMap, ruleTaskGroup)
+	rh.ruleTaskConsumer = messagebus.NewConsumer(rh.config.RulesKafkaConfigMap, ruleTaskGroup)
 
 	rh.ruleTaskConsumer.OnMessage(func(message *messagebus.Message) {
 		if message == nil {
@@ -97,9 +97,9 @@ func (rh *RuleEngineHandler) Start() error {
 		}
 	})
 
-	if err := rh.ruleTaskConsumer.Subscribe([]string{rh.config.RuleTaskTopic}); err != nil {
-		rh.logger.Errorw("RULE TASK HANDLER - Failed to subscribe to rule task topic", "error", err)
-		return fmt.Errorf("failed to subscribe to rule task topic: %w", err)
+	if err := rh.ruleTaskConsumer.Subscribe([]string{rh.config.RuleTasksTopic}); err != nil {
+		rh.logger.Errorw("RULE TASK HANDLER - Failed to subscribe to rule tasks topic", "error", err)
+		return fmt.Errorf("failed to subscribe to rule tasks topic: %w", err)
 	}
 
 	rh.ruleconsumer.OnAssign(func(assignments []messagebus.PartitionAssignment) {
@@ -201,11 +201,11 @@ func sendToDBBatchProcessor(ctx context.Context, logger logging.Logger, ruleByte
 
 func (rh *RuleEngineHandler) GetStats() map[string]interface{} {
 	return map[string]interface{}{
-		"status":        "running",
-		"ruleTopic":     rh.config.RulesTopic,
-		"ruleTaskTopic": rh.config.RuleTaskTopic,
-		"isLeader":      rh.Leader(),
-		"poll_timeout":  rh.config.PollTimeout.String(),
+		"status":         "running",
+		"ruleTopic":      rh.config.RulesTopic,
+		"ruleTasksTopic": rh.config.RuleTasksTopic,
+		"isLeader":       rh.Leader(),
+		"poll_timeout":   rh.config.PollTimeout.String(),
 	}
 }
 
@@ -260,7 +260,7 @@ func (rh *RuleEngineHandler) SetLeader(isLeader bool) {
 
 func (rh *RuleEngineHandler) distributeRuleTask(res *relib.RuleMsgResult) bool {
 	out := &messagebus.Message{
-		Topic: rh.config.RuleTaskTopic,
+		Topic: rh.config.RuleTasksTopic,
 		Value: res.RuleJSON,
 	}
 

@@ -1,8 +1,0 @@
-{
-  "alertId": "ALERT-67890",
-  "severity": "warning",
-  "anomalyType": "LowMemory",
-  "nodeName": "NodeB",
-  "fabricName": "FabricB",
-  "timestamp": "2025-08-20T11:00:00Z"
-}

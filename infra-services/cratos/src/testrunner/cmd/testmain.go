@@ -11,8 +11,8 @@ import (
 	"path/filepath"
 	"sharedgomodule/logging"
 	"syscall"
+	"testgomodule/impl"
 	"testgomodule/steps"
-	"testgomodule/types"
 	"time"
 
 	"github.com/cucumber/godog"
@@ -296,7 +296,7 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 	if err != nil {
 		log.Fatalf("Failed to create logger: %v", err)
 	}
-	suiteCtx := &types.CustomContext{L: logger}
+	suiteCtx := &impl.CustomContext{L: logger}
 
 	steps.InitializeCommonSteps(ctx, suiteCtx)
 	steps.InitializeRulesSteps(ctx, suiteCtx)

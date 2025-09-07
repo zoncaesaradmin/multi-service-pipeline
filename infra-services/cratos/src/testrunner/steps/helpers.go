@@ -4,11 +4,14 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"telemetry/utils/alert"
+
+	"google.golang.org/protobuf/proto"
 )
 
 // Reads JSON data from a file and converts it to an Alert protobuf message
-func LoadAlertFromJSON(filename string) (*alert.AlertStream, error) {
-	data, err := ioutil.ReadFile(filename)
+func LoadAlertFromJSON(filename string) ([]byte, error) {
+	inputDataFile := testFilePath(filename)
+	data, err := ioutil.ReadFile(inputDataFile)
 	if err != nil {
 		return nil, err
 	}
@@ -16,5 +19,22 @@ func LoadAlertFromJSON(filename string) (*alert.AlertStream, error) {
 	if err := json.Unmarshal(data, &AlertStream); err != nil {
 		return nil, err
 	}
-	return &AlertStream, nil
+	aBytes, err := proto.Marshal(&AlertStream)
+	if err != nil {
+		return nil, err
+	}
+	return aBytes, nil
+}
+
+// Reads JSON rule config from a file and converts it to an Alert protobuf message
+func LoadRulesFromJSON(filename string) ([]byte, error) {
+	ruleBytes, err := ioutil.ReadFile(testFilePath(filename))
+	if err != nil {
+		return nil, err
+	}
+	return ruleBytes, nil
+}
+
+func testFilePath(file string) string {
+	return "testdata/" + file
 }

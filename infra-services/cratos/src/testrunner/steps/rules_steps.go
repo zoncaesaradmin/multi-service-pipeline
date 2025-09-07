@@ -2,46 +2,38 @@ package steps
 
 import (
 	"errors"
-	"testgomodule/types"
+	"testgomodule/impl"
 	"time"
 
 	"github.com/cucumber/godog"
-	"google.golang.org/protobuf/proto"
-)
-
-var (
-	inputConfigFile string
-	inputDataFile   string
-	outputTopic     string
-	receivedData    map[string]interface{}
 )
 
 type StepBindings struct {
-	Cctx *types.CustomContext
+	Cctx *impl.CustomContext
 }
 
 func (b *StepBindings) SendInputConfigToTopic(configFile string, topic string) error {
-	inputConfigFile = configFile
+	rBytes, err := LoadRulesFromJSON(configFile)
+	if err != nil {
+		b.Cctx.L.Infof("Failed to load from rules config file %s\n", configFile)
+		return err
+	}
+	b.Cctx.ProducerHandler.Send(topic, rBytes, nil)
 	b.Cctx.L.Infof("Sent config %s over Kafka topic %s\n", configFile, topic)
 	return nil
 }
 
 func (b *StepBindings) SendInputDataToTopic(dataFile string, topic string) error {
-	inputDataFile = "testdata/" + dataFile
-	alertStream, err := LoadAlertFromJSON(inputDataFile)
+	aBytes, err := LoadAlertFromJSON(dataFile)
 	if err != nil {
 		b.Cctx.L.Infof("Failed to load from data file %s\n", dataFile)
-		return err
-	}
-	aBytes, err := proto.Marshal(alertStream)
-	if err != nil {
-		b.Cctx.L.Infof("Failed to marshal alert stream\n")
 		return err
 	}
 	metaDataMap := map[string]string{"testData": "true"}
 	b.Cctx.ProducerHandler.Send(topic, aBytes, metaDataMap)
 	b.Cctx.SentDataSize += len(aBytes)
 	b.Cctx.SentDataCount++
+	b.Cctx.L.Infof("+++++++ set expected count to 1 for data file %s\n", dataFile)
 	b.Cctx.ConsHandler.SetExpectedCount(1)
 	b.Cctx.ConsHandler.SetExpectedMap(metaDataMap)
 	b.Cctx.L.Infof("Sent data %s over Kafka topic %s\n", dataFile, topic)
@@ -82,7 +74,7 @@ func (b *StepBindings) VerifyIfNoFieldModified() error {
 	return nil
 }
 
-func InitializeRulesSteps(ctx *godog.ScenarioContext, suiteMetadataCtx *types.CustomContext) {
+func InitializeRulesSteps(ctx *godog.ScenarioContext, suiteMetadataCtx *impl.CustomContext) {
 	bindings := &StepBindings{Cctx: suiteMetadataCtx}
 	ctx.Step(`^send input config "([^"]*)" over kafka topic "([^"]*)"$`, bindings.SendInputConfigToTopic)
 	ctx.Step(`^send input data "([^"]*)" over kafka topic "([^"]*)"$`, bindings.SendInputDataToTopic)
@@ -94,7 +86,7 @@ func InitializeRulesSteps(ctx *godog.ScenarioContext, suiteMetadataCtx *types.Cu
 	ctx.Step(`^send_input_config_to_topic "([^"]*)" "([^"]*)"$`, bindings.SendInputConfigToTopic)
 	ctx.Step(`^send_input_data_to_topic "([^"]*)", "([^"]*)"$`, bindings.SendInputDataToTopic)
 	ctx.Step(`^wait_till_data_received_on_topic_with_timeout_sec "([^"]*)", (\d+)$`, bindings.WaitTillDataReceivedOnTopicWithTimeoutSec)
-	ctx.Step(`^verify_if_data_is_fully_received$`, bindings.VerifyIfDataIsFullyReceived)
+	ctx.Step(`^verify_if_data_is_fully_received_as_is$`, bindings.VerifyIfDataIsFullyReceived)
 	ctx.Step(`^verify_if_valid_field "([^"]*)"$`, bindings.VerifyIfValidField)
 	ctx.Step(`^verify_if_all_fields_are_unchanged$`, bindings.VerifyIfNoFieldModified)
 }

@@ -1,18 +1,18 @@
 package steps
 
 import (
-	"testgomodule/types"
+	"testgomodule/impl"
 	"time"
 
 	"github.com/cucumber/godog"
 )
 
 type CommonStepBindings struct {
-	SuiteCtx *types.CustomContext
+	SuiteCtx *impl.CustomContext
 }
 
 func (b *CommonStepBindings) KafkaProducerReady() error {
-	prodHandler := types.NewProducerHandler(b.SuiteCtx.L)
+	prodHandler := impl.NewProducerHandler(b.SuiteCtx.L)
 	if err := prodHandler.Start(); err != nil {
 		b.SuiteCtx.L.Errorf("Failed to start producer: %w", err)
 		return err
@@ -26,7 +26,7 @@ func (b *CommonStepBindings) KafkaProducerReady() error {
 }
 
 func (b *CommonStepBindings) KafkaConsumersStarted(topic string) error {
-	consHandler := types.NewConsumerHandler(b.SuiteCtx.L)
+	consHandler := impl.NewConsumerHandler(b.SuiteCtx.L)
 	if err := consHandler.Start(); err != nil {
 		b.SuiteCtx.L.Errorf("Failed to start consumer on topic %s", topic, err)
 		return err
@@ -39,7 +39,7 @@ func (b *CommonStepBindings) KafkaConsumersStarted(topic string) error {
 	return nil
 }
 
-func InitializeCommonSteps(ctx *godog.ScenarioContext, suiteCtx *types.CustomContext) {
+func InitializeCommonSteps(ctx *godog.ScenarioContext, suiteCtx *impl.CustomContext) {
 	bindings := &CommonStepBindings{SuiteCtx: suiteCtx}
 	ctx.Step(`^kafka producer publishing test config and test data is ready$`, bindings.KafkaProducerReady)
 	ctx.Step(`^the test kafka consumer is listening on kafka topic "([^"]*)"$`, bindings.KafkaConsumersStarted)

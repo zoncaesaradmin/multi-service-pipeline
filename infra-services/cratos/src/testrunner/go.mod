@@ -1,10 +1,13 @@
 module testgomodule
 
-go 1.22.5
+go 1.23
+
+toolchain go1.24.6
 
 require (
 	github.com/cucumber/godog v0.15.1
 	github.com/joho/godotenv v1.5.1
+	google.golang.org/protobuf v1.36.8
 )
 
 require (

@@ -3,16 +3,16 @@
     {
       "startTs": "2025-08-20T10:00:00Z",
       "endTs": "2025-08-20T11:00:00Z",
-      "fabricName": "FabricA",
+      "fabricName": "fabric-1",
       "nodeNames": [
-        "NodeA",
-        "NodeB"
+        "leaf-1",
+        "leaf-2"
       ],
       "statSubType": "statSubTypeValue",
       "statName": "statNameValue",
       "anomalyType": "HighCPUUsage",
       "reason": "CPU usage exceeded threshold",
-      "severity": "critical",
+      "severity": "minor",
       "category": "CONNECTIVITY",
       "entityName": "EntityA",
       "streamingAnomaly": true,
@@ -121,7 +121,7 @@
       "newAlert": true,
       "epochStartTs": 1629453600,
       "epochEndTs": 1629457200,
-      "mnemonicTitle": "HIGH_CPU",
+      "mnemonicTitle": "BGP_PEER_CONNECTION_DOWN",
       "mnemonicDescription": "MnemonicDescription",
       "mnemonicNum": 42,
       "entityNameList": [
@@ -169,9 +169,16 @@
       "multiFabricAlert": false,
       "affectedObjects": [
         {
-          "type": "TypeA",
-          "identifier": "ID1",
-          "name": "Name1",
+          "type": "leaf",
+          "identifier": "leaf-1",
+          "name": "leaf-1",
+          "isPrimary": true,
+          "isHealthy": true
+        },
+        {
+          "type": "interface",
+          "identifier": "eth1/3",
+          "name": "eth1/3",
           "isPrimary": true,
           "isHealthy": true
         }

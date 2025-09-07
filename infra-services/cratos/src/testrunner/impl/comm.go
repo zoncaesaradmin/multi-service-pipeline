@@ -58,7 +58,7 @@ func (i *ConsumerHandler) Start() error {
 	i.consumer.OnMessage(func(message *messagebus.Message) {
 		if message != nil {
 			if EnsureMapMatches(i.expectedMap, message.Headers) {
-				i.logger.Debugw("Received valid test data message", "size", len(message.Value))
+				i.logger.Infow("Received valid test data message", "size", len(message.Value))
 				i.receivedCount++
 				if i.receivedCount == i.expectedCount {
 					i.receivedAll = true
@@ -131,6 +131,7 @@ func (i *ConsumerHandler) VerifyDataField(field string, value interface{}) bool 
 		i.logger.Errorf("Failed to unmarshal input record: %w", err)
 		return false
 	}
+	i.logger.Infof("Data record: %+v", aStream)
 
 	successCount := 0
 	for _, aObj := range aStream.AlertObject {
@@ -139,6 +140,25 @@ func (i *ConsumerHandler) VerifyDataField(field string, value interface{}) bool 
 			if aObj.Acknowledged == value.(bool) {
 				successCount++
 			}
+		case "ruleCustomRecoStr":
+			for _, reco := range aObj.RuleCustomRecoStr {
+				i.logger.Infof("Verifying ruleCustomRecoStr with actual=%s expected=%s", reco, value.(string))
+				if reco == value.(string) {
+					successCount++
+					break
+				}
+			}
+		case "severity":
+			if aObj.Severity == value.(string) {
+				successCount++
+			}
+		case "fabricName":
+			if aObj.FabricName == value.(string) {
+				successCount++
+			}
+		// Add more fields as needed
+		default:
+			i.logger.Warnw("Unknown field for verification", "field", field)
 		}
 	}
 	return successCount == len(aStream.AlertObject)

@@ -6,8 +6,8 @@
   },
   "alertRulePayload": [
     {
-      "uuid": "ABCD-1234-EFGH-5678",
-      "name": "test-prio",
+      "uuid": "RULE-UUID-1",
+      "name": "rule_1",
       "priority": 1756993805,
       "description": "Alert when CPU usage exceeds threshold",
       "state": "true",
@@ -48,9 +48,9 @@
               "valueEquals": "BGP_PEER_CONNECTION_DOWN"
             }
           ],
-          "uuid": "ABCD-1234-EFGH-7654",
-          "alertRuleId": "ABCD-1234-EFGH-5678",
-          "siteId": "fabric-1"
+          "uuid": "RULE-UUID-1-CRITERIA-1",
+          "alertRuleId": "RULE-UUID-1",
+          "siteId": "fabric-0"
         }
       ],
       "lastModifiedTime": 1756993805053,

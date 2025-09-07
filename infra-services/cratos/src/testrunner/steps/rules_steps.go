@@ -20,6 +20,7 @@ func (b *StepBindings) SendInputConfigToTopic(configFile string, topic string) e
 	}
 	b.Cctx.ProducerHandler.Send(topic, rBytes, nil)
 	b.Cctx.L.Infof("Sent config %s over Kafka topic %s\n", configFile, topic)
+	time.Sleep(1 * time.Second) // slight delay to ensure config is processed first
 	return nil
 }
 
@@ -63,8 +64,11 @@ func (b *StepBindings) VerifyIfDataIsFullyReceived() error {
 	return nil
 }
 
-func (b *StepBindings) VerifyIfValidField(field string) error {
-	b.Cctx.L.Infof("Verified: Data field %s is valid.\n", field)
+func (b *StepBindings) VerifyIfValidFabric(fabricName string) error {
+	if !b.Cctx.ConsHandler.VerifyDataField("fabricName", fabricName) {
+		return errors.New("fabric does not match")
+	}
+	b.Cctx.L.Infof("Verified: Record has fabric '%s'.\n", fabricName)
 	return nil
 }
 
@@ -81,20 +85,37 @@ func (b *StepBindings) VerifyIfAcknowledged() error {
 	return nil
 }
 
+func (b *StepBindings) VerifyIfRecordHasCustomMessage(expectedMessage string) error {
+	if !b.Cctx.ConsHandler.VerifyDataField("ruleCustomRecoStr", expectedMessage) {
+		return errors.New("custom message does not match")
+	}
+	b.Cctx.L.Infof("Verified: Record has custom message '%s'.\n", expectedMessage)
+	return nil
+}
+
+func (b *StepBindings) VerifyIfRecordHasSeverity(expectedSeverity string) error {
+	if !b.Cctx.ConsHandler.VerifyDataField("severity", expectedSeverity) {
+		return errors.New("severity does not match")
+	}
+	b.Cctx.L.Infof("Verified: Record has severity '%s'.\n", expectedSeverity)
+	return nil
+}
+
 func InitializeRulesSteps(ctx *godog.ScenarioContext, suiteMetadataCtx *impl.CustomContext) {
 	bindings := &StepBindings{Cctx: suiteMetadataCtx}
 	ctx.Step(`^send input config "([^"]*)" over kafka topic "([^"]*)"$`, bindings.SendInputConfigToTopic)
 	ctx.Step(`^send input data "([^"]*)" over kafka topic "([^"]*)"$`, bindings.SendInputDataToTopic)
 	ctx.Step(`^wait till the sent data is received on kafka topic "([^"]*)" with a timeout of (\d+) seconds$`, bindings.WaitTillDataReceivedOnTopicWithTimeoutSec)
 	ctx.Step(`^verify if the data is fully received without loss$`, bindings.VerifyIfDataIsFullyReceived)
-	ctx.Step(`^verify if data field "([^"]*)" is the same$`, bindings.VerifyIfValidField)
 	ctx.Step(`^verify if no field is modified as expected$`, bindings.VerifyIfNoFieldModified)
 	// same as above steps but written in code function style
 	ctx.Step(`^send_input_config_to_topic "([^"]*)" "([^"]*)"$`, bindings.SendInputConfigToTopic)
 	ctx.Step(`^send_input_data_to_topic "([^"]*)", "([^"]*)"$`, bindings.SendInputDataToTopic)
 	ctx.Step(`^wait_till_data_received_on_topic_with_timeout_sec "([^"]*)", (\d+)$`, bindings.WaitTillDataReceivedOnTopicWithTimeoutSec)
 	ctx.Step(`^verify_if_data_is_fully_received_as_is$`, bindings.VerifyIfDataIsFullyReceived)
-	ctx.Step(`^verify_if_valid_field "([^"]*)"$`, bindings.VerifyIfValidField)
+	ctx.Step(`^verify_if_valid_fabric "([^"]*)"$`, bindings.VerifyIfValidFabric)
 	ctx.Step(`^verify_if_all_fields_are_unchanged$`, bindings.VerifyIfNoFieldModified)
 	ctx.Step(`^verify_if_record_is_acknowledged$`, bindings.VerifyIfAcknowledged)
+	ctx.Step(`^verify_if_record_has_custom_message "([^"]*)"$`, bindings.VerifyIfRecordHasCustomMessage)
+	ctx.Step(`^verify_if_record_has_severity "([^"]*)"$`, bindings.VerifyIfRecordHasSeverity)
 }

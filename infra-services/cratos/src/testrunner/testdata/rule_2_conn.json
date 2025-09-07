@@ -6,24 +6,29 @@
   },
   "alertRulePayload": [
     {
-      "uuid": "ABCD-1234-EFGH-5678",
-      "name": "test-prio",
-      "priority": 1756993805,
+      "uuid": "RULE-UUID-2",
+      "name": "rule_2",
+      "priority": 1756994560,
       "description": "Alert when CPU usage exceeds threshold",
       "state": "true",
       "customizeAnomaly": {
-        "customMessage": "BGP peer is down. Please investigate immediately."
+        "customMessage": "explicit message 1"
       },
       "associatedInsightGroupUuids": [
         "group-456",
         "group-789"
       ],
+      "applyToExistingActiveAnomalies": true,
+      "severityOverride": "critical",
       "alertRuleActions": [
         {
           "action": "CUSTOMIZE_ANOMALY"
         },
         {
           "action": "ACKNOWLEDGE"
+        },
+        {
+          "action": "SEVERITY_OVERRIDE"
         }
       ],
       "alertRuleMatchCriteria": [
@@ -48,12 +53,12 @@
               "valueEquals": "BGP_PEER_CONNECTION_DOWN"
             }
           ],
-          "uuid": "ABCD-1234-EFGH-7654",
-          "alertRuleId": "ABCD-1234-EFGH-5678",
+          "uuid": "RULE-UUID-2-CRITERIA-1",
+          "alertRuleId": "RULE-UUID-2",
           "siteId": "fabric-1"
         }
       ],
-      "lastModifiedTime": 1756993805053,
+      "lastModifiedTime": 1756993825056,
       "links": []
     }
   ]

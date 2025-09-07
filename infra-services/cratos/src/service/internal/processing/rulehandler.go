@@ -138,7 +138,7 @@ func (rh *RuleEngineHandler) Start() error {
 			if err != nil {
 				rh.rlogger.Errorw("RULE HANDLER - Failed to handle rule event", "error", err)
 			} else if res != nil && len(res.RuleJSON) > 0 {
-				rh.rlogger.Debugw("RULE HANDLER - Converted rule JSON", "action", res.Action, "size", len(res.RuleJSON))
+				rh.rlogger.Debugw("RULE HANDLER - Converted rule JSON", "action", res.Action, "convertedRule", string(res.RuleJSON))
 
 				// Only leader distributes rule tasks
 				if rh.Leader() {
@@ -220,28 +220,31 @@ func (rh *RuleEngineHandler) applyRuleToRecord(aObj *alert.Alert) (*alert.Alert,
 		rh.plogger.WithField("recId", recordIdentifier(aObj)).Infof("RECORD PROC - converted data: %v", convRecord)
 		lookupResult := rh.reInst.EvaluateRules(relib.Data(convRecord))
 		if lookupResult.IsRuleHit {
-			rh.plogger.Infof("RECORD PROC - rule hit for record %s, rule UUID: %s, eval results: %v", recordIdentifier(aObj), lookupResult.RuleUUID, lookupResult.CriteriaHit)
 			// rule matched
 			aObj.RuleId = lookupResult.RuleUUID
+			toPrintActionMap := make(map[string]any, 0)
 			for _, action := range lookupResult.Actions {
-				rh.plogger.Infof("RECORD PROC - action type: %s", action.ActionType)
 				switch action.ActionType {
 				case relib.RuleActionSeverityOverride:
 					aObj.Severity = action.ActionValueStr
+					toPrintActionMap["severity"] = aObj.Severity
 				case relib.RuleActionAcknowledge:
 					aObj.Acknowledged = true
 					aObj.AckTs = time.Now().UTC().Format(time.RFC3339)
 					aObj.AutoAck = true
+					toPrintActionMap["ack"] = true
 				case relib.RuleActionCustomizeRecommendation:
 					aObj.IsRuleCustomReco = true
 					aObj.RuleCustomRecoStr = strings.Split(action.ActionValueStr, ",")
+					toPrintActionMap["customreco"] = aObj.RuleCustomRecoStr
 				default:
 					rh.plogger.Warnf("RECORD PROC - unknown action type: %s", action.ActionType)
 				}
 			}
+			rh.plogger.WithField("recId", recordIdentifier(aObj)).Debugw("RECORD PROC - rule hit", "matchCriteria", lookupResult.CriteriaHit, "actionsApplied", toPrintActionMap)
 		} else {
 			// no rule matched
-			rh.plogger.WithField("recId", recordIdentifier(aObj)).Infof("RECORD PROC - no rule hit")
+			rh.plogger.WithField("recId", recordIdentifier(aObj)).Infow("RECORD PROC - no rule hit", "record", convRecord)
 		}
 	} else {
 		rh.plogger.WithField("recId", recordIdentifier(aObj)).Infof("RECORD PROC - skipped rule lookup")

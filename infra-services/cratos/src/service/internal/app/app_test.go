@@ -97,7 +97,9 @@ func TestNewApplication(t *testing.T) {
 				ChannelBufferSize: 1000,
 				KafkaConfFile:     kafkaConfigPath,
 			},
-			Processor: config.RawProcessorConfig{},
+			Processor: config.RawProcessorConfig{
+				RuleProcConfig: config.RawRuleProcessorConfig{},
+			},
 			Output: config.RawOutputConfig{
 				OutputTopic:       "output-topic",
 				BatchSize:         50,

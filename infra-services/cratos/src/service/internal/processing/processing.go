@@ -134,6 +134,27 @@ func DefaultConfig(cfg *config.RawConfig) ProcConfig {
 			Processor: ProcessorConfig{
 				ProcessingDelay: 10 * time.Millisecond,
 				BatchSize:       100,
+				RuleEngine: RuleEngineConfig{
+					RulesTopic:  "test-topic",
+					PollTimeout: 10 * time.Millisecond,
+					Logging: logging.LoggerConfig{
+						Level:         logging.InfoLevel,
+						FilePath:      "/tmp/ruleengine.log",
+						LoggerName:    "ruleengine",
+						ComponentName: "ruleengine",
+						ServiceName:   "cratos",
+					},
+					RuleTasksLogging: logging.LoggerConfig{
+						Level:         logging.InfoLevel,
+						FilePath:      "/tmp/ruletasks.log",
+						LoggerName:    "ruletasks",
+						ComponentName: "ruletasks",
+						ServiceName:   "cratos",
+					},
+					RulesKafkaConfigMap:         map[string]any{"bootstrap.servers": "localhost:9092"},
+					RuleTasksConsKafkaConfigMap: map[string]any{"bootstrap.servers": "localhost:9092"},
+					RuleTasksProdKafkaConfigMap: map[string]any{"bootstrap.servers": "localhost:9092"},
+				},
 			},
 			Output: OutputConfig{
 				OutputTopic:       "cisco_nir-prealerts",
@@ -170,6 +191,27 @@ func DefaultConfig(cfg *config.RawConfig) ProcConfig {
 			Processor: ProcessorConfig{
 				ProcessingDelay: 10 * time.Millisecond,
 				BatchSize:       100,
+				RuleEngine: RuleEngineConfig{
+					RulesTopic:  "test-topic",
+					PollTimeout: 10 * time.Millisecond,
+					Logging: logging.LoggerConfig{
+						Level:         logging.InfoLevel,
+						FilePath:      "/tmp/ruleengine.log",
+						LoggerName:    "ruleengine",
+						ComponentName: "ruleengine",
+						ServiceName:   "cratos",
+					},
+					RuleTasksLogging: logging.LoggerConfig{
+						Level:         logging.InfoLevel,
+						FilePath:      "/tmp/ruletasks.log",
+						LoggerName:    "ruletasks",
+						ComponentName: "ruletasks",
+						ServiceName:   "cratos",
+					},
+					RulesKafkaConfigMap:         map[string]any{"bootstrap.servers": "localhost:9092"},
+					RuleTasksConsKafkaConfigMap: map[string]any{"bootstrap.servers": "localhost:9092"},
+					RuleTasksProdKafkaConfigMap: map[string]any{"bootstrap.servers": "localhost:9092"},
+				},
 			},
 			Output: OutputConfig{
 				OutputTopic:       "cisco_nir-prealerts",

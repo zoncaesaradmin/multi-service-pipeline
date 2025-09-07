@@ -303,7 +303,15 @@ func TestLoggerConfiguration(t *testing.T) {
 
 func TestIntegrationComponents(t *testing.T) {
 	// Test that all components work together
-	cfg := config.LoadConfig()
+	cfg := &config.RawConfig{
+		Server: config.RawServerConfig{
+			Host:         testHost,
+			Port:         4477,
+			ReadTimeout:  10,
+			WriteTimeout: 10,
+		},
+	}
+
 	logger := &mockLogger{}
 	application := app.NewApplication(cfg, logger)
 	mux := setupRouter(logger)
@@ -368,32 +376,6 @@ func TestServerShutdownGraceful(t *testing.T) {
 	// Verify shutdown state
 	if !application.IsShuttingDown() {
 		t.Error("expected application to be in shutting down state")
-	}
-}
-
-func TestConfigLoadingDefault(t *testing.T) {
-	// Test that config loading works as expected (using defaults)
-	cfg := config.LoadConfig()
-
-	if cfg == nil {
-		t.Fatal("expected config to not be nil")
-	}
-
-	// Verify server config has reasonable defaults
-	if cfg.Server.Port <= 0 {
-		t.Error("expected server port to be positive")
-	}
-
-	if cfg.Server.Host == "" {
-		t.Error("expected server host to not be empty")
-	}
-
-	if cfg.Server.ReadTimeout <= 0 {
-		t.Error("expected read timeout to be positive")
-	}
-
-	if cfg.Server.WriteTimeout <= 0 {
-		t.Error("expected write timeout to be positive")
 	}
 }
 

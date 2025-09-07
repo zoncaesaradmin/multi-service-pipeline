@@ -43,30 +43,12 @@ type RuleEngineHandler struct {
 func NewRuleHandler(config RuleEngineConfig, logger logging.Logger) *RuleEngineHandler {
 	// use simple filename - path resolution is handled by messagebus config loader
 	consumer := messagebus.NewConsumer(config.RulesKafkaConfigMap, "ruleConsGroup"+utils.GetEnv("HOSTNAME", ""))
-	filePath := config.Logging.FilePath
-	if filePath == "" {
-		// TODO: do we need this? should we bail out instead?
-		filePath = "/tmp/test.log"
-	}
-	lInfo := relib.LoggerInfo{
-		ServiceName: config.Logging.ServiceName,
-		FilePath:    filePath,
-		Level:       config.Logging.Level.String(),
-	}
-	reInst := relib.CreateRuleEngineInstance(lInfo, []string{relib.RuleTypeMgmt})
-
-	//rtlogger, err := logging.NewLogger(&config.RuleTasksLogging)
-	//if err != nil {
-	//	logger.Fatalf("Failed to create pipeline logger: %v", err)
-	//}
 
 	h := &RuleEngineHandler{
 		ruleconsumer: consumer,
 		config:       config,
 		logger:       logger,
-		reInst:       reInst,
 		isLeader:     false,
-		rtlogger:     logger,
 	}
 
 	logger.Infow("Initialized Rule Engine Handler", "ruleTopic", config.RulesTopic, "ruleTasksTopic", h.config.RuleTasksTopic)
@@ -78,6 +60,21 @@ func (rh *RuleEngineHandler) Start() error {
 
 	// Create context for cancellation
 	rh.ctx, rh.cancel = context.WithCancel(context.Background())
+
+	// TODO; below needs work
+	rh.rtlogger = rh.logger
+	filePath := rh.config.Logging.FilePath
+	if filePath == "" {
+		// TODO: do we need this? should we bail out instead?
+		//filePath = "/tmp/test.log"
+	}
+	lInfo := relib.LoggerInfo{
+		ServiceName: rh.config.Logging.ServiceName,
+		Level:       rh.config.Logging.Level.String(),
+		FilePath:    filePath,
+		//FilePath:    rh.config.Logging.FilePath,
+	}
+	rh.reInst = relib.CreateRuleEngineInstance(lInfo, []string{relib.RuleTypeMgmt})
 
 	// Initialize producer for distributing rule tasks
 	rh.ruleTaskProducer = messagebus.NewProducer(rh.config.RuleTasksProdKafkaConfigMap, "ruleTaskProducer"+utils.GetEnv("HOSTNAME", ""))

@@ -114,7 +114,9 @@ func TestNewProcessor(t *testing.T) {
 					ComponentName: "ruletasks",
 					ServiceName:   "cratos",
 				},
-				RulesKafkaConfigMap: map[string]any{"bootstrap.servers": "localhost:9092"},
+				RulesKafkaConfigMap:         map[string]any{bootstrapServersKey: "localhost:9092"},
+				RuleTasksConsKafkaConfigMap: map[string]any{bootstrapServersKey: "localhost:9092"},
+				RuleTasksProdKafkaConfigMap: map[string]any{bootstrapServersKey: "localhost:9092"},
 			},
 		},
 		LoggerConfig: logging.LoggerConfig{
@@ -129,10 +131,6 @@ func TestNewProcessor(t *testing.T) {
 	inputCh := make(chan *models.ChannelMessage, 10)
 	outputCh := make(chan *models.ChannelMessage, 10)
 	processor := NewProcessor(procConfig.Processor, logger, inputCh, outputCh)
-	inputCh = make(chan *models.ChannelMessage, 10)
-	outputCh = make(chan *models.ChannelMessage, 10)
-
-	processor = NewProcessor(procConfig.Processor, logger, inputCh, outputCh)
 
 	if processor == nil {
 		t.Fatal("Expected processor to be created, got nil")
@@ -162,10 +160,32 @@ func TestNewOutputHandler(t *testing.T) {
 }
 
 func TestProcessorGetStats(t *testing.T) {
+	testLogFile := "/tmp/test.log"
 	config := ProcessorConfig{
-		ProcessingDelay: 1 * time.Millisecond,
+		ProcessingDelay: 10 * time.Millisecond,
 		BatchSize:       100,
-	}
+		RuleEngine: RuleEngineConfig{
+			RulesTopic:  "test-topic",
+			PollTimeout: 10 * time.Millisecond,
+			Logging: logging.LoggerConfig{
+				Level:         logging.InfoLevel,
+				FilePath:      testLogFile,
+				LoggerName:    "ruleengine",
+				ComponentName: "ruleengine",
+				ServiceName:   "cratos",
+			},
+			RuleTasksLogging: logging.LoggerConfig{
+				Level:         logging.InfoLevel,
+				FilePath:      testLogFile,
+				LoggerName:    "ruletasks",
+				ComponentName: "ruletasks",
+				ServiceName:   "cratos",
+			},
+			RulesKafkaConfigMap:         map[string]any{bootstrapServersKey: "localhost:9092"},
+			RuleTasksConsKafkaConfigMap: map[string]any{bootstrapServersKey: "localhost:9092"},
+			RuleTasksProdKafkaConfigMap: map[string]any{bootstrapServersKey: "localhost:9092"},
+		}}
+
 	logger := &mockLogger{}
 	inputCh := make(chan *models.ChannelMessage, 10)
 	outputCh := make(chan *models.ChannelMessage, 10)

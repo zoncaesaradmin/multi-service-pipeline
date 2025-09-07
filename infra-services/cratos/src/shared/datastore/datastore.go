@@ -21,7 +21,7 @@ type DatabaseClient interface {
 
 var EsIndices string = "activeanomalydb"
 
-// TODO: fix this
+// EsTemplatePath defines the path to the configuration templates directory
 var EsTemplatePath string = "/opt/cratos/conf"
 
 // Consolidated client instance

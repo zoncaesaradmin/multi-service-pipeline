@@ -12,7 +12,16 @@ import (
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 )
 
-const kafkaGroupID = "group.id"
+const (
+	kafkaGroupID             = "group.id"
+	kafkaClientID            = "client.id"
+	kafkaBootstrapServers    = "bootstrap.servers"
+	kafkaSecurityProtocol    = "security.protocol"
+	kafkaSSLCALocation       = "ssl.ca.location"
+	kafkaSSLCertLocation     = "ssl.certificate.location"
+	kafkaSSLKeyLocation      = "ssl.key.location"
+	kafkaSSLCertVerification = "enable.ssl.certificate.verification"
+)
 
 // KafkaProducer Kafka implementation for production (default)
 type KafkaProducer struct {
@@ -52,12 +61,12 @@ func NewProducer(configMap map[string]any, clientId string) Producer {
 
 	config := &kafka.ConfigMap{}
 	if clientId == "" {
-		clientId = GetStringValue(configMap, "client.id", os.Getenv("HOSTNAME"))
+		clientId = GetStringValue(configMap, kafkaClientID, os.Getenv("HOSTNAME"))
 	}
 
 	// Set values from config file, with fallback defaults
-	config.SetKey("bootstrap.servers", GetStringValue(configMap, "bootstrap.servers", "localhost:9092"))
-	config.SetKey("client.id", clientId)
+	config.SetKey(kafkaBootstrapServers, GetStringValue(configMap, kafkaBootstrapServers, "localhost:9092"))
+	config.SetKey(kafkaClientID, clientId)
 	config.SetKey("acks", GetStringValue(configMap, "acks", "1"))
 	config.SetKey("retries", GetIntValue(configMap, "retries", 3))
 	config.SetKey("batch.size", GetIntValue(configMap, "batch.size", 16384))
@@ -66,11 +75,11 @@ func NewProducer(configMap map[string]any, clientId string) Producer {
 	//config.SetKey("compression.type", GetStringValue(configMap, "compression.type", "none"))
 	//config.SetKey("max.in.flight.requests.per.connection", GetIntValue(configMap, "max.in.flight.requests.per.connection", 5))
 	//config.SetKey("enable.idempotence", GetBoolValue(configMap, "enable.idempotence", false))
-	config.SetKey("security.protocol", GetStringValue(configMap, "security.protocol", "PLAINTEXT"))
-	config.SetKey("ssl.ca.location", GetStringValue(configMap, "ssl.ca.location", ""))
-	config.SetKey("ssl.certificate.location", GetStringValue(configMap, "ssl.certificate.location", ""))
-	config.SetKey("ssl.key.location", GetStringValue(configMap, "ssl.key.location", ""))
-	config.SetKey("enable.ssl.certificate.verification", GetBoolValue(configMap, "enable.ssl.certificate.verification", false))
+	config.SetKey(kafkaSecurityProtocol, GetStringValue(configMap, kafkaSecurityProtocol, "PLAINTEXT"))
+	config.SetKey(kafkaSSLCALocation, GetStringValue(configMap, kafkaSSLCALocation, ""))
+	config.SetKey(kafkaSSLCertLocation, GetStringValue(configMap, kafkaSSLCertLocation, ""))
+	config.SetKey(kafkaSSLKeyLocation, GetStringValue(configMap, kafkaSSLKeyLocation, ""))
+	config.SetKey(kafkaSSLCertVerification, GetBoolValue(configMap, kafkaSSLCertVerification, false))
 
 	producer, err := kafka.NewProducer(config)
 	if err != nil {
@@ -83,8 +92,8 @@ func NewProducer(configMap map[string]any, clientId string) Producer {
 }
 
 // Send sends a message to Kafka
-func (p *KafkaProducer) Send(ctx context.Context, message *Message) (int32, int64, error) {
-	message.Timestamp = time.Now()
+// createKafkaMessage converts a Message to a kafka.Message with headers
+func (p *KafkaProducer) createKafkaMessage(message *Message) *kafka.Message {
 	kafkaMessage := &kafka.Message{
 		TopicPartition: kafka.TopicPartition{
 			Topic:     &message.Topic,
@@ -100,6 +109,29 @@ func (p *KafkaProducer) Send(ctx context.Context, message *Message) (int32, int6
 			Value: []byte(value),
 		})
 	}
+	return kafkaMessage
+}
+
+// waitForDelivery waits for message delivery confirmation
+func (p *KafkaProducer) waitForDelivery(ctx context.Context, deliveryChan chan kafka.Event) (int32, int64, error) {
+	select {
+	case event := <-deliveryChan:
+		if msg, ok := event.(*kafka.Message); ok {
+			if msg.TopicPartition.Error != nil {
+				return 0, 0, msg.TopicPartition.Error
+			}
+			return msg.TopicPartition.Partition, int64(msg.TopicPartition.Offset), nil
+		}
+		return 0, 0, fmt.Errorf("unexpected event type")
+	case <-ctx.Done():
+		return 0, 0, ctx.Err()
+	}
+}
+
+func (p *KafkaProducer) Send(ctx context.Context, message *Message) (int32, int64, error) {
+	message.Timestamp = time.Now()
+	kafkaMessage := p.createKafkaMessage(message)
+
 	deliveryChan := make(chan kafka.Event, 1)
 	defer close(deliveryChan)
 
@@ -115,111 +147,86 @@ func (p *KafkaProducer) Send(ctx context.Context, message *Message) (int32, int6
 			}
 			return 0, 0, fmt.Errorf("failed to produce message: %w", err)
 		}
-		select {
-		case event := <-deliveryChan:
-			if msg, ok := event.(*kafka.Message); ok {
-				if msg.TopicPartition.Error != nil {
-					if isTransientKafkaError(msg.TopicPartition.Error) {
-						lastErr = msg.TopicPartition.Error
-						time.Sleep(time.Duration(500*(attempt+1)) * time.Millisecond)
-						continue
-					}
-					return 0, 0, fmt.Errorf("delivery failed: %w", msg.TopicPartition.Error)
-				}
-				return msg.TopicPartition.Partition, int64(msg.TopicPartition.Offset), nil
+
+		partition, offset, err := p.waitForDelivery(ctx, deliveryChan)
+		if err != nil {
+			if isTransientKafkaError(err) {
+				lastErr = err
+				time.Sleep(time.Duration(500*(attempt+1)) * time.Millisecond)
+				continue
 			}
-			return 0, 0, fmt.Errorf("unexpected event type")
-		case <-ctx.Done():
-			return 0, 0, ctx.Err()
+			return 0, 0, fmt.Errorf("delivery failed: %w", err)
 		}
+		return partition, offset, nil
 	}
 	return 0, 0, fmt.Errorf("Kafka Send failed after retries: %w", lastErr)
 }
 
 // SendAsync sends a message to Kafka asynchronously
+// sendAsyncWithRetries handles the async send logic with retries
+func (p *KafkaProducer) sendAsyncWithRetries(ctx context.Context, message *Message, resultChan chan SendResult) {
+	defer close(resultChan)
+	message.Timestamp = time.Now()
+	kafkaMessage := p.createKafkaMessage(message)
+
+	deliveryChan := make(chan kafka.Event, 1)
+	defer close(deliveryChan)
+
+	var lastErr error
+	maxRetries := 5
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		err := p.producer.Produce(kafkaMessage, deliveryChan)
+		if err != nil {
+			if isTransientKafkaError(err) {
+				lastErr = err
+				time.Sleep(time.Duration(500*(attempt+1)) * time.Millisecond)
+				continue
+			}
+			resultChan <- SendResult{
+				Partition: 0,
+				Offset:    0,
+				Error:     fmt.Errorf("failed to produce message: %w", err),
+			}
+			return
+		}
+
+		partition, offset, err := p.waitForDelivery(ctx, deliveryChan)
+		if err != nil {
+			if ctx.Err() != nil {
+				resultChan <- SendResult{Partition: 0, Offset: 0, Error: ctx.Err()}
+				return
+			}
+			if isTransientKafkaError(err) {
+				lastErr = err
+				time.Sleep(time.Duration(500*(attempt+1)) * time.Millisecond)
+				continue
+			}
+			resultChan <- SendResult{
+				Partition: 0,
+				Offset:    0,
+				Error:     fmt.Errorf("delivery failed: %w", err),
+			}
+			return
+		}
+
+		resultChan <- SendResult{
+			Partition: partition,
+			Offset:    offset,
+			Error:     nil,
+		}
+		return
+	}
+
+	resultChan <- SendResult{
+		Partition: 0,
+		Offset:    0,
+		Error:     fmt.Errorf("Kafka SendAsync failed after retries: %w", lastErr),
+	}
+}
+
 func (p *KafkaProducer) SendAsync(ctx context.Context, message *Message) <-chan SendResult {
 	resultChan := make(chan SendResult, 1)
-
-	go func() {
-		defer close(resultChan)
-		message.Timestamp = time.Now()
-		kafkaMessage := &kafka.Message{
-			TopicPartition: kafka.TopicPartition{
-				Topic:     &message.Topic,
-				Partition: message.Partition,
-			},
-			Key:       []byte(message.Key),
-			Value:     message.Value,
-			Timestamp: message.Timestamp,
-		}
-		for key, value := range message.Headers {
-			kafkaMessage.Headers = append(kafkaMessage.Headers, kafka.Header{
-				Key:   key,
-				Value: []byte(value),
-			})
-		}
-		deliveryChan := make(chan kafka.Event, 1)
-		defer close(deliveryChan)
-		var lastErr error
-		maxRetries := 5
-		for attempt := 0; attempt < maxRetries; attempt++ {
-			err := p.producer.Produce(kafkaMessage, deliveryChan)
-			if err != nil {
-				if isTransientKafkaError(err) {
-					lastErr = err
-					time.Sleep(time.Duration(500*(attempt+1)) * time.Millisecond)
-					continue
-				}
-				resultChan <- SendResult{
-					Partition: 0,
-					Offset:    0,
-					Error:     fmt.Errorf("failed to produce message: %w", err),
-				}
-				return
-			}
-			select {
-			case event := <-deliveryChan:
-				if msg, ok := event.(*kafka.Message); ok {
-					if msg.TopicPartition.Error != nil {
-						if isTransientKafkaError(msg.TopicPartition.Error) {
-							lastErr = msg.TopicPartition.Error
-							time.Sleep(time.Duration(500*(attempt+1)) * time.Millisecond)
-							continue
-						}
-						resultChan <- SendResult{
-							Partition: 0,
-							Offset:    0,
-							Error:     fmt.Errorf("delivery failed: %w", msg.TopicPartition.Error),
-						}
-						return
-					}
-					resultChan <- SendResult{
-						Partition: msg.TopicPartition.Partition,
-						Offset:    int64(msg.TopicPartition.Offset),
-						Error:     nil,
-					}
-					return
-				}
-				resultChan <- SendResult{
-					Partition: 0,
-					Offset:    0,
-					Error:     fmt.Errorf("unexpected event type"),
-				}
-			case <-ctx.Done():
-				resultChan <- SendResult{
-					Partition: 0,
-					Offset:    0,
-					Error:     ctx.Err(),
-				}
-				return
-			}
-		}
-		resultChan <- SendResult{
-			Partition: 0,
-			Offset:    0,
-			Error:     fmt.Errorf("Kafka SendAsync failed after retries: %w", lastErr),
-		}
-	}()
+	go p.sendAsyncWithRetries(ctx, message, resultChan)
 	return resultChan
 }
 
@@ -303,7 +310,7 @@ func NewConsumer(configMap map[string]any, cgroup string) Consumer {
 	config := &kafka.ConfigMap{}
 
 	// Set values from config file, with fallback defaults
-	config.SetKey("bootstrap.servers", GetStringValue(configMap, "bootstrap.servers", "localhost:9092"))
+	config.SetKey(kafkaBootstrapServers, GetStringValue(configMap, kafkaBootstrapServers, "localhost:9092"))
 
 	// Use provided cgroup if not empty, otherwise use config file value
 	groupID := GetStringValue(configMap, kafkaGroupID, "default-group")
@@ -323,12 +330,12 @@ func NewConsumer(configMap map[string]any, cgroup string) Consumer {
 	//config.SetKey("fetch.min.bytes", GetIntValue(configMap, "fetch.min.bytes", 1))
 	//config.SetKey("fetch.max.wait.ms", GetIntValue(configMap, "fetch.max.wait.ms", 500))
 	//config.SetKey("max.partition.fetch.bytes", GetIntValue(configMap, "max.partition.fetch.bytes", 1048576))
-	config.SetKey("client.id", GetStringValue(configMap, "client.id", cgroup+os.Getenv("HOSTNAME")))
-	config.SetKey("security.protocol", GetStringValue(configMap, "security.protocol", "PLAINTEXT"))
-	config.SetKey("ssl.ca.location", GetStringValue(configMap, "ssl.ca.location", ""))
-	config.SetKey("ssl.certificate.location", GetStringValue(configMap, "ssl.certificate.location", ""))
-	config.SetKey("ssl.key.location", GetStringValue(configMap, "ssl.key.location", ""))
-	config.SetKey("enable.ssl.certificate.verification", GetBoolValue(configMap, "enable.ssl.certificate.verification", false))
+	config.SetKey(kafkaClientID, GetStringValue(configMap, kafkaClientID, cgroup+os.Getenv("HOSTNAME")))
+	config.SetKey(kafkaSecurityProtocol, GetStringValue(configMap, kafkaSecurityProtocol, "PLAINTEXT"))
+	config.SetKey(kafkaSSLCALocation, GetStringValue(configMap, kafkaSSLCALocation, ""))
+	config.SetKey(kafkaSSLCertLocation, GetStringValue(configMap, kafkaSSLCertLocation, ""))
+	config.SetKey(kafkaSSLKeyLocation, GetStringValue(configMap, kafkaSSLKeyLocation, ""))
+	config.SetKey(kafkaSSLCertVerification, GetBoolValue(configMap, kafkaSSLCertVerification, false))
 
 	consumer, err := kafka.NewConsumer(config)
 	if err != nil {
@@ -346,57 +353,68 @@ func NewConsumer(configMap map[string]any, cgroup string) Consumer {
 // ...existing code...
 
 // Internal: unified event handler for rebalance and messages
+// convertToPartitionAssignments converts kafka topic partitions to PartitionAssignment slice
+func convertToPartitionAssignments(partitions []kafka.TopicPartition) []PartitionAssignment {
+	var assignments []PartitionAssignment
+	for _, tp := range partitions {
+		topic := ""
+		if tp.Topic != nil {
+			topic = *tp.Topic
+		}
+		assignments = append(assignments, PartitionAssignment{
+			Topic:     topic,
+			Partition: tp.Partition,
+		})
+	}
+	return assignments
+}
+
+// handlePartitionAssignment processes partition assignment events
+func (c *KafkaConsumer) handlePartitionAssignment(partitions []kafka.TopicPartition) {
+	assignments := convertToPartitionAssignments(partitions)
+	c.assignedPartitions = assignments
+	if c.onAssign != nil {
+		c.onAssign(assignments)
+	}
+	c.consumer.Assign(partitions)
+}
+
+// handlePartitionRevocation processes partition revocation events
+func (c *KafkaConsumer) handlePartitionRevocation(partitions []kafka.TopicPartition) {
+	revocations := convertToPartitionAssignments(partitions)
+	if c.onRevoke != nil {
+		c.onRevoke(revocations)
+	}
+	c.consumer.Unassign()
+	c.assignedPartitions = nil
+}
+
+// convertKafkaMessage converts kafka.Message to internal Message format
+func (c *KafkaConsumer) convertKafkaMessage(e *kafka.Message) *Message {
+	msg := &Message{
+		Topic:     *e.TopicPartition.Topic,
+		Key:       string(e.Key),
+		Value:     e.Value,
+		Headers:   make(map[string]string),
+		Partition: e.TopicPartition.Partition,
+		Offset:    int64(e.TopicPartition.Offset),
+		Timestamp: e.Timestamp,
+	}
+	for _, header := range e.Headers {
+		msg.Headers[header.Key] = string(header.Value)
+	}
+	return msg
+}
+
 func (c *KafkaConsumer) handleEvents() {
 	for event := range c.consumer.Events() {
 		switch e := event.(type) {
 		case kafka.AssignedPartitions:
-			// Convert kafka.TopicPartition to PartitionAssignment
-			var assignments []PartitionAssignment
-			for _, tp := range e.Partitions {
-				topic := ""
-				if tp.Topic != nil {
-					topic = *tp.Topic
-				}
-				assignments = append(assignments, PartitionAssignment{
-					Topic:     topic,
-					Partition: tp.Partition,
-				})
-			}
-			c.assignedPartitions = assignments
-			if c.onAssign != nil {
-				c.onAssign(assignments)
-			}
-			c.consumer.Assign(e.Partitions)
+			c.handlePartitionAssignment(e.Partitions)
 		case kafka.RevokedPartitions:
-			var revocations []PartitionAssignment
-			for _, tp := range e.Partitions {
-				topic := ""
-				if tp.Topic != nil {
-					topic = *tp.Topic
-				}
-				revocations = append(revocations, PartitionAssignment{
-					Topic:     topic,
-					Partition: tp.Partition,
-				})
-			}
-			if c.onRevoke != nil {
-				c.onRevoke(revocations)
-			}
-			c.consumer.Unassign()
-			c.assignedPartitions = nil
+			c.handlePartitionRevocation(e.Partitions)
 		case *kafka.Message:
-			msg := &Message{
-				Topic:     *e.TopicPartition.Topic,
-				Key:       string(e.Key),
-				Value:     e.Value,
-				Headers:   make(map[string]string),
-				Partition: e.TopicPartition.Partition,
-				Offset:    int64(e.TopicPartition.Offset),
-				Timestamp: e.Timestamp,
-			}
-			for _, header := range e.Headers {
-				msg.Headers[header.Key] = string(header.Value)
-			}
+			msg := c.convertKafkaMessage(e)
 			if c.onMessage != nil {
 				c.onMessage(msg)
 			}

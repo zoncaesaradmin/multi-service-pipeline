@@ -70,6 +70,8 @@ func (osc *OpenSearchClient) loadConfigFromEnv() error {
 }
 
 func (osc *OpenSearchClient) applyEnvOverrides(config *Config) {
+	// No-op: environment variable overrides not implemented yet
+	// This would typically apply configuration overrides from environment variables
 }
 
 func (osc *OpenSearchClient) validateConfig(config *Config) error {
@@ -85,6 +87,8 @@ func (osc *OpenSearchClient) setupHTTPClient() error {
 }
 
 func (osc *OpenSearchClient) startCredsRefreshTimer() {
+	// No-op: credentials refresh timer not implemented yet
+	// This would typically set up a periodic timer to refresh authentication credentials
 }
 
 func (osc *OpenSearchClient) checkAndRefreshCreds() error {
@@ -100,6 +104,8 @@ func (osc *OpenSearchClient) UpsertIndex(indexName string, mapFilePath string) e
 }
 
 func (osc *OpenSearchClient) applyPlatformSettings(mapping *map[string]interface{}) {
+	// No-op: platform-specific settings not implemented yet
+	// This would typically apply platform-specific configurations to the mapping
 }
 
 func (osc *OpenSearchClient) refreshCredentials() error {

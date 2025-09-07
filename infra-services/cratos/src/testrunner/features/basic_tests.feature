@@ -10,23 +10,26 @@ Feature: Basic test for data reception without hitting any rule
 
   # common steps for each of the scenarios in this feature
   Background:
+    And set_input_config_topic "cisco_nir-alertRules"
+    And set_input_data_topic "cisco_nir-anomalies"
+    And set_output_data_topic "cisco_nir-prealerts"
     And ensure_test_config_kafka_producer_is_ready
-    And ensure_test_data_kafka_consumer_on_topic "cisco_nir-prealerts"
+    And ensure_test_data_consumer_on_output_is_ready
 
   # test if basic input and output of service are working fine
   Scenario: IT_001_Basic_data_reception_without_rules
-    And send_input_config_to_topic "rule_1.json" "cisco_nir-alertRules"
-    And send_input_data_to_topic "data_conn_1.json", "cisco_nir-anomalies"
-    And wait_till_data_received_on_topic_with_timeout_sec "cisco_nir-prealerts", 10
+    And send_input_config "rule_1.json" 
+    And send_input_data "data_conn_1.json"
+    And wait_till_data_received_with_timeout_sec 10
     And verify_if_data_is_fully_received_as_is
     And verify_if_valid_fabric "FabricA"
     And verify_if_all_fields_are_unchanged
 
   # test if basic input and output of service are working fine
   Scenario: IT_002_Basic_data_reception_with_simple_rule
-    And send_input_config_to_topic "rule_2_conn.json" "cisco_nir-alertRules"
-    And send_input_data_to_topic "data_conn_2.json", "cisco_nir-anomalies"
-    And wait_till_data_received_on_topic_with_timeout_sec "cisco_nir-prealerts", 10
+    And send_input_config "rule_2_conn.json"
+    And send_input_data "data_conn_2.json"
+    And wait_till_data_received_with_timeout_sec 10
     And verify_if_data_is_fully_received_as_is
     And verify_if_valid_fabric "fabric-1"
     And verify_if_record_is_acknowledged

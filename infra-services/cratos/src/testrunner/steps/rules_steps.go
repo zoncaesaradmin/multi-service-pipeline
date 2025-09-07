@@ -12,6 +12,10 @@ type StepBindings struct {
 	Cctx *impl.CustomContext
 }
 
+func (b *StepBindings) SendInputConfig(configFile string) error {
+	return b.SendInputConfigToTopic(configFile, b.Cctx.InConfigTopic)
+}
+
 func (b *StepBindings) SendInputConfigToTopic(configFile string, topic string) error {
 	rBytes, err := LoadRulesFromJSON(configFile)
 	if err != nil {
@@ -20,8 +24,12 @@ func (b *StepBindings) SendInputConfigToTopic(configFile string, topic string) e
 	}
 	b.Cctx.ProducerHandler.Send(topic, rBytes, nil)
 	b.Cctx.L.Infof("Sent config %s over Kafka topic %s\n", configFile, topic)
-	time.Sleep(1 * time.Second) // slight delay to ensure config is processed first
+	time.Sleep(3 * time.Second) // slight delay to ensure config is processed first
 	return nil
+}
+
+func (b *StepBindings) SendInputData(dataFile string) error {
+	return b.SendInputDataToTopic(dataFile, b.Cctx.InDataTopic)
 }
 
 func (b *StepBindings) SendInputDataToTopic(dataFile string, topic string) error {
@@ -38,6 +46,10 @@ func (b *StepBindings) SendInputDataToTopic(dataFile string, topic string) error
 	b.Cctx.ConsHandler.SetExpectedMap(metaDataMap)
 	b.Cctx.L.Infof("Sent data %s over Kafka topic %s\n", dataFile, topic)
 	return nil
+}
+
+func (b *StepBindings) WaitTillDataReceivedWithTimeoutSec(timeoutSec int) error {
+	return b.WaitTillDataReceivedOnTopicWithTimeoutSec(b.Cctx.OutDataTopic, timeoutSec)
 }
 
 func (b *StepBindings) WaitTillDataReceivedOnTopicWithTimeoutSec(topic string, timeoutSec int) error {
@@ -113,9 +125,14 @@ func InitializeRulesSteps(ctx *godog.ScenarioContext, suiteMetadataCtx *impl.Cus
 	ctx.Step(`^send_input_data_to_topic "([^"]*)", "([^"]*)"$`, bindings.SendInputDataToTopic)
 	ctx.Step(`^wait_till_data_received_on_topic_with_timeout_sec "([^"]*)", (\d+)$`, bindings.WaitTillDataReceivedOnTopicWithTimeoutSec)
 	ctx.Step(`^verify_if_data_is_fully_received_as_is$`, bindings.VerifyIfDataIsFullyReceived)
+
 	ctx.Step(`^verify_if_valid_fabric "([^"]*)"$`, bindings.VerifyIfValidFabric)
 	ctx.Step(`^verify_if_all_fields_are_unchanged$`, bindings.VerifyIfNoFieldModified)
 	ctx.Step(`^verify_if_record_is_acknowledged$`, bindings.VerifyIfAcknowledged)
 	ctx.Step(`^verify_if_record_has_custom_message "([^"]*)"$`, bindings.VerifyIfRecordHasCustomMessage)
 	ctx.Step(`^verify_if_record_has_severity "([^"]*)"$`, bindings.VerifyIfRecordHasSeverity)
+
+	ctx.Step(`^send_input_config "([^"]*)"$`, bindings.SendInputConfig)
+	ctx.Step(`^send_input_data "([^"]*)"$`, bindings.SendInputData)
+	ctx.Step(`^wait_till_data_received_with_timeout_sec (\d+)$`, bindings.WaitTillDataReceivedWithTimeoutSec)
 }

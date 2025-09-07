@@ -15,6 +15,9 @@ import (
 // this is a custom suite context structure that can be passed to the steps
 type CustomContext struct {
 	L               logging.Logger
+	InConfigTopic   string
+	InDataTopic     string
+	OutDataTopic    string
 	ConsHandler     *ConsumerHandler
 	ProducerHandler *ProducerHandler
 	SentDataSize    int

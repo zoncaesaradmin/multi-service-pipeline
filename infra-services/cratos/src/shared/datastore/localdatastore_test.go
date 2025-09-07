@@ -11,17 +11,7 @@ import (
 const (
 	testLogFile       = "/tmp/test_datastore.log"
 	testLoggerFailMsg = "Failed to create logger: %v"
-	testIndex         = "test-index"
-	testMappingFile   = "test-mapping.json"
 )
-
-const testFilePath = "test_localdatastore.json"
-
-type testDoc struct {
-	ID   string `json:"_id"`
-	Name string `json:"name"`
-	Val  int    `json:"val"`
-}
 
 func createTestLogger() (logging.Logger, error) {
 	config := &logging.LoggerConfig{
@@ -39,5 +29,8 @@ func TestLocalIndexAndGetFileBased(t *testing.T) {
 	if err != nil {
 		t.Fatalf(testLoggerFailMsg, err)
 	}
-	_ = NewLocalClient(logger)
+	client := NewLocalClient(logger)
+	if client == nil {
+		t.Fatal("NewLocalClient returned nil")
+	}
 }

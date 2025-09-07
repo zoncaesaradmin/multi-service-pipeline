@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"servicegomodule/internal/models"
 	"sharedgomodule/logging"
-	"sharedgomodule/messagebus"
 	"testing"
 	"time"
 )
@@ -51,44 +50,6 @@ func (m *mockLogger) Logf(level logging.Level, format string, args ...interface{
 func (m *mockLogger) Logw(level logging.Level, msg string, keysAndValues ...interface{}) { /* mock */ }
 func (m *mockLogger) Clone() logging.Logger                                              { return &mockLogger{} }
 func (m *mockLogger) Close() error                                                       { return nil }
-
-// mockProducer implements the messagebus.Producer interface for testing
-type mockProducer struct {
-	sentMessages []*messagebus.Message
-	closed       bool
-	sendError    error
-}
-
-func (m *mockProducer) Send(ctx context.Context, message *messagebus.Message) (partition int32, offset int64, err error) {
-	if m.sendError != nil {
-		return 0, 0, m.sendError
-	}
-	m.sentMessages = append(m.sentMessages, message)
-	return 0, int64(len(m.sentMessages)), nil
-}
-
-func (m *mockProducer) SendAsync(ctx context.Context, message *messagebus.Message) <-chan messagebus.SendResult {
-	resultCh := make(chan messagebus.SendResult, 1)
-	go func() {
-		if m.sendError != nil {
-			resultCh <- messagebus.SendResult{Error: m.sendError}
-		} else {
-			m.sentMessages = append(m.sentMessages, message)
-			resultCh <- messagebus.SendResult{
-				Partition: 0,
-				Offset:    int64(len(m.sentMessages)),
-				Error:     nil,
-			}
-		}
-		close(resultCh)
-	}()
-	return resultCh
-}
-
-func (m *mockProducer) Close() error {
-	m.closed = true
-	return nil
-}
 
 func sampleRawConfig() ProcConfig {
 	return ProcConfig{

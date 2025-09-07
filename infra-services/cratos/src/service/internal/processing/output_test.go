@@ -4,46 +4,9 @@ import (
 	"context"
 	"servicegomodule/internal/models"
 	"sharedgomodule/logging"
-	"sharedgomodule/messagebus"
 	"testing"
 	"time"
 )
-
-// Mock producer for output tests
-type mockProducerForOutput struct {
-	messages []messagebus.Message
-	closed   bool
-	sendErr  error
-}
-
-func (m *mockProducerForOutput) Send(ctx context.Context, message *messagebus.Message) (partition int32, offset int64, err error) {
-	if m.sendErr != nil {
-		return 0, 0, m.sendErr
-	}
-	m.messages = append(m.messages, *message)
-	return 0, int64(len(m.messages)), nil
-}
-
-func (m *mockProducerForOutput) SendAsync(ctx context.Context, message *messagebus.Message) <-chan messagebus.SendResult {
-	resultCh := make(chan messagebus.SendResult, 1)
-	if m.sendErr != nil {
-		resultCh <- messagebus.SendResult{Error: m.sendErr}
-	} else {
-		m.messages = append(m.messages, *message)
-		resultCh <- messagebus.SendResult{
-			Partition: 0,
-			Offset:    int64(len(m.messages)),
-			Error:     nil,
-		}
-	}
-	close(resultCh)
-	return resultCh
-}
-
-func (m *mockProducerForOutput) Close() error {
-	m.closed = true
-	return nil
-}
 
 // Mock logger for output tests - matches logging.Logger interface exactly
 type mockLoggerForOutput struct{}

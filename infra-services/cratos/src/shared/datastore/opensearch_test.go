@@ -9,11 +9,9 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
+	"sharedgomodule/logging"
 	"strings"
 	"testing"
-
-	"github.com/disaster37/opensearch/v2"
 )
 
 var scrollBatchMap = make(map[string]int)
@@ -80,27 +78,48 @@ func mockOpenSearchServer() *httptest.Server {
 	}))
 }
 
-func getMockClient(t *testing.T) OpenSearchClient {
-	server := mockOpenSearchServer()
-	client, err := NewOpenSearchClient(
-		opensearch.SetURL(server.URL),
-		opensearch.SetHealthcheck(false),
-		opensearch.SetSniff(false),
-	)
+func getMockClient(t *testing.T) DatabaseClient {
+	// Create a mock logger for testing
+	config := &logging.LoggerConfig{
+		Level:         logging.InfoLevel,
+		FilePath:      "/tmp/test_opensearch.log",
+		LoggerName:    "test",
+		ComponentName: "test",
+		ServiceName:   "test",
+	}
+	logger, err := logging.NewLogger(config)
 	if err != nil {
-		t.Fatalf("failed to create mock client: %v", err)
+		t.Fatalf("failed to create logger: %v", err)
+	}
+	client, err := NewOpenSearchClient(logger)
+	if err != nil {
+		t.Fatalf("NewOpenSearchClient failed: %v", err)
+	}
+	if client == nil {
+		t.Fatal("NewOpenSearchClient returned nil")
 	}
 	return client
 }
 
-func getTestClient(t *testing.T) OpenSearchClient {
-	url := os.Getenv("OPENSEARCH_URL")
-	if url == "" {
-		url = "http://localhost:9200"
+func getTestClient(t *testing.T) DatabaseClient {
+	// Create a logger for testing
+	config := &logging.LoggerConfig{
+		Level:         logging.InfoLevel,
+		FilePath:      "/tmp/test_opensearch.log",
+		LoggerName:    "test",
+		ComponentName: "test",
+		ServiceName:   "test",
 	}
-	client, err := NewOpenSearchClient(opensearch.SetURL(url))
+	logger, err := logging.NewLogger(config)
 	if err != nil {
-		t.Fatalf("failed to create client: %v", err)
+		t.Fatalf("failed to create logger: %v", err)
+	}
+	client, err := NewOpenSearchClient(logger)
+	if err != nil {
+		t.Fatalf("NewOpenSearchClient failed: %v", err)
+	}
+	if client == nil {
+		t.Fatal("NewOpenSearchClient returned nil")
 	}
 	return client
 }
@@ -141,8 +160,7 @@ func TestBulkIndexAndSearch(t *testing.T) {
 	if err := client.BulkIndex(ctx, index, docs); err != nil {
 		t.Fatalf("BulkIndex failed: %v", err)
 	}
-	// Wait for index refresh
-	client.(*OpenSearchClientImpl).client.Refresh(index).Do(ctx)
+	// Wait for index refresh (OpenSearch implementation handles this internally)
 	var results []testDoc
 	total, err := client.Search(ctx, index, map[string]interface{}{"query": map[string]interface{}{"match_all": map[string]interface{}{}}}, 1, 10, &results)
 	if err != nil {

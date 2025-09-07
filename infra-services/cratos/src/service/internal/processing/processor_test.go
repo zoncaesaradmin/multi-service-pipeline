@@ -15,7 +15,6 @@ import (
 const (
 	processorBootstrapKey  = "bootstrap.servers"
 	processorTestKafkaHost = "localhost:9092"
-	processorTestTopic     = "test-topic"
 	processorStartErrMsg   = "Failed to start processor: %v"
 )
 

@@ -1,5 +1,6 @@
 package processing
 
+/*
 import (
 	relib "telemetry/utils/ruleenginelib"
 )
@@ -70,3 +71,4 @@ func (r *RuleEngineAdapter) EvaluateRules(data interface{}) (bool, string, *Eval
 	// Placeholder implementation until we know the exact relib.API
 	return false, "", evalResult
 }
+*/

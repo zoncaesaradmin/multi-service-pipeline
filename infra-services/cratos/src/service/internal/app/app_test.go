@@ -98,7 +98,26 @@ func TestNewApplication(t *testing.T) {
 				KafkaConfFile:     kafkaConfigPath,
 			},
 			Processor: config.RawProcessorConfig{
-				RuleProcConfig: config.RawRuleProcessorConfig{},
+				RuleProcConfig: config.RawRuleProcessorConfig{
+					RulesTopic:  "alert-rules-topic",
+					PollTimeout: 5 * time.Second,
+					Logging: config.RawLoggingConfig{
+						Level:       "info",
+						FileName:    "/tmp/ruleengine.log",
+						LoggerName:  "ruleengine",
+						ServiceName: "cratos",
+					},
+					RulesKafkaConfFile: kafkaConfigPath,
+					RuleTasksTopic:     "rule-tasks-topic",
+					RuleTasksLogging: config.RawLoggingConfig{
+						Level:       "debug",
+						FileName:    "/tmp/ruletasks.log",
+						LoggerName:  "ruletasks",
+						ServiceName: "cratos",
+					},
+					RuleTasksConsKafkaFile: kafkaConfigPath,
+					RuleTasksProdKafkaFile: kafkaConfigPath,
+				},
 			},
 			Output: config.RawOutputConfig{
 				OutputTopic:       "output-topic",

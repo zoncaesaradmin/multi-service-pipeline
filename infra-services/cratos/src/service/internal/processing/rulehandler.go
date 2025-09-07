@@ -44,11 +44,27 @@ func NewRuleHandler(config RuleEngineConfig, logger logging.Logger) *RuleEngineH
 	// use simple filename - path resolution is handled by messagebus config loader
 	consumer := messagebus.NewConsumer(config.RulesKafkaConfigMap, "ruleConsGroup"+utils.GetEnv("HOSTNAME", ""))
 
+	reInst := relib.CreateRuleEngineInstance(
+		relib.LoggerInfo{
+			ServiceName: config.Logging.ServiceName,
+			Level:       config.Logging.Level.String(),
+			FilePath:    config.Logging.FilePath,
+		},
+		[]string{relib.RuleTypeMgmt})
+
+	rtlogger, err := logging.NewLogger(&config.RuleTasksLogging)
+	if err != nil {
+		logger.Errorw("RULE HANDLER - Failed to create rule tasks logger, using ruleengine logger", "error", err)
+		rtlogger = logger
+	}
+
 	h := &RuleEngineHandler{
 		ruleconsumer: consumer,
 		config:       config,
 		logger:       logger,
 		isLeader:     false,
+		reInst:       reInst,
+		rtlogger:     rtlogger,
 	}
 
 	logger.Infow("Initialized Rule Engine Handler", "ruleTopic", config.RulesTopic, "ruleTasksTopic", h.config.RuleTasksTopic)
@@ -60,20 +76,6 @@ func (rh *RuleEngineHandler) Start() error {
 
 	// Create context for cancellation
 	rh.ctx, rh.cancel = context.WithCancel(context.Background())
-
-	var err error
-	rh.rtlogger, err = logging.NewLogger(&rh.config.RuleTasksLogging)
-	if err != nil {
-		rh.logger.Errorw("RULE TASK HANDLER - Failed to create rule tasks logger, using ruleengine logger", "error", err)
-		rh.rtlogger = rh.logger
-	}
-	rh.reInst = relib.CreateRuleEngineInstance(
-		relib.LoggerInfo{
-			ServiceName: rh.config.Logging.ServiceName,
-			Level:       rh.config.Logging.Level.String(),
-			FilePath:    rh.config.Logging.FilePath,
-		},
-		[]string{relib.RuleTypeMgmt})
 
 	// Initialize producer for distributing rule tasks
 	rh.ruleTaskProducer = messagebus.NewProducer(rh.config.RuleTasksProdKafkaConfigMap, "ruleTaskProducer"+utils.GetEnv("HOSTNAME", ""))

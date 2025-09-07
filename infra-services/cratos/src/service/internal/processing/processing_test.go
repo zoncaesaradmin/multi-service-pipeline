@@ -107,6 +107,13 @@ func TestNewProcessor(t *testing.T) {
 					ComponentName: "ruleengine",
 					ServiceName:   "cratos",
 				},
+				RuleTasksLogging: logging.LoggerConfig{
+					Level:         logging.InfoLevel,
+					FilePath:      testLogFile,
+					LoggerName:    "ruletasks",
+					ComponentName: "ruletasks",
+					ServiceName:   "cratos",
+				},
 				RulesKafkaConfigMap: map[string]any{"bootstrap.servers": "localhost:9092"},
 			},
 		},

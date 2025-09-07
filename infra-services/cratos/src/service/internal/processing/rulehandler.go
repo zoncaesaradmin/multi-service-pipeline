@@ -33,6 +33,7 @@ type RuleEngineHandler struct {
 	cancel       context.CancelFunc
 
 	// fields related to background task of applying rule changes to DB records
+	rtlogger         logging.Logger
 	ruleTaskProducer messagebus.Producer
 	ruleTaskConsumer messagebus.Consumer
 	isLeader         bool
@@ -54,12 +55,18 @@ func NewRuleHandler(config RuleEngineConfig, logger logging.Logger) *RuleEngineH
 	}
 	reInst := relib.CreateRuleEngineInstance(lInfo, []string{relib.RuleTypeMgmt})
 
+	//rtlogger, err := logging.NewLogger(&config.RuleTasksLogging)
+	//if err != nil {
+	//	logger.Fatalf("Failed to create pipeline logger: %v", err)
+	//}
+
 	h := &RuleEngineHandler{
 		ruleconsumer: consumer,
 		config:       config,
 		logger:       logger,
 		reInst:       reInst,
 		isLeader:     false,
+		rtlogger:     logger,
 	}
 
 	logger.Infow("Initialized Rule Engine Handler", "ruleTopic", config.RulesTopic, "ruleTasksTopic", h.config.RuleTasksTopic)
@@ -73,7 +80,6 @@ func (rh *RuleEngineHandler) Start() error {
 	rh.ctx, rh.cancel = context.WithCancel(context.Background())
 
 	// Initialize producer for distributing rule tasks
-	// TODO: should get explicit kafka conf file instead of using consumer's conf file
 	rh.ruleTaskProducer = messagebus.NewProducer(rh.config.RuleTasksProdKafkaConfigMap, "ruleTaskProducer"+utils.GetEnv("HOSTNAME", ""))
 
 	// Initialize rule task consumer with shared group for task distribution
@@ -85,24 +91,19 @@ func (rh *RuleEngineHandler) Start() error {
 			return
 		}
 
-		rh.logger.Debugw("RULE TASK HANDLER - Received task", "size", len(message.Value))
+		rh.rtlogger.Debugw("RULE TASK HANDLER - Received task", "size", len(message.Value))
 
 		// Process rule task
 		// TODO: simplify by using data unmarshal into struct and get the action below
 		sendToDBBatchProcessor(rh.ctx, rh.logger, message.Value, "RULE_TASK")
 
 		if err := rh.ruleTaskConsumer.Commit(context.Background(), message); err != nil {
-			rh.logger.Errorw("RULE TASK HANDLER - Failed to commit message", "error", err)
+			rh.rtlogger.Errorw("RULE TASK HANDLER - Failed to commit message", "error", err)
 		}
 	})
 
-	if err := rh.ruleTaskConsumer.Subscribe([]string{rh.config.RuleTasksTopic}); err != nil {
-		rh.logger.Errorw("RULE TASK HANDLER - Failed to subscribe to rule tasks topic", "error", err)
-		return fmt.Errorf("failed to subscribe to rule tasks topic: %w", err)
-	}
-
-	rh.ruleconsumer.OnAssign(func(assignments []messagebus.PartitionAssignment) {
-		rh.logger.Infow("RULE HANDLER - Assigned partitions", "partitions", assignments)
+	rh.ruleTaskConsumer.OnAssign(func(assignments []messagebus.PartitionAssignment) {
+		rh.rtlogger.Infow("RULE TASK HANDLER - Assigned partitions", "partitions", assignments)
 		for _, assignment := range assignments {
 			if assignment.Partition == 0 {
 				// select self as leader to generate tasks
@@ -112,8 +113,8 @@ func (rh *RuleEngineHandler) Start() error {
 		}
 	})
 
-	rh.ruleconsumer.OnRevoke(func(revoked []messagebus.PartitionAssignment) {
-		rh.logger.Infow("RULE HANDLER - Revoked partitions", "partitions", revoked)
+	rh.ruleTaskConsumer.OnRevoke(func(revoked []messagebus.PartitionAssignment) {
+		rh.rtlogger.Infow("RULE TASK HANDLER - Revoked partitions", "partitions", revoked)
 		for _, r := range revoked {
 			if r.Partition == 0 {
 				// relinquish leadership
@@ -122,6 +123,11 @@ func (rh *RuleEngineHandler) Start() error {
 			}
 		}
 	})
+
+	if err := rh.ruleTaskConsumer.Subscribe([]string{rh.config.RuleTasksTopic}); err != nil {
+		rh.rtlogger.Errorw("RULE TASK HANDLER - Failed to subscribe to rule tasks topic", "error", err)
+		return fmt.Errorf("failed to subscribe to rule tasks topic: %w", err)
+	}
 
 	// Register OnMessage callback for main rules topic
 	rh.ruleconsumer.OnMessage(func(message *messagebus.Message) {

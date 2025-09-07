@@ -62,9 +62,8 @@ func serveReports() *http.Server {
 	return server
 }
 
-func main() {
-	// Load .env file if present
-	// Try to load .env file from workspace root for local development
+// loadEnvironmentFiles attempts to load .env files from various locations
+func loadEnvironmentFiles() {
 	envPaths := []string{
 		".env",         // Current directory
 		"./../.env",    // From component workspace root
@@ -81,22 +80,22 @@ func main() {
 			}
 		}
 	}
+}
 
-	// Use SERVICE_LOG_DIR for logs if set
+// setupLogDirectory creates and returns the log directory path
+func setupLogDirectory() string {
 	logDir := os.Getenv("SERVICE_LOG_DIR")
 	if logDir == "" {
 		logDir = "./logs"
 	}
 	fmt.Printf("Log and report dir : %s\n", logDir)
 	os.MkdirAll(logDir, 0755)
+	return logDir
+}
 
-	server := serveReports()
-
-	testStatus = "in_progress"
-
+// runTestSuite executes the Godog test suite and returns the result
+func runTestSuite(logDir string) int {
 	featurePaths := getFeaturePaths()
-
-	// Run Godog for text report
 
 	textReportPath = filepath.Join(logDir, "test_execution_report.txt")
 	textFile, err := os.Create(textReportPath)
@@ -104,19 +103,23 @@ func main() {
 		log.Panicf("Failed to create text report file: %v", err)
 	}
 	defer textFile.Close()
+
 	optsText := godog.Options{
 		Format: "pretty",
 		Paths:  featurePaths,
 		Output: textFile,
 	}
-	suiteResult := godog.TestSuite{
+
+	return godog.TestSuite{
 		Name:                 "service-testrunner",
 		ScenarioInitializer:  InitializeScenario,
-		TestSuiteInitializer: InitializeTestSuite, // <-- hooks integrated here
+		TestSuiteInitializer: InitializeTestSuite,
 		Options:              &optsText,
 	}.Run()
-	testStatus = "complete"
+}
 
+// appendSuiteResult writes the final test result to the report file
+func appendSuiteResult(suiteResult int) {
 	resultText := "SUITE RESULT: "
 	if suiteResult == 0 {
 		resultText += "SUCCESS"
@@ -124,31 +127,15 @@ func main() {
 		resultText += "FAILURE"
 	}
 
-	// append the cumulative result to the report
 	f, err := os.OpenFile(textReportPath, os.O_APPEND|os.O_WRONLY, 0644)
 	if err == nil {
 		f.WriteString("\n" + resultText + "\n")
 		f.Close()
 	}
+}
 
-	// // Run Godog for JSON report
-	// jsonReportPath := "../test_execution_report.json"
-	// jsonFile, err := os.Create(jsonReportPath)
-	// if err != nil {
-	// 	panic("Failed to create JSON report file: " + err.Error())
-	// }
-	// defer jsonFile.Close()
-	// optsJson := godog.Options{
-	// 	Format: "cucumber",
-	// 	Paths:  featurePaths,
-	// 	Output: jsonFile,
-	// }
-	// godog.TestSuite{
-	// 	Name:                "infra-testrunner",
-	// 	ScenarioInitializer: InitializeScenario,
-	// 	Options:             &optsJson,
-	// }.Run()
-
+// handleServerShutdown manages the server based on environment configuration
+func handleServerShutdown(server *http.Server) {
 	go func() {
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Printf("HTTP server error: %v", err)
@@ -162,6 +149,20 @@ func main() {
 	} else {
 		fmt.Println("Exiting as KEEP_REPORT_SERVER is not set")
 	}
+}
+
+func main() {
+	loadEnvironmentFiles()
+
+	logDir := setupLogDirectory()
+	server := serveReports()
+	testStatus = "in_progress"
+
+	suiteResult := runTestSuite(logDir)
+	testStatus = "complete"
+
+	appendSuiteResult(suiteResult)
+	handleServerShutdown(server)
 }
 
 func keepRunningSever(server *http.Server) {

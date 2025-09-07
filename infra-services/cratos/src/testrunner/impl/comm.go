@@ -138,33 +138,67 @@ func (i *ConsumerHandler) VerifyDataField(field string, value interface{}) bool 
 
 	successCount := 0
 	for _, aObj := range aStream.AlertObject {
-		switch field {
-		case "acknowledged":
-			if aObj.Acknowledged == value.(bool) {
-				successCount++
-			}
-		case "ruleCustomRecoStr":
-			for _, reco := range aObj.RuleCustomRecoStr {
-				i.logger.Infof("Verifying ruleCustomRecoStr with actual=%s expected=%s", reco, value.(string))
-				if reco == value.(string) {
-					successCount++
-					break
-				}
-			}
-		case "severity":
-			if aObj.Severity == value.(string) {
-				successCount++
-			}
-		case "fabricName":
-			if aObj.FabricName == value.(string) {
-				successCount++
-			}
-		// Add more fields as needed
-		default:
-			i.logger.Warnw("Unknown field for verification", "field", field)
+		if i.checkFieldMatch(field, aObj, value) {
+			successCount++
 		}
 	}
 	return successCount == len(aStream.AlertObject)
+}
+
+// checkFieldMatch checks if a specific field in the alert object matches the expected value
+func (i *ConsumerHandler) checkFieldMatch(field string, aObj interface{}, value interface{}) bool {
+	switch field {
+	case "acknowledged":
+		return i.checkAcknowledged(aObj, value)
+	case "ruleCustomRecoStr":
+		return i.checkRuleCustomReco(aObj, value)
+	case "severity":
+		return i.checkSeverity(aObj, value)
+	case "fabricName":
+		return i.checkFabricName(aObj, value)
+	default:
+		i.logger.Warnw("Unknown field for verification", "field", field)
+		return false
+	}
+}
+
+// checkAcknowledged verifies the acknowledged field using reflection
+func (i *ConsumerHandler) checkAcknowledged(aObj interface{}, value interface{}) bool {
+	// Use reflection or interface{} to access fields dynamically
+	if objVal, ok := aObj.(interface{ GetAcknowledged() bool }); ok {
+		return objVal.GetAcknowledged() == value.(bool)
+	}
+	return false
+}
+
+// checkRuleCustomReco verifies the ruleCustomRecoStr field
+func (i *ConsumerHandler) checkRuleCustomReco(aObj interface{}, value interface{}) bool {
+	if objVal, ok := aObj.(interface{ GetRuleCustomRecoStr() []string }); ok {
+		expectedValue := value.(string)
+		for _, reco := range objVal.GetRuleCustomRecoStr() {
+			i.logger.Infof("Verifying ruleCustomRecoStr with actual=%s expected=%s", reco, expectedValue)
+			if reco == expectedValue {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// checkSeverity verifies the severity field
+func (i *ConsumerHandler) checkSeverity(aObj interface{}, value interface{}) bool {
+	if objVal, ok := aObj.(interface{ GetSeverity() string }); ok {
+		return objVal.GetSeverity() == value.(string)
+	}
+	return false
+}
+
+// checkFabricName verifies the fabricName field
+func (i *ConsumerHandler) checkFabricName(aObj interface{}, value interface{}) bool {
+	if objVal, ok := aObj.(interface{ GetFabricName() string }); ok {
+		return objVal.GetFabricName() == value.(string)
+	}
+	return false
 }
 
 type ProducerHandler struct {

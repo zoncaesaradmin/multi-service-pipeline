@@ -65,7 +65,6 @@ func (lc *LocalClient) UpsertIndex(indexName string, mapFilePath string) error {
 }
 
 func (lc *LocalClient) ExecuteQueryWithScrollCallback(index string, query interface{}, scrollSize int, scrollTimeout string, process func(batch []map[string]interface{}) error) error {
-
 	lc.mutex.RLock()
 	defer lc.mutex.RUnlock()
 
@@ -74,55 +73,65 @@ func (lc *LocalClient) ExecuteQueryWithScrollCallback(index string, query interf
 		lc.logger.Warnw("Index directory does not exist", "index", index, "dir", indexDir)
 		return nil
 	}
-	// Read all JSON files in the index directory
+
 	files, err := filepath.Glob(filepath.Join(indexDir, "doc_*.json"))
 	if err != nil {
 		return fmt.Errorf("failed to list documents in index %s: %w", index, err)
 	}
 
-	var allDocs []map[string]interface{}
-	for _, file := range files {
-		data, err := os.ReadFile(file)
-		if err != nil {
-			lc.logger.Warnw("Failed to read document file", "file", file, "error", err)
-			continue
-		}
+	allDocs := lc.readDocuments(files)
 
-		var doc map[string]interface{}
-		if err := json.Unmarshal(data, &doc); err != nil {
-			lc.logger.Warnw("Failed to parse document JSON", "file", file, "error", err)
-			continue
-		}
-
-		// Add file-based ID if not present
-		if _, exists := doc["_id"]; !exists {
-			fileName := filepath.Base(file)
-			docId := strings.TrimPrefix(fileName, "doc_")
-			docId = strings.TrimSuffix(docId, ".json")
-			doc["_id"] = docId
-		}
-
-		allDocs = append(allDocs, doc)
-	}
-
-	// Process documents in batches
-	for i := 0; i < len(allDocs); i += scrollSize {
-		end := i + scrollSize
+	for start := 0; start < len(allDocs); start += scrollSize {
+		end := start + scrollSize
 		if end > len(allDocs) {
 			end = len(allDocs)
 		}
-
-		batch := allDocs[i:end]
-		if len(batch) > 0 {
-			if err := process(batch); err != nil {
-				if err == ErrStopScroll {
-					break
-				}
-				return err
+		batch := allDocs[start:end]
+		if len(batch) == 0 {
+			continue
+		}
+		err := process(batch)
+		if err != nil {
+			if err == ErrStopScroll {
+				break
 			}
+			return err
 		}
 	}
 	return nil
+}
+
+// readDocuments reads and parses documents from file paths, adding file-based IDs if missing.
+func (lc *LocalClient) readDocuments(files []string) []map[string]interface{} {
+	var docs []map[string]interface{}
+	for _, file := range files {
+		doc := lc.readDocument(file)
+		if doc != nil {
+			docs = append(docs, doc)
+		}
+	}
+	return docs
+}
+
+// readDocument reads and parses a single document file, adding file-based ID if missing.
+func (lc *LocalClient) readDocument(file string) map[string]interface{} {
+	data, err := os.ReadFile(file)
+	if err != nil {
+		lc.logger.Warnw("Failed to read document file", "file", file, "error", err)
+		return nil
+	}
+	var doc map[string]interface{}
+	if err := json.Unmarshal(data, &doc); err != nil {
+		lc.logger.Warnw("Failed to parse document JSON", "file", file, "error", err)
+		return nil
+	}
+	if _, exists := doc["_id"]; !exists {
+		fileName := filepath.Base(file)
+		docId := strings.TrimPrefix(fileName, "doc_")
+		docId = strings.TrimSuffix(docId, ".json")
+		doc["_id"] = docId
+	}
+	return doc
 }
 
 func newDatabaseClient(logger logging.Logger) DatabaseClient {

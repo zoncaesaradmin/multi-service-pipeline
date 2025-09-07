@@ -129,7 +129,7 @@ func NewProducerHandler(logger logging.Logger) *ProducerHandler {
 	confFilename := utils.ResolveConfFilePath("kafka-producer.yaml")
 	kafkaConf := utils.LoadConfigMap(confFilename)
 
-	producer := messagebus.NewProducer(kafkaConf)
+	producer := messagebus.NewProducer(kafkaConf, "testAnomalyProducer"+os.Getenv("HOSTNAME"))
 
 	return &ProducerHandler{
 		producer: producer,
@@ -164,7 +164,7 @@ func (o *ProducerHandler) Send(topic string, data []byte, headers map[string]str
 		return fmt.Errorf("failed to send message to topic %s: %w", topic, err)
 	}
 
-	o.logger.Debugw("Message sent successfully", "topic", topic, "size", len(data))
+	//o.logger.Debugw("Message sent successfully", "topic", topic, "size", len(data))
 
 	return nil
 }

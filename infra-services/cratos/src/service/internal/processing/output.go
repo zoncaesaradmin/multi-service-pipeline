@@ -6,6 +6,7 @@ import (
 	"servicegomodule/internal/models"
 	"sharedgomodule/logging"
 	"sharedgomodule/messagebus"
+	"sharedgomodule/utils"
 	"time"
 )
 
@@ -28,7 +29,7 @@ type OutputHandler struct {
 
 func NewOutputHandler(config OutputConfig, logger logging.Logger) *OutputHandler {
 	ctx, cancel := context.WithCancel(context.Background())
-	producer := messagebus.NewProducer(config.KafkaConfigMap)
+	producer := messagebus.NewProducer(config.KafkaConfigMap, "prealertsProducer"+utils.GetEnv("HOSTNAME", ""))
 
 	return &OutputHandler{
 		config:   config,

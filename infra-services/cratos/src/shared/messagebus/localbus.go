@@ -31,7 +31,7 @@ type LocalProducer struct {
 }
 
 // NewProducer creates a new local producer with configuration from YAML file
-func NewProducer(configMap map[string]any) Producer {
+func NewProducer(configMap map[string]any, clientId string) Producer {
 	// Update messageBusDir if specified in config
 	if baseDir := GetStringValue(configMap, "local.base.dir", ""); baseDir != "" {
 		messageBusDir = baseDir

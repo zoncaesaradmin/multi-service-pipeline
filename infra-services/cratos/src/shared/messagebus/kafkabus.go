@@ -48,13 +48,16 @@ func (p *KafkaProducer) reconnectProducer(configMap map[string]any) error {
 }
 
 // NewProducer creates a new Kafka producer with configuration from YAML file
-func NewProducer(configMap map[string]any) Producer {
+func NewProducer(configMap map[string]any, clientId string) Producer {
 
 	config := &kafka.ConfigMap{}
+	if clientId == "" {
+		clientId = GetStringValue(configMap, "client.id", os.Getenv("HOSTNAME"))
+	}
 
 	// Set values from config file, with fallback defaults
 	config.SetKey("bootstrap.servers", GetStringValue(configMap, "bootstrap.servers", "localhost:9092"))
-	config.SetKey("client.id", GetStringValue(configMap, "client.id", os.Getenv("HOSTNAME")))
+	config.SetKey("client.id", clientId)
 	config.SetKey("acks", GetStringValue(configMap, "acks", "1"))
 	config.SetKey("retries", GetIntValue(configMap, "retries", 3))
 	config.SetKey("batch.size", GetIntValue(configMap, "batch.size", 16384))

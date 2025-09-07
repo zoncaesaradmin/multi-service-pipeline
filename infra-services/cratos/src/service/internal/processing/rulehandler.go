@@ -75,7 +75,7 @@ func (rh *RuleEngineHandler) Start() error {
 
 	// Initialize producer for distributing rule tasks
 	// TODO: should get explicit kafka conf file instead of using consumer's conf file
-	rh.ruleTaskProducer = messagebus.NewProducer(rh.config.RulesKafkaConfigMap)
+	rh.ruleTaskProducer = messagebus.NewProducer(rh.config.RulesKafkaConfigMap, "ruleTaskProducer"+utils.GetEnv("HOSTNAME", ""))
 
 	// Initialize rule task consumer with shared group for task distribution
 	ruleTaskGroup := "ruleTaskConsGroup-shared"

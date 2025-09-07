@@ -14,11 +14,14 @@ import (
 )
 
 type RuleEngineConfig struct {
-	RulesTopic          string
-	PollTimeout         time.Duration
-	Logging             logging.LoggerConfig
-	RulesKafkaConfigMap map[string]any
-	RuleTasksTopic      string
+	RulesTopic                  string
+	PollTimeout                 time.Duration
+	Logging                     logging.LoggerConfig
+	RulesKafkaConfigMap         map[string]any
+	RuleTasksTopic              string
+	RuleTasksLogging            logging.LoggerConfig
+	RuleTasksConsKafkaConfigMap map[string]any
+	RuleTasksProdKafkaConfigMap map[string]any
 }
 
 type RuleEngineHandler struct {
@@ -41,6 +44,7 @@ func NewRuleHandler(config RuleEngineConfig, logger logging.Logger) *RuleEngineH
 	consumer := messagebus.NewConsumer(config.RulesKafkaConfigMap, "ruleConsGroup"+utils.GetEnv("HOSTNAME", ""))
 	filePath := config.Logging.FilePath
 	if filePath == "" {
+		// TODO: do we need this? should we bail out instead?
 		filePath = "/tmp/test.log"
 	}
 	lInfo := relib.LoggerInfo{
@@ -202,7 +206,7 @@ func sendToDBBatchProcessor(ctx context.Context, logger logging.Logger, ruleByte
 func (rh *RuleEngineHandler) GetStats() map[string]interface{} {
 	return map[string]interface{}{
 		"status":         "running",
-		"ruleTopic":      rh.config.RulesTopic,
+		"rulesTopic":     rh.config.RulesTopic,
 		"ruleTasksTopic": rh.config.RuleTasksTopic,
 		"isLeader":       rh.Leader(),
 		"poll_timeout":   rh.config.PollTimeout.String(),

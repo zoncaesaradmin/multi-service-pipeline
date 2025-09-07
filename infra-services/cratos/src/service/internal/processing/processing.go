@@ -214,7 +214,7 @@ func DefaultConfig(cfg *config.RawConfig) ProcConfig {
 				RulesTopic:          processing.Processor.RuleProcConfig.RulesTopic,
 				PollTimeout:         processing.Processor.RuleProcConfig.PollTimeout,
 				Logging:             processing.Processor.RuleProcConfig.Logging.ConvertToLoggerConfig(),
-				RulesKafkaConfigMap: utils.LoadConfigMap(processing.Processor.RuleProcConfig.KafkaConfFile),
+				RulesKafkaConfigMap: utils.LoadConfigMap(processing.Processor.RuleProcConfig.RulesKafkaConfFile),
 			},
 		},
 		Output: OutputConfig{

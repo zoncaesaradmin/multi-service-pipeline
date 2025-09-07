@@ -141,7 +141,7 @@ func initLoggerSettings(cfg *config.RawConfig) logging.Logger {
 
 func initKafkaConfFiles(cfg *config.RawConfig) {
 	cfg.Processing.Input.KafkaConfFile = utils.ResolveConfFilePath(cfg.Processing.Input.KafkaConfFile)
-	cfg.Processing.Processor.RuleProcConfig.KafkaConfFile = utils.ResolveConfFilePath(cfg.Processing.Processor.RuleProcConfig.KafkaConfFile)
+	cfg.Processing.Processor.RuleProcConfig.RulesKafkaConfFile = utils.ResolveConfFilePath(cfg.Processing.Processor.RuleProcConfig.RulesKafkaConfFile)
 	cfg.Processing.Output.KafkaConfFile = utils.ResolveConfFilePath(cfg.Processing.Output.KafkaConfFile)
 }
 

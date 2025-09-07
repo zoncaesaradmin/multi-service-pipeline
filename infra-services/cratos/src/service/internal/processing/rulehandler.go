@@ -53,8 +53,6 @@ func NewRuleHandler(config RuleEngineConfig, logger logging.Logger) *RuleEngineH
 		},
 		[]string{relib.RuleTypeMgmt})
 
-	logger.Infof("SREEK +++++++++++ rlogger = %v", config.RuleHandlerLogging)
-	logger.Infof("SREEK +++++++++++ relogger = %v", config.RuleEngLibLogging)
 	rlogger, err := logging.NewLogger(&config.RuleHandlerLogging)
 	if err != nil {
 		logger.Errorw("RULE HANDLER - Failed to create rule tasks logger, using ruleengine logger", "error", err)

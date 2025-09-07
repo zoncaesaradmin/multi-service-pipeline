@@ -7,6 +7,9 @@ import (
 	"sharedgomodule/logging"
 	"sharedgomodule/messagebus"
 	"sharedgomodule/utils"
+	"telemetry/utils/alert"
+
+	"google.golang.org/protobuf/proto"
 )
 
 // this is a custom suite context structure that can be passed to the steps
@@ -27,6 +30,7 @@ type ConsumerHandler struct {
 	receivedCount int
 	expectedCount int
 	expectedMap   map[string]string
+	receivedMsg   messagebus.Message
 }
 
 // NewInputHandler creates a new input handler
@@ -58,6 +62,7 @@ func (i *ConsumerHandler) Start() error {
 				i.receivedCount++
 				if i.receivedCount == i.expectedCount {
 					i.receivedAll = true
+					i.receivedMsg = *message
 				}
 			} else {
 				i.logger.Debugw("Received some other data message", "size", len(message.Value))
@@ -115,10 +120,29 @@ func (i *ConsumerHandler) Reset() {
 	i.receivedCount = 0
 	i.expectedCount = 0
 	i.receivedAll = false
+	i.receivedMsg = messagebus.Message{}
 	i.expectedMap = make(map[string]string)
 }
 
-// ...removed: consumeLoop, now handled by OnMessage callback...
+func (i *ConsumerHandler) VerifyDataField(field string, value interface{}) bool {
+	aStream := &alert.AlertStream{}
+	err := proto.Unmarshal(i.receivedMsg.Value, aStream)
+	if err != nil {
+		i.logger.Errorf("Failed to unmarshal input record: %w", err)
+		return false
+	}
+
+	successCount := 0
+	for _, aObj := range aStream.AlertObject {
+		switch field {
+		case "acknowledged":
+			if aObj.Acknowledged == value.(bool) {
+				successCount++
+			}
+		}
+	}
+	return successCount == len(aStream.AlertObject)
+}
 
 type ProducerHandler struct {
 	producer messagebus.Producer

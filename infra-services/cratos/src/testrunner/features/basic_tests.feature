@@ -29,4 +29,4 @@ Feature: Basic test for data reception without hitting any rule
     And wait_till_data_received_on_topic_with_timeout_sec "cisco_nir-prealerts", 10
     And verify_if_data_is_fully_received_as_is
     And verify_if_valid_field "fabricName"
-    And verify_if_all_fields_are_unchanged
+    And verify_if_record_is_acknowledged

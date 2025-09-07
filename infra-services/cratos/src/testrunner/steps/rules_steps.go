@@ -33,7 +33,6 @@ func (b *StepBindings) SendInputDataToTopic(dataFile string, topic string) error
 	b.Cctx.ProducerHandler.Send(topic, aBytes, metaDataMap)
 	b.Cctx.SentDataSize += len(aBytes)
 	b.Cctx.SentDataCount++
-	b.Cctx.L.Infof("+++++++ set expected count to 1 for data file %s\n", dataFile)
 	b.Cctx.ConsHandler.SetExpectedCount(1)
 	b.Cctx.ConsHandler.SetExpectedMap(metaDataMap)
 	b.Cctx.L.Infof("Sent data %s over Kafka topic %s\n", dataFile, topic)
@@ -74,6 +73,14 @@ func (b *StepBindings) VerifyIfNoFieldModified() error {
 	return nil
 }
 
+func (b *StepBindings) VerifyIfAcknowledged() error {
+	if !b.Cctx.ConsHandler.VerifyDataField("acknowledged", true) {
+		return errors.New("field 'acknowledged' is not true as expected")
+	}
+	b.Cctx.L.Infof("Verified: Record is acknowledged.\n")
+	return nil
+}
+
 func InitializeRulesSteps(ctx *godog.ScenarioContext, suiteMetadataCtx *impl.CustomContext) {
 	bindings := &StepBindings{Cctx: suiteMetadataCtx}
 	ctx.Step(`^send input config "([^"]*)" over kafka topic "([^"]*)"$`, bindings.SendInputConfigToTopic)
@@ -89,4 +96,5 @@ func InitializeRulesSteps(ctx *godog.ScenarioContext, suiteMetadataCtx *impl.Cus
 	ctx.Step(`^verify_if_data_is_fully_received_as_is$`, bindings.VerifyIfDataIsFullyReceived)
 	ctx.Step(`^verify_if_valid_field "([^"]*)"$`, bindings.VerifyIfValidField)
 	ctx.Step(`^verify_if_all_fields_are_unchanged$`, bindings.VerifyIfNoFieldModified)
+	ctx.Step(`^verify_if_record_is_acknowledged$`, bindings.VerifyIfAcknowledged)
 }

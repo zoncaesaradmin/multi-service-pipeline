@@ -61,20 +61,19 @@ func (rh *RuleEngineHandler) Start() error {
 	// Create context for cancellation
 	rh.ctx, rh.cancel = context.WithCancel(context.Background())
 
-	// TODO; below needs work
-	rh.rtlogger = rh.logger
-	filePath := rh.config.Logging.FilePath
-	if filePath == "" {
-		// TODO: do we need this? should we bail out instead?
-		//filePath = "/tmp/test.log"
+	var err error
+	rh.rtlogger, err = logging.NewLogger(&rh.config.RuleTasksLogging)
+	if err != nil {
+		rh.logger.Errorw("RULE TASK HANDLER - Failed to create rule tasks logger, using ruleengine logger", "error", err)
+		rh.rtlogger = rh.logger
 	}
-	lInfo := relib.LoggerInfo{
-		ServiceName: rh.config.Logging.ServiceName,
-		Level:       rh.config.Logging.Level.String(),
-		FilePath:    filePath,
-		//FilePath:    rh.config.Logging.FilePath,
-	}
-	rh.reInst = relib.CreateRuleEngineInstance(lInfo, []string{relib.RuleTypeMgmt})
+	rh.reInst = relib.CreateRuleEngineInstance(
+		relib.LoggerInfo{
+			ServiceName: rh.config.Logging.ServiceName,
+			Level:       rh.config.Logging.Level.String(),
+			FilePath:    rh.config.Logging.FilePath,
+		},
+		[]string{relib.RuleTypeMgmt})
 
 	// Initialize producer for distributing rule tasks
 	rh.ruleTaskProducer = messagebus.NewProducer(rh.config.RuleTasksProdKafkaConfigMap, "ruleTaskProducer"+utils.GetEnv("HOSTNAME", ""))

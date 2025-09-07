@@ -6,6 +6,11 @@ import (
 	"testing"
 )
 
+const (
+	configFileName           = "config.yaml"
+	expectedLogLevelDebugMsg = "Expected log level 'debug', got %s"
+)
+
 func TestLoadConfigDefaults(t *testing.T) {
 	config := LoadConfig()
 
@@ -66,12 +71,12 @@ logging:
   level: "debug"
   format: "text"
 `
-	err := os.WriteFile(filepath.Join(tempDir, "config.yaml"), []byte(configContent), 0644)
+	err := os.WriteFile(filepath.Join(tempDir, configFileName), []byte(configContent), 0644)
 	if err != nil {
 		t.Fatalf("Failed to create test config file: %v", err)
 	}
 
-	config, err := LoadConfigFromFile(filepath.Join(tempDir, "config.yaml"))
+	config, err := LoadConfigFromFile(filepath.Join(tempDir, configFileName))
 	if err != nil {
 		t.Fatalf("LoadConfigFromFile failed: %v", err)
 	}
@@ -84,7 +89,7 @@ logging:
 		t.Errorf("Expected port 9000, got %d", config.Server.Port)
 	}
 	if config.Logging.Level != "debug" {
-		t.Errorf("Expected log level 'debug', got %s", config.Logging.Level)
+		t.Errorf(expectedLogLevelDebugMsg, config.Logging.Level)
 	}
 }
 
@@ -104,12 +109,12 @@ server:
 database:
   - this is not valid YAML structure
 `
-	err = os.WriteFile(filepath.Join(tempDir, "config.yaml"), []byte(invalidYAML), 0644)
+	err = os.WriteFile(filepath.Join(tempDir, configFileName), []byte(invalidYAML), 0644)
 	if err != nil {
 		t.Fatalf("Failed to create test config file: %v", err)
 	}
 
-	_, err = LoadConfigFromFile(filepath.Join(tempDir, "config.yaml"))
+	_, err = LoadConfigFromFile(filepath.Join(tempDir, configFileName))
 	if err == nil {
 		t.Error("Expected error for invalid YAML, got nil")
 	}
@@ -129,6 +134,7 @@ logging:
 	configFile := tempDir + "/existing_config.yaml"
 	err := os.WriteFile(configFile, []byte(configContent), 0644)
 	if err != nil {
+		t.Fatalf("Failed to write config file: %v", err)
 	}
 
 	config := LoadConfigWithDefaults(configFile)
@@ -205,7 +211,7 @@ func TestOverrideWithEnvVars(t *testing.T) {
 		t.Errorf("Expected server host 'override.com', got %s", config.Server.Host)
 	}
 	if config.Logging.Level != "debug" {
-		t.Errorf("Expected log level 'debug', got %s", config.Logging.Level)
+		t.Errorf(expectedLogLevelDebugMsg, config.Logging.Level)
 	}
 
 	// Check that non-overridden values remained the same
@@ -275,7 +281,7 @@ func TestOverrideWithEnvVarsAllFields(t *testing.T) {
 		t.Errorf("Expected write timeout 30, got %d", config.Server.WriteTimeout)
 	}
 	if config.Logging.Level != "debug" {
-		t.Errorf("Expected log level 'debug', got %s", config.Logging.Level)
+		t.Errorf(expectedLogLevelDebugMsg, config.Logging.Level)
 	}
 
 	// Restore original values

@@ -6,6 +6,50 @@ import (
 	"testing"
 )
 
+const testActionValue = "test value"
+
+// testAstConditionalSerialization tests JSON serialization of AstConditional
+func testAstConditionalSerialization(t *testing.T, cond AstConditional, expectedJSON string) {
+	bytes, err := json.Marshal(cond)
+	if err != nil {
+		t.Fatalf("Failed to marshal AstConditional: %v", err)
+	}
+	if string(bytes) != expectedJSON {
+		t.Errorf("JSON serialization mismatch: got %s, want %s", string(bytes), expectedJSON)
+	}
+}
+
+// testAstConditionalDeserialization tests JSON deserialization of AstConditional
+func testAstConditionalDeserialization(t *testing.T, cond AstConditional, jsonString string) {
+	var decoded AstConditional
+	if err := json.Unmarshal([]byte(jsonString), &decoded); err != nil {
+		t.Fatalf("Failed to unmarshal AstConditional: %v", err)
+	}
+
+	// For numeric values, JSON unmarshaling may convert to float64
+	if reflect.TypeOf(cond.Value) == reflect.TypeOf(int(0)) {
+		if decodedVal, ok := decoded.Value.(float64); ok {
+			decoded.Value = int(decodedVal)
+		}
+	}
+
+	validateAstConditionalFields(t, decoded, cond)
+}
+
+// validateAstConditionalFields validates the fields of an AstConditional
+func validateAstConditionalFields(t *testing.T, decoded, expected AstConditional) {
+	if decoded.Identifier != expected.Identifier {
+		t.Errorf("Identifier mismatch: got %s, want %s", decoded.Identifier, expected.Identifier)
+	}
+	if decoded.Operator != expected.Operator {
+		t.Errorf("Operator mismatch: got %s, want %s", decoded.Operator, expected.Operator)
+	}
+	if !reflect.DeepEqual(decoded.Value, expected.Value) {
+		t.Errorf("Value mismatch: got %v (%T), want %v (%T)",
+			decoded.Value, decoded.Value, expected.Value, expected.Value)
+	}
+}
+
 func TestAstConditionalSerialization(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -43,38 +87,8 @@ func TestAstConditionalSerialization(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Test serialization
-			bytes, err := json.Marshal(tt.cond)
-			if err != nil {
-				t.Fatalf("Failed to marshal AstConditional: %v", err)
-			}
-			if string(bytes) != tt.jsonString {
-				t.Errorf("JSON serialization mismatch: got %s, want %s", string(bytes), tt.jsonString)
-			}
-
-			// Test deserialization
-			var decoded AstConditional
-			if err := json.Unmarshal([]byte(tt.jsonString), &decoded); err != nil {
-				t.Fatalf("Failed to unmarshal AstConditional: %v", err)
-			}
-
-			// For numeric values, JSON unmarshaling may convert to float64
-			if reflect.TypeOf(tt.cond.Value) == reflect.TypeOf(int(0)) {
-				if decodedVal, ok := decoded.Value.(float64); ok {
-					decoded.Value = int(decodedVal)
-				}
-			}
-
-			if decoded.Identifier != tt.cond.Identifier {
-				t.Errorf("Identifier mismatch: got %s, want %s", decoded.Identifier, tt.cond.Identifier)
-			}
-			if decoded.Operator != tt.cond.Operator {
-				t.Errorf("Operator mismatch: got %s, want %s", decoded.Operator, tt.cond.Operator)
-			}
-			if !reflect.DeepEqual(decoded.Value, tt.cond.Value) {
-				t.Errorf("Value mismatch: got %v (%T), want %v (%T)",
-					decoded.Value, decoded.Value, tt.cond.Value, tt.cond.Value)
-			}
+			testAstConditionalSerialization(t, tt.cond, tt.jsonString)
+			testAstConditionalDeserialization(t, tt.cond, tt.jsonString)
 		})
 	}
 }
@@ -220,14 +234,14 @@ func TestParseJSON(t *testing.T) {
 func TestRuleAction(t *testing.T) {
 	action := RuleAction{
 		ActionType:     "ACKNOWLEDGE",
-		ActionValueStr: "test value",
+		ActionValueStr: testActionValue,
 	}
 
 	// Just test basic property access
 	if action.ActionType != "ACKNOWLEDGE" {
 		t.Errorf("ActionType mismatch: got %s, want %s", action.ActionType, "ACKNOWLEDGE")
 	}
-	if action.ActionValueStr != "test value" {
-		t.Errorf("ActionValueStr mismatch: got %s, want %s", action.ActionValueStr, "test value")
+	if action.ActionValueStr != testActionValue {
+		t.Errorf("ActionValueStr mismatch: got %s, want %s", action.ActionValueStr, testActionValue)
 	}
 }

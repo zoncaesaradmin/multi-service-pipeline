@@ -123,7 +123,6 @@ func isRelevantRule(meta AlertRuleMetadata, validTypes []string) bool {
 
 func (re *RuleEngine) HandleRuleEvent(msgBytes []byte) (*RuleMsgResult, error) {
 	var rInput AlertRuleMsg
-	re.Logger.Infof("RELIB - received rule msg: %v", string(msgBytes))
 	if err := json.Unmarshal(msgBytes, &rInput); err != nil {
 		re.Logger.Infof("Failed to unmarshal rule message: %v", err.Error())
 		// log and ignore invalid messages
@@ -152,7 +151,7 @@ func (re *RuleEngine) HandleRuleEvent(msgBytes []byte) (*RuleMsgResult, error) {
 		return result, fmt.Errorf("empty rule after conversion")
 	}
 
-	re.Logger.Infof("RELIB - rule to be processed %s", string(ruleJsonBytes))
+	re.Logger.Infof("RELIB - converted rule: %s", string(ruleJsonBytes))
 	re.handleRuleMsgEvents(ruleJsonBytes, msgType)
 
 	result.RuleJSON = ruleJsonBytes

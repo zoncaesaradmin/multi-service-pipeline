@@ -11,6 +11,8 @@ import (
 	"sharedgomodule/logging"
 )
 
+const testKafkaConfigPath = "/path/to/kafka-config.yaml"
+
 // mockLogger implements basic logging interface for testing
 type mockLogger struct {
 	logCalls []string
@@ -22,7 +24,7 @@ func newMockLogger() *mockLogger {
 	}
 }
 
-func (m *mockLogger) SetLevel(level logging.Level)                    {}
+func (m *mockLogger) SetLevel(level logging.Level)                    { /* no-op mock */ }
 func (m *mockLogger) GetLevel() logging.Level                         { return logging.InfoLevel }
 func (m *mockLogger) IsLevelEnabled(level logging.Level) bool         { return true }
 func (m *mockLogger) Debug(msg string)                                { m.logCalls = append(m.logCalls, "DEBUG: "+msg) }
@@ -31,29 +33,30 @@ func (m *mockLogger) Warn(msg string)                                 { m.logCal
 func (m *mockLogger) Error(msg string)                                { m.logCalls = append(m.logCalls, "ERROR: "+msg) }
 func (m *mockLogger) Fatal(msg string)                                { m.logCalls = append(m.logCalls, "FATAL: "+msg) }
 func (m *mockLogger) Panic(msg string)                                { m.logCalls = append(m.logCalls, "PANIC: "+msg) }
-func (m *mockLogger) Debugf(format string, args ...interface{})       {}
-func (m *mockLogger) Infof(format string, args ...interface{})        {}
-func (m *mockLogger) Warnf(format string, args ...interface{})        {}
-func (m *mockLogger) Errorf(format string, args ...interface{})       {}
-func (m *mockLogger) Fatalf(format string, args ...interface{})       {}
-func (m *mockLogger) Panicf(format string, args ...interface{})       {}
-func (m *mockLogger) Debugw(msg string, keysAndValues ...interface{}) {}
-func (m *mockLogger) Infow(msg string, keysAndValues ...interface{})  {}
-func (m *mockLogger) Warnw(msg string, keysAndValues ...interface{})  {}
+func (m *mockLogger) Debugf(format string, args ...interface{})       { /* no-op mock */ }
+func (m *mockLogger) Infof(format string, args ...interface{})        { /* no-op mock */ }
+func (m *mockLogger) Warnf(format string, args ...interface{})        { /* no-op mock */ }
+func (m *mockLogger) Errorf(format string, args ...interface{})       { /* no-op mock */ }
+func (m *mockLogger) Fatalf(format string, args ...interface{})       { /* no-op mock */ }
+func (m *mockLogger) Panicf(format string, args ...interface{})       { /* no-op mock */ }
+func (m *mockLogger) Debugw(msg string, keysAndValues ...interface{}) { /* no-op mock */ }
+func (m *mockLogger) Infow(msg string, keysAndValues ...interface{})  { /* no-op mock */ }
+func (m *mockLogger) Warnw(msg string, keysAndValues ...interface{})  { /* no-op mock */ }
 func (m *mockLogger) Errorw(msg string, keysAndValues ...interface{}) {
 	m.logCalls = append(m.logCalls, "ERRORW: "+msg)
 }
-func (m *mockLogger) Fatalw(msg string, keysAndValues ...interface{})                    {}
-func (m *mockLogger) Panicw(msg string, keysAndValues ...interface{})                    {}
-func (m *mockLogger) WithFields(fields logging.Fields) logging.Logger                    { return m }
-func (m *mockLogger) WithField(key string, value interface{}) logging.Logger             { return m }
-func (m *mockLogger) WithError(err error) logging.Logger                                 { return m }
-func (m *mockLogger) WithContext(ctx context.Context) logging.Logger                     { return m }
-func (m *mockLogger) Log(level logging.Level, msg string)                                {}
-func (m *mockLogger) Logf(level logging.Level, format string, args ...interface{})       {}
-func (m *mockLogger) Logw(level logging.Level, msg string, keysAndValues ...interface{}) {}
-func (m *mockLogger) Clone() logging.Logger                                              { return m }
-func (m *mockLogger) Close() error                                                       { return nil }
+func (m *mockLogger) Fatalw(msg string, keysAndValues ...interface{})              { /* no-op mock */ }
+func (m *mockLogger) Panicw(msg string, keysAndValues ...interface{})              { /* no-op mock */ }
+func (m *mockLogger) WithFields(fields logging.Fields) logging.Logger              { return m }
+func (m *mockLogger) WithField(key string, value interface{}) logging.Logger       { return m }
+func (m *mockLogger) WithError(err error) logging.Logger                           { return m }
+func (m *mockLogger) WithContext(ctx context.Context) logging.Logger               { return m }
+func (m *mockLogger) Log(level logging.Level, msg string)                          { /* no-op mock */ }
+func (m *mockLogger) Logf(level logging.Level, format string, args ...interface{}) { /* no-op mock */ }
+func (m *mockLogger) Logw(level logging.Level, msg string, keysAndValues ...interface{}) { /* no-op mock */
+}
+func (m *mockLogger) Clone() logging.Logger { return m }
+func (m *mockLogger) Close() error          { return nil }
 
 func sampleRawConfig(kafkaConfigPath string) *config.RawConfig {
 	return &config.RawConfig{
@@ -171,7 +174,7 @@ func TestNewApplication(t *testing.T) {
 }
 
 func TestApplicationConfig(t *testing.T) {
-	cfg := sampleRawConfig("/path/to/kafka-config.yaml")
+	cfg := sampleRawConfig(testKafkaConfigPath)
 	logger := newMockLogger()
 	app := NewApplication(cfg, logger)
 
@@ -190,7 +193,7 @@ func TestApplicationConfig(t *testing.T) {
 }
 
 func TestApplicationLogger(t *testing.T) {
-	cfg := sampleRawConfig("/path/to/kafka-config.yaml")
+	cfg := sampleRawConfig(testKafkaConfigPath)
 	logger := newMockLogger()
 	app := NewApplication(cfg, logger)
 
@@ -201,7 +204,7 @@ func TestApplicationLogger(t *testing.T) {
 }
 
 func TestApplicationContext(t *testing.T) {
-	cfg := sampleRawConfig("/path/to/kafka-config.yaml")
+	cfg := sampleRawConfig(testKafkaConfigPath)
 	logger := newMockLogger()
 	app := NewApplication(cfg, logger)
 
@@ -219,7 +222,7 @@ func TestApplicationContext(t *testing.T) {
 }
 
 func TestApplicationProcessingPipeline(t *testing.T) {
-	cfg := sampleRawConfig("/path/to/kafka-config.yaml")
+	cfg := sampleRawConfig(testKafkaConfigPath)
 	logger := newMockLogger()
 	app := NewApplication(cfg, logger)
 
@@ -230,7 +233,7 @@ func TestApplicationProcessingPipeline(t *testing.T) {
 }
 
 func TestApplicationShutdown(t *testing.T) {
-	cfg := sampleRawConfig("/path/to/kafka-config.yaml")
+	cfg := sampleRawConfig(testKafkaConfigPath)
 	logger := newMockLogger()
 	app := NewApplication(cfg, logger)
 
@@ -255,7 +258,7 @@ func TestApplicationShutdown(t *testing.T) {
 }
 
 func TestApplicationIsShuttingDown(t *testing.T) {
-	cfg := sampleRawConfig("/path/to/kafka-config.yaml")
+	cfg := sampleRawConfig(testKafkaConfigPath)
 	logger := newMockLogger()
 	app := NewApplication(cfg, logger)
 

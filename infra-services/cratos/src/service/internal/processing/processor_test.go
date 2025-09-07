@@ -13,41 +13,47 @@ import (
 )
 
 const (
-	bootstrapServersKey = "bootstrap.servers"
+	processorBootstrapKey  = "bootstrap.servers"
+	processorTestKafkaHost = "localhost:9092"
+	processorTestTopic     = "test-topic"
+	processorStartErrMsg   = "Failed to start processor: %v"
 )
 
 // mockLoggerForProcessor implements the logging.Logger interface for testing
 type mockLoggerForProcessor struct{}
 
-func (m *mockLoggerForProcessor) SetLevel(level logging.Level)            {}
+// All methods below are intentionally empty as this is a mock for testing
+func (m *mockLoggerForProcessor) SetLevel(level logging.Level)            { /* no-op mock */ }
 func (m *mockLoggerForProcessor) GetLevel() logging.Level                 { return logging.InfoLevel }
 func (m *mockLoggerForProcessor) IsLevelEnabled(level logging.Level) bool { return true }
 
-func (m *mockLoggerForProcessor) Debug(msg string)                                             {}
-func (m *mockLoggerForProcessor) Info(msg string)                                              {}
-func (m *mockLoggerForProcessor) Warn(msg string)                                              {}
-func (m *mockLoggerForProcessor) Error(msg string)                                             {}
-func (m *mockLoggerForProcessor) Fatal(msg string)                                             {}
-func (m *mockLoggerForProcessor) Panic(msg string)                                             {}
-func (m *mockLoggerForProcessor) Debugf(format string, args ...interface{})                    {}
-func (m *mockLoggerForProcessor) Infof(format string, args ...interface{})                     {}
-func (m *mockLoggerForProcessor) Warnf(format string, args ...interface{})                     {}
-func (m *mockLoggerForProcessor) Errorf(format string, args ...interface{})                    {}
-func (m *mockLoggerForProcessor) Fatalf(format string, args ...interface{})                    {}
-func (m *mockLoggerForProcessor) Panicf(format string, args ...interface{})                    {}
-func (m *mockLoggerForProcessor) Debugw(msg string, keysAndValues ...interface{})              {}
-func (m *mockLoggerForProcessor) Infow(msg string, keysAndValues ...interface{})               {}
-func (m *mockLoggerForProcessor) Warnw(msg string, keysAndValues ...interface{})               {}
-func (m *mockLoggerForProcessor) Errorw(msg string, keysAndValues ...interface{})              {}
-func (m *mockLoggerForProcessor) Fatalw(msg string, keysAndValues ...interface{})              {}
-func (m *mockLoggerForProcessor) Panicw(msg string, keysAndValues ...interface{})              {}
-func (m *mockLoggerForProcessor) WithFields(fields logging.Fields) logging.Logger              { return m }
-func (m *mockLoggerForProcessor) WithField(key string, value interface{}) logging.Logger       { return m }
-func (m *mockLoggerForProcessor) WithError(err error) logging.Logger                           { return m }
-func (m *mockLoggerForProcessor) WithContext(ctx context.Context) logging.Logger               { return m }
-func (m *mockLoggerForProcessor) Log(level logging.Level, msg string)                          {}
-func (m *mockLoggerForProcessor) Logf(level logging.Level, format string, args ...interface{}) {}
+func (m *mockLoggerForProcessor) Debug(msg string)                                       { /* no-op mock */ }
+func (m *mockLoggerForProcessor) Info(msg string)                                        { /* no-op mock */ }
+func (m *mockLoggerForProcessor) Warn(msg string)                                        { /* no-op mock */ }
+func (m *mockLoggerForProcessor) Error(msg string)                                       { /* no-op mock */ }
+func (m *mockLoggerForProcessor) Fatal(msg string)                                       { /* no-op mock */ }
+func (m *mockLoggerForProcessor) Panic(msg string)                                       { /* no-op mock */ }
+func (m *mockLoggerForProcessor) Debugf(format string, args ...interface{})              { /* no-op mock */ }
+func (m *mockLoggerForProcessor) Infof(format string, args ...interface{})               { /* no-op mock */ }
+func (m *mockLoggerForProcessor) Warnf(format string, args ...interface{})               { /* no-op mock */ }
+func (m *mockLoggerForProcessor) Errorf(format string, args ...interface{})              { /* no-op mock */ }
+func (m *mockLoggerForProcessor) Fatalf(format string, args ...interface{})              { /* no-op mock */ }
+func (m *mockLoggerForProcessor) Panicf(format string, args ...interface{})              { /* no-op mock */ }
+func (m *mockLoggerForProcessor) Debugw(msg string, keysAndValues ...interface{})        { /* no-op mock */ }
+func (m *mockLoggerForProcessor) Infow(msg string, keysAndValues ...interface{})         { /* no-op mock */ }
+func (m *mockLoggerForProcessor) Warnw(msg string, keysAndValues ...interface{})         { /* no-op mock */ }
+func (m *mockLoggerForProcessor) Errorw(msg string, keysAndValues ...interface{})        { /* no-op mock */ }
+func (m *mockLoggerForProcessor) Fatalw(msg string, keysAndValues ...interface{})        { /* no-op mock */ }
+func (m *mockLoggerForProcessor) Panicw(msg string, keysAndValues ...interface{})        { /* no-op mock */ }
+func (m *mockLoggerForProcessor) WithFields(fields logging.Fields) logging.Logger        { return m }
+func (m *mockLoggerForProcessor) WithField(key string, value interface{}) logging.Logger { return m }
+func (m *mockLoggerForProcessor) WithError(err error) logging.Logger                     { return m }
+func (m *mockLoggerForProcessor) WithContext(ctx context.Context) logging.Logger         { return m }
+func (m *mockLoggerForProcessor) Log(level logging.Level, msg string)                    { /* no-op mock */ }
+func (m *mockLoggerForProcessor) Logf(level logging.Level, format string, args ...interface{}) { /* no-op mock */
+}
 func (m *mockLoggerForProcessor) Logw(level logging.Level, msg string, keysAndValues ...interface{}) {
+	/* no-op mock */
 }
 func (m *mockLoggerForProcessor) Clone() logging.Logger { return m }
 func (m *mockLoggerForProcessor) Close() error          { return nil }
@@ -73,9 +79,9 @@ func sampleProcessorConfig() ProcessorConfig {
 				ComponentName: "rulehandler",
 				ServiceName:   "cratos",
 			},
-			RulesKafkaConfigMap:         map[string]any{bootstrapServersKey: "localhost:9092"},
-			RuleTasksConsKafkaConfigMap: map[string]any{bootstrapServersKey: "localhost:9092"},
-			RuleTasksProdKafkaConfigMap: map[string]any{bootstrapServersKey: "localhost:9092"},
+			RulesKafkaConfigMap:         map[string]any{processorBootstrapKey: processorTestKafkaHost},
+			RuleTasksConsKafkaConfigMap: map[string]any{processorBootstrapKey: processorTestKafkaHost},
+			RuleTasksProdKafkaConfigMap: map[string]any{processorBootstrapKey: processorTestKafkaHost},
 		},
 	}
 }
@@ -147,7 +153,7 @@ func TestProcessorMessageFlow(t *testing.T) {
 	processor := NewProcessor(config, logger, inputCh, outputCh)
 	err := processor.Start()
 	if err != nil {
-		t.Fatalf("Failed to start processor: %v", err)
+		t.Fatalf(processorStartErrMsg, err)
 	}
 	defer processor.Stop()
 
@@ -195,7 +201,7 @@ func TestProcessorNonDataMessageForwarding(t *testing.T) {
 	processor := NewProcessor(config, logger, inputCh, outputCh)
 	err := processor.Start()
 	if err != nil {
-		t.Fatalf("Failed to start processor: %v", err)
+		t.Fatalf(processorStartErrMsg, err)
 	}
 	defer processor.Stop()
 
@@ -232,7 +238,7 @@ func TestProcessorLifecycle(t *testing.T) {
 	// Test start
 	err := processor.Start()
 	if err != nil {
-		t.Fatalf("Failed to start processor: %v", err)
+		t.Fatalf(processorStartErrMsg, err)
 	}
 
 	// Test stop

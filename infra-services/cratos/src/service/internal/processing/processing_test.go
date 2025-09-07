@@ -11,6 +11,13 @@ import (
 	"time"
 )
 
+// Test constants to avoid duplication
+const (
+	testTopic              = "test-topic"
+	processingBootstrapKey = "bootstrap.servers"
+	testKafkaHost          = "localhost:9092"
+)
+
 // mockLogger implements the logging.Logger interface for testing
 type mockLogger struct{}
 
@@ -95,7 +102,7 @@ func sampleRawConfig() ProcConfig {
 			ProcessingDelay: 10 * time.Millisecond,
 			BatchSize:       100,
 			RuleEngine: RuleEngineConfig{
-				RulesTopic:  "test-topic",
+				RulesTopic:  testTopic,
 				PollTimeout: 10 * time.Millisecond,
 				RuleEngLibLogging: logging.LoggerConfig{
 					Level:         logging.InfoLevel,
@@ -111,9 +118,9 @@ func sampleRawConfig() ProcConfig {
 					ComponentName: "rulehandler",
 					ServiceName:   "cratos",
 				},
-				RulesKafkaConfigMap:         map[string]any{"bootstrap.servers": "localhost:9092"},
-				RuleTasksConsKafkaConfigMap: map[string]any{"bootstrap.servers": "localhost:9092"},
-				RuleTasksProdKafkaConfigMap: map[string]any{"bootstrap.servers": "localhost:9092"},
+				RulesKafkaConfigMap:         map[string]any{processingBootstrapKey: testKafkaHost},
+				RuleTasksConsKafkaConfigMap: map[string]any{processingBootstrapKey: testKafkaHost},
+				RuleTasksProdKafkaConfigMap: map[string]any{processingBootstrapKey: testKafkaHost},
 			},
 		},
 		Output: OutputConfig{
@@ -152,7 +159,7 @@ func TestNewProcessor(t *testing.T) {
 			ProcessingDelay: 10 * time.Millisecond,
 			BatchSize:       100,
 			RuleEngine: RuleEngineConfig{
-				RulesTopic:  "test-topic",
+				RulesTopic:  testTopic,
 				PollTimeout: 10 * time.Millisecond,
 				RuleEngLibLogging: logging.LoggerConfig{
 					Level:         logging.InfoLevel,
@@ -168,9 +175,9 @@ func TestNewProcessor(t *testing.T) {
 					ComponentName: "rulehandler",
 					ServiceName:   "cratos",
 				},
-				RulesKafkaConfigMap:         map[string]any{bootstrapServersKey: "localhost:9092"},
-				RuleTasksConsKafkaConfigMap: map[string]any{bootstrapServersKey: "localhost:9092"},
-				RuleTasksProdKafkaConfigMap: map[string]any{bootstrapServersKey: "localhost:9092"},
+				RulesKafkaConfigMap:         map[string]any{processingBootstrapKey: testKafkaHost},
+				RuleTasksConsKafkaConfigMap: map[string]any{processingBootstrapKey: testKafkaHost},
+				RuleTasksProdKafkaConfigMap: map[string]any{processingBootstrapKey: testKafkaHost},
 			},
 		},
 		LoggerConfig: logging.LoggerConfig{
@@ -235,9 +242,9 @@ func TestProcessorGetStats(t *testing.T) {
 				ComponentName: "rulehandler",
 				ServiceName:   "cratos",
 			},
-			RulesKafkaConfigMap:         map[string]any{bootstrapServersKey: "localhost:9092"},
-			RuleTasksConsKafkaConfigMap: map[string]any{bootstrapServersKey: "localhost:9092"},
-			RuleTasksProdKafkaConfigMap: map[string]any{bootstrapServersKey: "localhost:9092"},
+			RulesKafkaConfigMap:         map[string]any{processingBootstrapKey: testKafkaHost},
+			RuleTasksConsKafkaConfigMap: map[string]any{processingBootstrapKey: testKafkaHost},
+			RuleTasksProdKafkaConfigMap: map[string]any{processingBootstrapKey: testKafkaHost},
 		}}
 
 	logger := &mockLogger{}
@@ -296,18 +303,16 @@ func TestSimpleNewPipeline(t *testing.T) {
 	// Create a temporary Kafka config file
 	tempDir := t.TempDir()
 	kafkaConfigPath := filepath.Join(tempDir, "kafka-consumer.yaml")
-	err := os.WriteFile(kafkaConfigPath, []byte("bootstrap.servers: localhost:9092\n"), 0644)
+	err := os.WriteFile(kafkaConfigPath, []byte("bootstrap.servers: "+testKafkaHost+"\n"), 0644)
 	if err != nil {
 		t.Fatalf("Failed to create temp kafka config: %v", err)
 	}
 
 	config := sampleRawConfig()
 	// Set KafkaConfigMap fields for test
-	const kafkaBootstrapServers = "bootstrap.servers"
-	const kafkaLocalhost9092 = "localhost:9092"
-	config.Input.KafkaConfigMap = map[string]any{kafkaBootstrapServers: kafkaLocalhost9092}
-	config.Output.KafkaConfigMap = map[string]any{kafkaBootstrapServers: kafkaLocalhost9092}
-	config.Processor.RuleEngine.RulesKafkaConfigMap = map[string]any{kafkaBootstrapServers: kafkaLocalhost9092}
+	config.Input.KafkaConfigMap = map[string]any{processingBootstrapKey: testKafkaHost}
+	config.Output.KafkaConfigMap = map[string]any{processingBootstrapKey: testKafkaHost}
+	config.Processor.RuleEngine.RulesKafkaConfigMap = map[string]any{processingBootstrapKey: testKafkaHost}
 
 	logger := &mockLogger{}
 	pipeline := NewPipeline(config, logger)

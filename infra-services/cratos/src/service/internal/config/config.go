@@ -175,78 +175,111 @@ func LoadConfigWithDefaults(configPath string) *RawConfig {
 
 // overrideWithEnvVars overrides config values with environment variables if they are set
 func overrideWithEnvVars(config *RawConfig) {
-	// Server configuration overrides
+	overrideServerConfig(&config.Server)
+	overrideLoggingConfig(&config.Logging)
+	overrideProcessingConfig(&config.Processing)
+}
+
+// overrideServerConfig overrides server configuration with environment variables
+func overrideServerConfig(server *RawServerConfig) {
 	if host := utils.GetEnv("SERVER_HOST", ""); host != "" {
-		config.Server.Host = host
+		server.Host = host
 	}
 	if port := utils.GetEnvInt("SERVER_PORT", -1); port != -1 {
-		config.Server.Port = port
+		server.Port = port
 	}
 	if readTimeout := utils.GetEnvInt("SERVER_READ_TIMEOUT", -1); readTimeout != -1 {
-		config.Server.ReadTimeout = readTimeout
+		server.ReadTimeout = readTimeout
 	}
 	if writeTimeout := utils.GetEnvInt("SERVER_WRITE_TIMEOUT", -1); writeTimeout != -1 {
-		config.Server.WriteTimeout = writeTimeout
+		server.WriteTimeout = writeTimeout
 	}
+}
 
-	// Logging configuration overrides
+// overrideLoggingConfig overrides logging configuration with environment variables
+func overrideLoggingConfig(logging *RawLoggingConfig) {
 	if level := utils.GetEnv("LOG_LEVEL", ""); level != "" {
-		config.Logging.Level = level
+		logging.Level = level
 	}
 	if fileName := utils.GetEnv("LOG_FILE_NAME", ""); fileName != "" {
-		config.Logging.FileName = fileName
+		logging.FileName = fileName
 	}
 	if loggerName := utils.GetEnv("LOG_LOGGER_NAME", ""); loggerName != "" {
-		config.Logging.LoggerName = loggerName
+		logging.LoggerName = loggerName
 	}
 	if serviceName := utils.GetEnv("LOG_SERVICE_NAME", ""); serviceName != "" {
-		config.Logging.ServiceName = serviceName
+		logging.ServiceName = serviceName
 	}
+}
 
-	// Processing configuration overrides
+// overrideProcessingConfig overrides processing configuration with environment variables
+func overrideProcessingConfig(processing *RawProcessingConfig) {
+	overrideInputConfig(&processing.Input)
+	overrideProcessorConfig(&processing.Processor)
+	overrideOutputConfig(&processing.Output)
+	overrideChannelConfig(&processing.Channels)
+	overridePipelineLoggerConfig(&processing.PloggerConfig)
+}
+
+// overrideInputConfig overrides input configuration with environment variables
+func overrideInputConfig(input *RawInputConfig) {
 	if topics := utils.GetEnv("PROCESSING_INPUT_TOPICS", ""); topics != "" {
-		config.Processing.Input.Topics = parseTopics(topics)
+		input.Topics = parseTopics(topics)
 	}
 	if bufferSize := utils.GetEnvInt("PROCESSING_INPUT_BUFFER_SIZE", -1); bufferSize != -1 {
-		config.Processing.Input.ChannelBufferSize = bufferSize
+		input.ChannelBufferSize = bufferSize
 	}
+}
+
+// overrideProcessorConfig overrides processor configuration with environment variables
+func overrideProcessorConfig(processor *RawProcessorConfig) {
 	if delay := utils.GetEnvInt("PROCESSING_DELAY_MS", -1); delay != -1 {
-		config.Processing.Processor.ProcessingDelay = time.Duration(delay) * time.Millisecond
+		processor.ProcessingDelay = time.Duration(delay) * time.Millisecond
 	}
 	if batchSize := utils.GetEnvInt("PROCESSING_BATCH_SIZE", -1); batchSize != -1 {
-		config.Processing.Processor.BatchSize = batchSize
+		processor.BatchSize = batchSize
 	}
+}
+
+// overrideOutputConfig overrides output configuration with environment variables
+func overrideOutputConfig(output *RawOutputConfig) {
 	if outputTopic := utils.GetEnv("PROCESSING_OUTPUT_TOPIC", ""); outputTopic != "" {
-		config.Processing.Output.OutputTopic = outputTopic
+		output.OutputTopic = outputTopic
 	}
 	if outputBatchSize := utils.GetEnvInt("PROCESSING_OUTPUT_BATCH_SIZE", -1); outputBatchSize != -1 {
-		config.Processing.Output.BatchSize = outputBatchSize
+		output.BatchSize = outputBatchSize
 	}
 	if flushTimeout := utils.GetEnvInt("PROCESSING_OUTPUT_FLUSH_TIMEOUT_MS", -1); flushTimeout != -1 {
-		config.Processing.Output.FlushTimeout = time.Duration(flushTimeout) * time.Millisecond
+		output.FlushTimeout = time.Duration(flushTimeout) * time.Millisecond
 	}
 	if outputBufferSize := utils.GetEnvInt("PROCESSING_OUTPUT_BUFFER_SIZE", -1); outputBufferSize != -1 {
-		config.Processing.Output.ChannelBufferSize = outputBufferSize
+		output.ChannelBufferSize = outputBufferSize
 	}
+}
+
+// overrideChannelConfig overrides channel configuration with environment variables
+func overrideChannelConfig(channels *RawChannelConfig) {
 	if inputBufferSize := utils.GetEnvInt("PROCESSING_CHANNELS_INPUT_BUFFER_SIZE", -1); inputBufferSize != -1 {
-		config.Processing.Channels.InputBufferSize = inputBufferSize
+		channels.InputBufferSize = inputBufferSize
 	}
 	if outputChannelBufferSize := utils.GetEnvInt("PROCESSING_CHANNELS_OUTPUT_BUFFER_SIZE", -1); outputChannelBufferSize != -1 {
-		config.Processing.Channels.OutputBufferSize = outputChannelBufferSize
+		channels.OutputBufferSize = outputChannelBufferSize
 	}
+}
 
-	// Pipeline logger configuration overrides
+// overridePipelineLoggerConfig overrides pipeline logger configuration with environment variables
+func overridePipelineLoggerConfig(plogger *RawLoggingConfig) {
 	if ploggerLevel := utils.GetEnv("PROCESSING_PLOGGER_LEVEL", ""); ploggerLevel != "" {
-		config.Processing.PloggerConfig.Level = ploggerLevel
+		plogger.Level = ploggerLevel
 	}
 	if ploggerFileName := utils.GetEnv("PROCESSING_PLOGGER_FILE_NAME", ""); ploggerFileName != "" {
-		config.Processing.PloggerConfig.FileName = ploggerFileName
+		plogger.FileName = ploggerFileName
 	}
 	if ploggerLoggerName := utils.GetEnv("PROCESSING_PLOGGER_LOGGER_NAME", ""); ploggerLoggerName != "" {
-		config.Processing.PloggerConfig.LoggerName = ploggerLoggerName
+		plogger.LoggerName = ploggerLoggerName
 	}
 	if ploggerServiceName := utils.GetEnv("PROCESSING_PLOGGER_SERVICE_NAME", ""); ploggerServiceName != "" {
-		config.Processing.PloggerConfig.ServiceName = ploggerServiceName
+		plogger.ServiceName = ploggerServiceName
 	}
 }
 

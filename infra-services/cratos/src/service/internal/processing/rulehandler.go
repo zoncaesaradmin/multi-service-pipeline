@@ -79,6 +79,19 @@ func (rh *RuleEngineHandler) Start() error {
 	// Create context for cancellation
 	rh.ctx, rh.cancel = context.WithCancel(context.Background())
 
+	if err := rh.initializeRuleTaskHandling(); err != nil {
+		return err
+	}
+
+	if err := rh.setupRuleConsumer(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// initializeRuleTaskHandling sets up rule task producer and consumer
+func (rh *RuleEngineHandler) initializeRuleTaskHandling() error {
 	// Initialize producer for distributing rule tasks
 	rh.ruleTaskProducer = messagebus.NewProducer(rh.config.RuleTasksProdKafkaConfigMap, "ruleTaskProducer"+utils.GetEnv("HOSTNAME", ""))
 
@@ -86,84 +99,114 @@ func (rh *RuleEngineHandler) Start() error {
 	ruleTaskGroup := "ruleTaskConsGroup-shared"
 	rh.ruleTaskConsumer = messagebus.NewConsumer(rh.config.RuleTasksConsKafkaConfigMap, ruleTaskGroup)
 
-	rh.ruleTaskConsumer.OnMessage(func(message *messagebus.Message) {
-		if message == nil {
-			return
-		}
-
-		rh.rlogger.Debugw("RULE TASK HANDLER - Received task", "size", len(message.Value))
-
-		// Process rule task
-		// TODO: simplify by using data unmarshal into struct and get the action below
-		sendToDBBatchProcessor(rh.ctx, rh.rlogger, message.Value, "RULE_TASK")
-
-		if err := rh.ruleTaskConsumer.Commit(context.Background(), message); err != nil {
-			rh.rlogger.Errorw("RULE TASK HANDLER - Failed to commit message", "error", err)
-		}
-	})
-
-	rh.ruleTaskConsumer.OnAssign(func(assignments []messagebus.PartitionAssignment) {
-		rh.rlogger.Infow("RULE TASK HANDLER - Assigned partitions", "partitions", assignments)
-		for _, assignment := range assignments {
-			if assignment.Partition == 0 {
-				// select self as leader to generate tasks
-				rh.SetLeader(true)
-				break
-			}
-		}
-	})
-
-	rh.ruleTaskConsumer.OnRevoke(func(revoked []messagebus.PartitionAssignment) {
-		rh.rlogger.Infow("RULE TASK HANDLER - Revoked partitions", "partitions", revoked)
-		for _, r := range revoked {
-			if r.Partition == 0 {
-				// relinquish leadership
-				rh.SetLeader(false)
-				break
-			}
-		}
-	})
+	rh.setupRuleTaskConsumerCallbacks()
 
 	if err := rh.ruleTaskConsumer.Subscribe([]string{rh.config.RuleTasksTopic}); err != nil {
 		rh.rlogger.Errorw("RULE TASK HANDLER - Failed to subscribe to rule tasks topic", "error", err)
 		return fmt.Errorf("failed to subscribe to rule tasks topic: %w", err)
 	}
 
-	// Register OnMessage callback for main rules topic
-	rh.ruleconsumer.OnMessage(func(message *messagebus.Message) {
-		if message != nil {
-			rh.rlogger.Debugw("RULE HANDLER - Received message", "size", len(message.Value))
+	return nil
+}
 
-			res, err := rh.reInst.HandleRuleEvent(message.Value)
-			if err != nil {
-				rh.rlogger.Errorw("RULE HANDLER - Failed to handle rule event", "error", err)
-			} else if res != nil && len(res.RuleJSON) > 0 {
-				rh.rlogger.Debugw("RULE HANDLER - Converted rule JSON", "action", res.Action, "convertedRule", string(res.RuleJSON))
-
-				// Only leader distributes rule tasks
-				if rh.Leader() {
-					if rh.distributeRuleTask(res) {
-						rh.rlogger.Debugw("RULE HANDLER - Successfully distributed rule task", "action", res.Action)
-					}
-				} else {
-					rh.rlogger.Debug("RULE HANDLER - Not leader, skipping rule task distribution")
-				}
-			}
-
-			// Commit the message
-			if err := rh.ruleconsumer.Commit(context.Background(), message); err != nil {
-				rh.rlogger.Errorw("RULE HANDLER - Failed to commit message", "error", err)
-			}
-		}
+// setupRuleTaskConsumerCallbacks configures callbacks for rule task consumer
+func (rh *RuleEngineHandler) setupRuleTaskConsumerCallbacks() {
+	rh.ruleTaskConsumer.OnMessage(func(message *messagebus.Message) {
+		rh.handleRuleTaskMessage(message)
 	})
 
-	// Subscribe to topics
+	rh.ruleTaskConsumer.OnAssign(func(assignments []messagebus.PartitionAssignment) {
+		rh.handlePartitionAssignment(assignments)
+	})
+
+	rh.ruleTaskConsumer.OnRevoke(func(revoked []messagebus.PartitionAssignment) {
+		rh.handlePartitionRevocation(revoked)
+	})
+}
+
+// handleRuleTaskMessage processes incoming rule task messages
+func (rh *RuleEngineHandler) handleRuleTaskMessage(message *messagebus.Message) {
+	if message == nil {
+		return
+	}
+
+	rh.rlogger.Debugw("RULE TASK HANDLER - Received task", "size", len(message.Value))
+
+	// Process rule task with structured data unmarshaling
+	sendToDBBatchProcessor(rh.ctx, rh.rlogger, message.Value, "RULE_TASK")
+
+	if err := rh.ruleTaskConsumer.Commit(context.Background(), message); err != nil {
+		rh.rlogger.Errorw("RULE TASK HANDLER - Failed to commit message", "error", err)
+	}
+}
+
+// handlePartitionAssignment manages partition assignment and leadership
+func (rh *RuleEngineHandler) handlePartitionAssignment(assignments []messagebus.PartitionAssignment) {
+	rh.rlogger.Infow("RULE TASK HANDLER - Assigned partitions", "partitions", assignments)
+	for _, assignment := range assignments {
+		if assignment.Partition == 0 {
+			rh.SetLeader(true)
+			break
+		}
+	}
+}
+
+// handlePartitionRevocation manages partition revocation and leadership transfer
+func (rh *RuleEngineHandler) handlePartitionRevocation(revoked []messagebus.PartitionAssignment) {
+	rh.rlogger.Infow("RULE TASK HANDLER - Revoked partitions", "partitions", revoked)
+	for _, r := range revoked {
+		if r.Partition == 0 {
+			rh.SetLeader(false)
+			break
+		}
+	}
+}
+
+// setupRuleConsumer configures the main rules topic consumer
+func (rh *RuleEngineHandler) setupRuleConsumer() error {
+	rh.ruleconsumer.OnMessage(func(message *messagebus.Message) {
+		rh.handleRuleMessage(message)
+	})
+
 	if err := rh.ruleconsumer.Subscribe([]string{rh.config.RulesTopic}); err != nil {
 		rh.rlogger.Errorw("Failed to subscribe to rules topic", "error", err)
 		return fmt.Errorf("failed to subscribe to rules topic: %w", err)
 	}
 
 	return nil
+}
+
+// handleRuleMessage processes incoming rule messages
+func (rh *RuleEngineHandler) handleRuleMessage(message *messagebus.Message) {
+	if message == nil {
+		return
+	}
+
+	rh.rlogger.Debugw("RULE HANDLER - Received message", "size", len(message.Value))
+
+	res, err := rh.reInst.HandleRuleEvent(message.Value)
+	if err != nil {
+		rh.rlogger.Errorw("RULE HANDLER - Failed to handle rule event", "error", err)
+	} else if res != nil && len(res.RuleJSON) > 0 {
+		rh.processRuleResult(res)
+	}
+
+	if err := rh.ruleconsumer.Commit(context.Background(), message); err != nil {
+		rh.rlogger.Errorw("RULE HANDLER - Failed to commit message", "error", err)
+	}
+}
+
+// processRuleResult handles rule processing results and task distribution
+func (rh *RuleEngineHandler) processRuleResult(res *relib.RuleMsgResult) {
+	rh.rlogger.Debugw("RULE HANDLER - Converted rule JSON", "action", res.Action, "convertedRule", string(res.RuleJSON))
+
+	if rh.Leader() {
+		if rh.distributeRuleTask(res) {
+			rh.rlogger.Debugw("RULE HANDLER - Successfully distributed rule task", "action", res.Action)
+		}
+	} else {
+		rh.rlogger.Debug("RULE HANDLER - Not leader, skipping rule task distribution")
+	}
 }
 
 func (rh *RuleEngineHandler) Stop() error {

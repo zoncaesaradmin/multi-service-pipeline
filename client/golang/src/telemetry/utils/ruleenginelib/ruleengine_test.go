@@ -4,6 +4,8 @@ import (
 	"testing"
 )
 
+const testRuleUUID = "test-uuid"
+
 func TestNewRuleEngineInstance(t *testing.T) {
 	re := NewRuleEngineInstance(nil, nil)
 	if re == nil {
@@ -29,7 +31,7 @@ func TestEvaluateRules(t *testing.T) {
 	re := NewRuleEngineInstance(nil, nil)
 	// Create a test rule definition manually
 	ruleDefinition := &RuleDefinition{
-		AlertRuleUUID: "test-uuid",
+		AlertRuleUUID: testRuleUUID,
 		Name:          "Test Rule",
 		Enabled:       true,
 		MatchCriteriaEntries: map[string][]*RuleMatchCondition{
@@ -50,7 +52,7 @@ func TestEvaluateRules(t *testing.T) {
 	}
 
 	// Add the rule to the engine
-	re.RuleMap["test-uuid"] = ruleDefinition
+	re.RuleMap[testRuleUUID] = ruleDefinition
 
 	// Test with matching data
 	data := Data{"planet": "Earth"}
@@ -60,7 +62,7 @@ func TestEvaluateRules(t *testing.T) {
 		t.Error("EvaluateRules should return IsRuleHit=true for matching data")
 	}
 
-	if result.RuleUUID != "test-uuid" {
+	if result.RuleUUID != testRuleUUID {
 		t.Errorf("EvaluateRules should return correct UUID, got %s", result.RuleUUID)
 	}
 

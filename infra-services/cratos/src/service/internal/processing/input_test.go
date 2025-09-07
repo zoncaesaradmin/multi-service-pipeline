@@ -18,10 +18,14 @@ type mockConsumer struct {
 }
 
 // Implement OnAssign for mockConsumer
-func (m *mockConsumer) OnAssign(fn func([]messagebus.PartitionAssignment)) {}
+func (m *mockConsumer) OnAssign(fn func([]messagebus.PartitionAssignment)) {
+	/* no-op mock for testing */
+}
 
 // Implement OnRevoke for mockConsumer
-func (m *mockConsumer) OnRevoke(fn func([]messagebus.PartitionAssignment)) {}
+func (m *mockConsumer) OnRevoke(fn func([]messagebus.PartitionAssignment)) {
+	/* no-op mock for testing */
+}
 
 // Implement OnMessage for mockConsumer
 func (m *mockConsumer) OnMessage(fn func(*messagebus.Message)) {

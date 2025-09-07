@@ -123,6 +123,7 @@ func TestSetupRouterWithNilHandler(t *testing.T) {
 
 func TestServerConfiguration(t *testing.T) {
 	// Test server configuration with different config values
+	samplecfg := sampleRawConfig()
 	testCases := []struct {
 		name      string
 		rawconfig *config.RawConfig
@@ -136,6 +137,8 @@ func TestServerConfiguration(t *testing.T) {
 					ReadTimeout:  10,
 					WriteTimeout: 10,
 				},
+				Processing: samplecfg.Processing,
+				Logging:    samplecfg.Logging,
 			},
 		},
 		{
@@ -147,6 +150,8 @@ func TestServerConfiguration(t *testing.T) {
 					ReadTimeout:  15,
 					WriteTimeout: 20,
 				},
+				Processing: samplecfg.Processing,
+				Logging:    samplecfg.Logging,
 			},
 		},
 	}
@@ -188,14 +193,7 @@ func TestServerConfiguration(t *testing.T) {
 
 func TestApplicationInitialization(t *testing.T) {
 	// Test that application is initialized correctly
-	cfg := &config.RawConfig{
-		Server: config.RawServerConfig{
-			Host:         testHost,
-			Port:         4477,
-			ReadTimeout:  10,
-			WriteTimeout: 10,
-		},
-	}
+	cfg := sampleRawConfig()
 
 	logger := &mockLogger{}
 	application := app.NewApplication(cfg, logger)
@@ -303,14 +301,7 @@ func TestLoggerConfiguration(t *testing.T) {
 
 func TestIntegrationComponents(t *testing.T) {
 	// Test that all components work together
-	cfg := &config.RawConfig{
-		Server: config.RawServerConfig{
-			Host:         testHost,
-			Port:         4477,
-			ReadTimeout:  10,
-			WriteTimeout: 10,
-		},
-	}
+	cfg := sampleRawConfig()
 
 	logger := &mockLogger{}
 	application := app.NewApplication(cfg, logger)
@@ -355,15 +346,7 @@ func TestIntegrationComponents(t *testing.T) {
 
 func TestServerShutdownGraceful(t *testing.T) {
 	// Test graceful shutdown simulation
-	cfg := &config.RawConfig{
-		Server: config.RawServerConfig{
-			Host:         testHost,
-			Port:         0, // Use port 0 to let OS assign a free port
-			ReadTimeout:  1,
-			WriteTimeout: 1,
-		},
-	}
-
+	cfg := sampleRawConfig()
 	logger := &mockLogger{}
 	application := app.NewApplication(cfg, logger)
 
@@ -403,19 +386,49 @@ func BenchmarkHealthCheckRequest(b *testing.B) {
 }
 
 func BenchmarkApplicationCreation(b *testing.B) {
-	cfg := &config.RawConfig{
-		Server: config.RawServerConfig{
-			Host:         testHost,
-			Port:         4477,
-			ReadTimeout:  10,
-			WriteTimeout: 10,
-		},
-	}
+	cfg := sampleRawConfig()
 	logger := &mockLogger{}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		app := app.NewApplication(cfg, logger)
 		app.Shutdown()
+	}
+}
+
+func sampleRawConfig() *config.RawConfig {
+	return &config.RawConfig{
+		Server: config.RawServerConfig{
+			Host:         testHost,
+			Port:         4477,
+			ReadTimeout:  10,
+			WriteTimeout: 10,
+		},
+		Processing: config.RawProcessingConfig{
+			Processor: config.RawProcessorConfig{
+				RuleProcConfig: config.RawRuleProcessorConfig{
+					RelibLogging: config.RawLoggingConfig{
+						FileName:    logFileName,
+						LoggerName:  "ruleenginelib",
+						ServiceName: "cratos",
+					},
+					RuleTasksLogging: config.RawLoggingConfig{
+						FileName:    logFileName,
+						LoggerName:  "ruleevents",
+						ServiceName: "cratos",
+					},
+				},
+			},
+			PloggerConfig: config.RawLoggingConfig{
+				FileName:    logFileName,
+				LoggerName:  "plogger",
+				ServiceName: "cratos",
+			},
+		},
+		Logging: config.RawLoggingConfig{
+			FileName:    logFileName,
+			LoggerName:  "mlogger",
+			ServiceName: "cratos",
+		},
 	}
 }

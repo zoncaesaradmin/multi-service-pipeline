@@ -83,8 +83,62 @@ func (m *mockProducer) Close() error {
 	return nil
 }
 
+func sampleRawConfig() ProcConfig {
+	return ProcConfig{
+		Input: InputConfig{
+			Topics:            []string{"cisco_nir-anomalies"},
+			PollTimeout:       1 * time.Second,
+			ChannelBufferSize: 1000,
+			KafkaConfigMap:    map[string]any{"client.id": "test-consumer"},
+		},
+		Processor: ProcessorConfig{
+			ProcessingDelay: 10 * time.Millisecond,
+			BatchSize:       100,
+			RuleEngine: RuleEngineConfig{
+				RulesTopic:  "test-topic",
+				PollTimeout: 10 * time.Millisecond,
+				RuleEngLibLogging: logging.LoggerConfig{
+					Level:         logging.InfoLevel,
+					FilePath:      "/tmp/ruleenginelib.log",
+					LoggerName:    "ruleenginelib",
+					ComponentName: "ruleenginelib",
+					ServiceName:   "cratos",
+				},
+				RuleTasksLogging: logging.LoggerConfig{
+					Level:         logging.InfoLevel,
+					FilePath:      "/tmp/ruletasks.log",
+					LoggerName:    "ruletasks",
+					ComponentName: "ruletasks",
+					ServiceName:   "cratos",
+				},
+				RulesKafkaConfigMap:         map[string]any{"bootstrap.servers": "localhost:9092"},
+				RuleTasksConsKafkaConfigMap: map[string]any{"bootstrap.servers": "localhost:9092"},
+				RuleTasksProdKafkaConfigMap: map[string]any{"bootstrap.servers": "localhost:9092"},
+			},
+		},
+		Output: OutputConfig{
+			OutputTopic:       "cisco_nir-prealerts",
+			BatchSize:         50,
+			FlushTimeout:      5 * time.Second,
+			ChannelBufferSize: 1000,
+			KafkaConfigMap:    map[string]any{"client.id": "test-producer"},
+		},
+		Channels: ChannelConfig{
+			InputBufferSize:  1000,
+			OutputBufferSize: 1000,
+		},
+		LoggerConfig: logging.LoggerConfig{
+			Level:         logging.InfoLevel,
+			FilePath:      "/tmp/cratos-pipeline.log",
+			LoggerName:    "pipeline",
+			ComponentName: "processing",
+			ServiceName:   "cratos",
+		},
+	}
+}
+
 func TestConfigValidation(t *testing.T) {
-	config := DefaultConfig(nil)
+	config := sampleRawConfig()
 	err := ValidateConfig(config)
 	if err != nil {
 		t.Errorf("Default config should be valid, got error: %v", err)
@@ -100,11 +154,11 @@ func TestNewProcessor(t *testing.T) {
 			RuleEngine: RuleEngineConfig{
 				RulesTopic:  "test-topic",
 				PollTimeout: 10 * time.Millisecond,
-				Logging: logging.LoggerConfig{
+				RuleEngLibLogging: logging.LoggerConfig{
 					Level:         logging.InfoLevel,
 					FilePath:      testLogFile,
-					LoggerName:    "ruleengine",
-					ComponentName: "ruleengine",
+					LoggerName:    "ruleenginelib",
+					ComponentName: "ruleenginelib",
 					ServiceName:   "cratos",
 				},
 				RuleTasksLogging: logging.LoggerConfig{
@@ -167,11 +221,11 @@ func TestProcessorGetStats(t *testing.T) {
 		RuleEngine: RuleEngineConfig{
 			RulesTopic:  "test-topic",
 			PollTimeout: 10 * time.Millisecond,
-			Logging: logging.LoggerConfig{
+			RuleEngLibLogging: logging.LoggerConfig{
 				Level:         logging.InfoLevel,
 				FilePath:      testLogFile,
-				LoggerName:    "ruleengine",
-				ComponentName: "ruleengine",
+				LoggerName:    "ruleenginelib",
+				ComponentName: "ruleenginelib",
 				ServiceName:   "cratos",
 			},
 			RuleTasksLogging: logging.LoggerConfig{
@@ -247,7 +301,7 @@ func TestSimpleNewPipeline(t *testing.T) {
 		t.Fatalf("Failed to create temp kafka config: %v", err)
 	}
 
-	config := DefaultConfig(nil)
+	config := sampleRawConfig()
 	// Set KafkaConfigMap fields for test
 	const kafkaBootstrapServers = "bootstrap.servers"
 	const kafkaLocalhost9092 = "localhost:9092"

@@ -8,7 +8,6 @@ import (
 	"servicegomodule/internal/models"
 	"sharedgomodule/logging"
 	"sharedgomodule/utils"
-	"time"
 )
 
 type ProcConfig struct {
@@ -122,125 +121,7 @@ func (p *Pipeline) GetStats() map[string]interface{} {
 }
 
 func DefaultConfig(cfg *config.RawConfig) ProcConfig {
-	if cfg == nil {
-		// Return hardcoded defaults if no config is provided
-		return ProcConfig{
-			Input: InputConfig{
-				Topics:            []string{"cisco_nir-anomalies"},
-				PollTimeout:       1 * time.Second,
-				ChannelBufferSize: 1000,
-				KafkaConfigMap:    map[string]any{"client.id": "test-consumer"},
-			},
-			Processor: ProcessorConfig{
-				ProcessingDelay: 10 * time.Millisecond,
-				BatchSize:       100,
-				RuleEngine: RuleEngineConfig{
-					RulesTopic:  "test-topic",
-					PollTimeout: 10 * time.Millisecond,
-					Logging: logging.LoggerConfig{
-						Level:         logging.InfoLevel,
-						FilePath:      "/tmp/ruleengine.log",
-						LoggerName:    "ruleengine",
-						ComponentName: "ruleengine",
-						ServiceName:   "cratos",
-					},
-					RuleTasksLogging: logging.LoggerConfig{
-						Level:         logging.InfoLevel,
-						FilePath:      "/tmp/ruletasks.log",
-						LoggerName:    "ruletasks",
-						ComponentName: "ruletasks",
-						ServiceName:   "cratos",
-					},
-					RulesKafkaConfigMap:         map[string]any{"bootstrap.servers": "localhost:9092"},
-					RuleTasksConsKafkaConfigMap: map[string]any{"bootstrap.servers": "localhost:9092"},
-					RuleTasksProdKafkaConfigMap: map[string]any{"bootstrap.servers": "localhost:9092"},
-				},
-			},
-			Output: OutputConfig{
-				OutputTopic:       "cisco_nir-prealerts",
-				BatchSize:         50,
-				FlushTimeout:      5 * time.Second,
-				ChannelBufferSize: 1000,
-				KafkaConfigMap:    map[string]any{"client.id": "test-producer"},
-			},
-			Channels: ChannelConfig{
-				InputBufferSize:  1000,
-				OutputBufferSize: 1000,
-			},
-			LoggerConfig: logging.LoggerConfig{
-				Level:         logging.InfoLevel,
-				FilePath:      "/tmp/cratos-pipeline.log",
-				LoggerName:    "pipeline",
-				ComponentName: "processing",
-				ServiceName:   "cratos",
-			},
-		}
-	}
-
-	// Check if Processing configuration exists (check for empty input topics)
 	processing := cfg.Processing
-	if len(processing.Input.Topics) == 0 {
-		// If Processing is empty/nil, use defaults but fill LoggerConfig from main config
-		procConfig := ProcConfig{
-			Input: InputConfig{
-				Topics:            []string{"cisco_nir-anomalies"},
-				PollTimeout:       1 * time.Second,
-				ChannelBufferSize: 1000,
-				KafkaConfigMap:    map[string]any{"client.id": "test-consumer"},
-			},
-			Processor: ProcessorConfig{
-				ProcessingDelay: 10 * time.Millisecond,
-				BatchSize:       100,
-				RuleEngine: RuleEngineConfig{
-					RulesTopic:  "test-topic",
-					PollTimeout: 10 * time.Millisecond,
-					Logging: logging.LoggerConfig{
-						Level:         logging.InfoLevel,
-						FilePath:      "/tmp/ruleengine.log",
-						LoggerName:    "ruleengine",
-						ComponentName: "ruleengine",
-						ServiceName:   "cratos",
-					},
-					RuleTasksLogging: logging.LoggerConfig{
-						Level:         logging.InfoLevel,
-						FilePath:      "/tmp/ruletasks.log",
-						LoggerName:    "ruletasks",
-						ComponentName: "ruletasks",
-						ServiceName:   "cratos",
-					},
-					RulesKafkaConfigMap:         map[string]any{"bootstrap.servers": "localhost:9092"},
-					RuleTasksConsKafkaConfigMap: map[string]any{"bootstrap.servers": "localhost:9092"},
-					RuleTasksProdKafkaConfigMap: map[string]any{"bootstrap.servers": "localhost:9092"},
-				},
-			},
-			Output: OutputConfig{
-				OutputTopic:       "cisco_nir-prealerts",
-				BatchSize:         50,
-				FlushTimeout:      5 * time.Second,
-				ChannelBufferSize: 1000,
-				KafkaConfigMap:    map[string]any{"client.id": "test-producer"},
-			},
-			Channels: ChannelConfig{
-				InputBufferSize:  1000,
-				OutputBufferSize: 1000,
-			},
-		}
-
-		// Use PloggerConfig if available, otherwise use defaults
-		if processing.PloggerConfig.FileName != "" {
-			procConfig.LoggerConfig = processing.PloggerConfig.ConvertToLoggerConfig()
-		} else {
-			procConfig.LoggerConfig = logging.LoggerConfig{
-				Level:         logging.InfoLevel,
-				FilePath:      "/tmp/cratos-pipeline.log",
-				LoggerName:    "pipeline",
-				ComponentName: "processing",
-				ServiceName:   "cratos",
-			}
-		}
-		return procConfig
-	}
-
 	// Convert config processing configuration to ProcConfig
 	procConfig := ProcConfig{
 		Input: InputConfig{
@@ -255,7 +136,7 @@ func DefaultConfig(cfg *config.RawConfig) ProcConfig {
 			RuleEngine: RuleEngineConfig{
 				RulesTopic:                  processing.Processor.RuleProcConfig.RulesTopic,
 				PollTimeout:                 processing.Processor.RuleProcConfig.PollTimeout,
-				Logging:                     processing.Processor.RuleProcConfig.Logging.ConvertToLoggerConfig(),
+				RuleEngLibLogging:           processing.Processor.RuleProcConfig.RelibLogging.ConvertToLoggerConfig(),
 				RulesKafkaConfigMap:         utils.LoadConfigMap(processing.Processor.RuleProcConfig.RulesKafkaConfFile),
 				RuleTasksTopic:              processing.Processor.RuleProcConfig.RuleTasksTopic,
 				RuleTasksLogging:            processing.Processor.RuleProcConfig.RuleTasksLogging.ConvertToLoggerConfig(),
@@ -280,14 +161,7 @@ func DefaultConfig(cfg *config.RawConfig) ProcConfig {
 	if processing.PloggerConfig.FileName != "" {
 		procConfig.LoggerConfig = processing.PloggerConfig.ConvertToLoggerConfig()
 	} else {
-		// Use default pipeline logger configuration
-		procConfig.LoggerConfig = logging.LoggerConfig{
-			Level:         logging.InfoLevel,
-			FilePath:      "/tmp/cratos-pipeline.log",
-			LoggerName:    "pipeline",
-			ComponentName: "processing",
-			ServiceName:   "cratos",
-		}
+		panic("PloggerConfig must be provided in the configuration")
 	}
 
 	return procConfig

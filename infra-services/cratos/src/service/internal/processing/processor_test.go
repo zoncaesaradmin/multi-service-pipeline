@@ -52,6 +52,33 @@ func (m *mockLoggerForProcessor) Logw(level logging.Level, msg string, keysAndVa
 func (m *mockLoggerForProcessor) Clone() logging.Logger { return m }
 func (m *mockLoggerForProcessor) Close() error          { return nil }
 
+func sampleProcessorConfig() ProcessorConfig {
+	return ProcessorConfig{
+		ProcessingDelay: 10 * time.Millisecond,
+		BatchSize:       100,
+		RuleEngine: RuleEngineConfig{
+			RulesTopic:  "test-topic",
+			PollTimeout: 10 * time.Millisecond,
+			RuleEngLibLogging: logging.LoggerConfig{
+				Level:         logging.InfoLevel,
+				FilePath:      "/tmp/ruleenginelib.log",
+				LoggerName:    "ruleenginelib",
+				ComponentName: "ruleenginelib",
+				ServiceName:   "cratos",
+			},
+			RuleTasksLogging: logging.LoggerConfig{
+				Level:         logging.InfoLevel,
+				FilePath:      "/tmp/ruletasks.log",
+				LoggerName:    "ruletasks",
+				ComponentName: "ruletasks",
+				ServiceName:   "cratos",
+			},
+			RulesKafkaConfigMap:         map[string]any{bootstrapServersKey: "localhost:9092"},
+			RuleTasksConsKafkaConfigMap: map[string]any{bootstrapServersKey: "localhost:9092"},
+			RuleTasksProdKafkaConfigMap: map[string]any{bootstrapServersKey: "localhost:9092"},
+		},
+	}
+}
 func TestProcessorConfig(t *testing.T) {
 	config := ProcessorConfig{
 		ProcessingDelay: 10 * time.Millisecond,
@@ -68,31 +95,7 @@ func TestProcessorConfig(t *testing.T) {
 }
 
 func TestProcessorCreation(t *testing.T) {
-	config := ProcessorConfig{
-		ProcessingDelay: 10 * time.Millisecond,
-		BatchSize:       100,
-		RuleEngine: RuleEngineConfig{
-			RulesTopic:  "test-topic",
-			PollTimeout: 10 * time.Millisecond,
-			Logging: logging.LoggerConfig{
-				Level:         logging.InfoLevel,
-				FilePath:      "/tmp/ruleengine.log",
-				LoggerName:    "ruleengine",
-				ComponentName: "ruleengine",
-				ServiceName:   "cratos",
-			},
-			RuleTasksLogging: logging.LoggerConfig{
-				Level:         logging.InfoLevel,
-				FilePath:      "/tmp/ruletasks.log",
-				LoggerName:    "ruletasks",
-				ComponentName: "ruletasks",
-				ServiceName:   "cratos",
-			},
-			RulesKafkaConfigMap:         map[string]any{bootstrapServersKey: "localhost:9092"},
-			RuleTasksConsKafkaConfigMap: map[string]any{bootstrapServersKey: "localhost:9092"},
-			RuleTasksProdKafkaConfigMap: map[string]any{bootstrapServersKey: "localhost:9092"},
-		},
-	}
+	config := sampleProcessorConfig()
 	logger := &mockLoggerForProcessor{}
 	inputCh := make(chan *models.ChannelMessage, 10)
 	outputCh := make(chan *models.ChannelMessage, 10)
@@ -113,31 +116,7 @@ func TestProcessorCreation(t *testing.T) {
 }
 
 func TestProcessorStatsRetrieval(t *testing.T) {
-	config := ProcessorConfig{
-		ProcessingDelay: 10 * time.Millisecond,
-		BatchSize:       100,
-		RuleEngine: RuleEngineConfig{
-			RulesTopic:  "test-topic",
-			PollTimeout: 10 * time.Millisecond,
-			Logging: logging.LoggerConfig{
-				Level:         logging.InfoLevel,
-				FilePath:      "/tmp/ruleengine.log",
-				LoggerName:    "ruleengine",
-				ComponentName: "ruleengine",
-				ServiceName:   "cratos",
-			},
-			RuleTasksLogging: logging.LoggerConfig{
-				Level:         logging.InfoLevel,
-				FilePath:      "/tmp/ruletasks.log",
-				LoggerName:    "ruletasks",
-				ComponentName: "ruletasks",
-				ServiceName:   "cratos",
-			},
-			RulesKafkaConfigMap:         map[string]any{bootstrapServersKey: "localhost:9092"},
-			RuleTasksConsKafkaConfigMap: map[string]any{bootstrapServersKey: "localhost:9092"},
-			RuleTasksProdKafkaConfigMap: map[string]any{bootstrapServersKey: "localhost:9092"},
-		},
-	}
+	config := sampleProcessorConfig()
 	logger := &mockLoggerForProcessor{}
 	inputCh := make(chan *models.ChannelMessage, 10)
 	outputCh := make(chan *models.ChannelMessage, 10)
@@ -160,31 +139,7 @@ func TestProcessorStatsRetrieval(t *testing.T) {
 }
 
 func TestProcessorMessageFlow(t *testing.T) {
-	config := ProcessorConfig{
-		ProcessingDelay: 10 * time.Millisecond,
-		BatchSize:       100,
-		RuleEngine: RuleEngineConfig{
-			RulesTopic:  "test-topic",
-			PollTimeout: 10 * time.Millisecond,
-			Logging: logging.LoggerConfig{
-				Level:         logging.InfoLevel,
-				FilePath:      "/tmp/ruleengine.log",
-				LoggerName:    "ruleengine",
-				ComponentName: "ruleengine",
-				ServiceName:   "cratos",
-			},
-			RuleTasksLogging: logging.LoggerConfig{
-				Level:         logging.InfoLevel,
-				FilePath:      "/tmp/ruletasks.log",
-				LoggerName:    "ruletasks",
-				ComponentName: "ruletasks",
-				ServiceName:   "cratos",
-			},
-			RulesKafkaConfigMap:         map[string]any{bootstrapServersKey: "localhost:9092"},
-			RuleTasksConsKafkaConfigMap: map[string]any{bootstrapServersKey: "localhost:9092"},
-			RuleTasksProdKafkaConfigMap: map[string]any{bootstrapServersKey: "localhost:9092"},
-		},
-	}
+	config := sampleProcessorConfig()
 	logger := &mockLoggerForProcessor{}
 	inputCh := make(chan *models.ChannelMessage, 10)
 	outputCh := make(chan *models.ChannelMessage, 10)
@@ -232,31 +187,7 @@ func TestProcessorMessageFlow(t *testing.T) {
 }
 
 func TestProcessorNonDataMessageForwarding(t *testing.T) {
-	config := ProcessorConfig{
-		ProcessingDelay: 10 * time.Millisecond,
-		BatchSize:       100,
-		RuleEngine: RuleEngineConfig{
-			RulesTopic:  "test-topic",
-			PollTimeout: 10 * time.Millisecond,
-			Logging: logging.LoggerConfig{
-				Level:         logging.InfoLevel,
-				FilePath:      "/tmp/ruleengine.log",
-				LoggerName:    "ruleengine",
-				ComponentName: "ruleengine",
-				ServiceName:   "cratos",
-			},
-			RuleTasksLogging: logging.LoggerConfig{
-				Level:         logging.InfoLevel,
-				FilePath:      "/tmp/ruletasks.log",
-				LoggerName:    "ruletasks",
-				ComponentName: "ruletasks",
-				ServiceName:   "cratos",
-			},
-			RulesKafkaConfigMap:         map[string]any{bootstrapServersKey: "localhost:9092"},
-			RuleTasksConsKafkaConfigMap: map[string]any{bootstrapServersKey: "localhost:9092"},
-			RuleTasksProdKafkaConfigMap: map[string]any{bootstrapServersKey: "localhost:9092"},
-		},
-	}
+	config := sampleProcessorConfig()
 	logger := &mockLoggerForProcessor{}
 	inputCh := make(chan *models.ChannelMessage, 10)
 	outputCh := make(chan *models.ChannelMessage, 10)
@@ -291,31 +222,7 @@ func TestProcessorNonDataMessageForwarding(t *testing.T) {
 }
 
 func TestProcessorLifecycle(t *testing.T) {
-	config := ProcessorConfig{
-		ProcessingDelay: 10 * time.Millisecond,
-		BatchSize:       100,
-		RuleEngine: RuleEngineConfig{
-			RulesTopic:  "test-topic",
-			PollTimeout: 10 * time.Millisecond,
-			Logging: logging.LoggerConfig{
-				Level:         logging.InfoLevel,
-				FilePath:      "/tmp/ruleengine.log",
-				LoggerName:    "ruleengine",
-				ComponentName: "ruleengine",
-				ServiceName:   "cratos",
-			},
-			RuleTasksLogging: logging.LoggerConfig{
-				Level:         logging.InfoLevel,
-				FilePath:      "/tmp/ruletasks.log",
-				LoggerName:    "ruletasks",
-				ComponentName: "ruletasks",
-				ServiceName:   "cratos",
-			},
-			RulesKafkaConfigMap:         map[string]any{bootstrapServersKey: "localhost:9092"},
-			RuleTasksConsKafkaConfigMap: map[string]any{bootstrapServersKey: "localhost:9092"},
-			RuleTasksProdKafkaConfigMap: map[string]any{bootstrapServersKey: "localhost:9092"},
-		},
-	}
+	config := sampleProcessorConfig()
 	logger := &mockLoggerForProcessor{}
 	inputCh := make(chan *models.ChannelMessage, 10)
 	outputCh := make(chan *models.ChannelMessage, 10)

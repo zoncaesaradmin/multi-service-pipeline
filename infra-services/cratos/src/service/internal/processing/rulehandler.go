@@ -16,7 +16,7 @@ import (
 type RuleEngineConfig struct {
 	RulesTopic                  string
 	PollTimeout                 time.Duration
-	Logging                     logging.LoggerConfig
+	RuleEngLibLogging           logging.LoggerConfig
 	RulesKafkaConfigMap         map[string]any
 	RuleTasksTopic              string
 	RuleTasksLogging            logging.LoggerConfig
@@ -46,9 +46,9 @@ func NewRuleHandler(config RuleEngineConfig, logger logging.Logger) *RuleEngineH
 
 	reInst := relib.CreateRuleEngineInstance(
 		relib.LoggerInfo{
-			ServiceName: config.Logging.ServiceName,
-			Level:       config.Logging.Level.String(),
-			FilePath:    config.Logging.FilePath,
+			ServiceName: config.RuleEngLibLogging.ServiceName,
+			Level:       config.RuleEngLibLogging.Level.String(),
+			FilePath:    config.RuleEngLibLogging.FilePath,
 		},
 		[]string{relib.RuleTypeMgmt})
 

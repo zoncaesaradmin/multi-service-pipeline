@@ -55,6 +55,63 @@ func (m *mockLogger) Logw(level logging.Level, msg string, keysAndValues ...inte
 func (m *mockLogger) Clone() logging.Logger                                              { return m }
 func (m *mockLogger) Close() error                                                       { return nil }
 
+func sampleRawConfig(kafkaConfigPath string) *config.RawConfig {
+	return &config.RawConfig{
+		Server: config.RawServerConfig{
+			Host: "localhost",
+			Port: 4477,
+		},
+		Processing: config.RawProcessingConfig{
+			Input: config.RawInputConfig{
+				Topics:            []string{"input-topic"},
+				PollTimeout:       1 * time.Second,
+				ChannelBufferSize: 1000,
+			},
+			Processor: config.RawProcessorConfig{
+				RuleProcConfig: config.RawRuleProcessorConfig{
+					RulesTopic:  "alert-rules-topic",
+					PollTimeout: 5 * time.Second,
+					RelibLogging: config.RawLoggingConfig{
+						Level:       "info",
+						FileName:    "/tmp/ruleenginelib.log",
+						LoggerName:  "ruleenginelib",
+						ServiceName: "cratos",
+					},
+					RulesKafkaConfFile: kafkaConfigPath,
+					RuleTasksTopic:     "rule-tasks-topic",
+					RuleTasksLogging: config.RawLoggingConfig{
+						Level:       "debug",
+						FileName:    "/tmp/ruletasks.log",
+						LoggerName:  "ruletasks",
+						ServiceName: "cratos",
+					},
+					RuleTasksConsKafkaFile: kafkaConfigPath,
+					RuleTasksProdKafkaFile: kafkaConfigPath,
+				},
+			},
+			PloggerConfig: config.RawLoggingConfig{
+				Level:       "info",
+				FileName:    "/tmp/pipeline.log",
+				LoggerName:  "pipeline",
+				ServiceName: "cratos",
+			},
+			Output: config.RawOutputConfig{
+				OutputTopic:       "output-topic",
+				BatchSize:         50,
+				FlushTimeout:      5 * time.Second,
+				ChannelBufferSize: 1000,
+			},
+			Channels: config.RawChannelConfig{},
+		},
+		Logging: config.RawLoggingConfig{
+			Level:       "info",
+			FileName:    "/tmp/main.log",
+			LoggerName:  "main",
+			ServiceName: "cratos",
+		},
+	}
+}
+
 func TestNewApplication(t *testing.T) {
 	// Set up environment variables required for OpenSearch client
 	originalURL := os.Getenv("OPENSEARCH_URL")
@@ -85,50 +142,7 @@ func TestNewApplication(t *testing.T) {
 		t.Fatalf("Failed to create temp kafka config: %v", err)
 	}
 
-	cfg := &config.RawConfig{
-		Server: config.RawServerConfig{
-			Host: "localhost",
-			Port: 4477,
-		},
-		Processing: config.RawProcessingConfig{
-			Input: config.RawInputConfig{
-				Topics:            []string{"input-topic"},
-				PollTimeout:       1 * time.Second,
-				ChannelBufferSize: 1000,
-				KafkaConfFile:     kafkaConfigPath,
-			},
-			Processor: config.RawProcessorConfig{
-				RuleProcConfig: config.RawRuleProcessorConfig{
-					RulesTopic:  "alert-rules-topic",
-					PollTimeout: 5 * time.Second,
-					Logging: config.RawLoggingConfig{
-						Level:       "info",
-						FileName:    "/tmp/ruleengine.log",
-						LoggerName:  "ruleengine",
-						ServiceName: "cratos",
-					},
-					RulesKafkaConfFile: kafkaConfigPath,
-					RuleTasksTopic:     "rule-tasks-topic",
-					RuleTasksLogging: config.RawLoggingConfig{
-						Level:       "debug",
-						FileName:    "/tmp/ruletasks.log",
-						LoggerName:  "ruletasks",
-						ServiceName: "cratos",
-					},
-					RuleTasksConsKafkaFile: kafkaConfigPath,
-					RuleTasksProdKafkaFile: kafkaConfigPath,
-				},
-			},
-			Output: config.RawOutputConfig{
-				OutputTopic:       "output-topic",
-				BatchSize:         50,
-				FlushTimeout:      5 * time.Second,
-				ChannelBufferSize: 1000,
-				KafkaConfFile:     kafkaConfigPath,
-			},
-			Channels: config.RawChannelConfig{},
-		},
-	}
+	cfg := sampleRawConfig(kafkaConfigPath)
 	logger := newMockLogger()
 
 	app := NewApplication(cfg, logger)
@@ -159,12 +173,7 @@ func TestNewApplication(t *testing.T) {
 }
 
 func TestApplicationConfig(t *testing.T) {
-	cfg := &config.RawConfig{
-		Server: config.RawServerConfig{
-			Host: "localhost",
-			Port: 4477,
-		},
-	}
+	cfg := sampleRawConfig("/path/to/kafka-config.yaml")
 	logger := newMockLogger()
 	app := NewApplication(cfg, logger)
 
@@ -183,7 +192,7 @@ func TestApplicationConfig(t *testing.T) {
 }
 
 func TestApplicationLogger(t *testing.T) {
-	cfg := &config.RawConfig{}
+	cfg := sampleRawConfig("/path/to/kafka-config.yaml")
 	logger := newMockLogger()
 	app := NewApplication(cfg, logger)
 
@@ -194,7 +203,7 @@ func TestApplicationLogger(t *testing.T) {
 }
 
 func TestApplicationContext(t *testing.T) {
-	cfg := &config.RawConfig{}
+	cfg := sampleRawConfig("/path/to/kafka-config.yaml")
 	logger := newMockLogger()
 	app := NewApplication(cfg, logger)
 
@@ -212,7 +221,7 @@ func TestApplicationContext(t *testing.T) {
 }
 
 func TestApplicationProcessingPipeline(t *testing.T) {
-	cfg := &config.RawConfig{}
+	cfg := sampleRawConfig("/path/to/kafka-config.yaml")
 	logger := newMockLogger()
 	app := NewApplication(cfg, logger)
 
@@ -223,7 +232,7 @@ func TestApplicationProcessingPipeline(t *testing.T) {
 }
 
 func TestApplicationShutdown(t *testing.T) {
-	cfg := &config.RawConfig{}
+	cfg := sampleRawConfig("/path/to/kafka-config.yaml")
 	logger := newMockLogger()
 	app := NewApplication(cfg, logger)
 
@@ -248,7 +257,7 @@ func TestApplicationShutdown(t *testing.T) {
 }
 
 func TestApplicationIsShuttingDown(t *testing.T) {
-	cfg := &config.RawConfig{}
+	cfg := sampleRawConfig("/path/to/kafka-config.yaml")
 	logger := newMockLogger()
 	app := NewApplication(cfg, logger)
 

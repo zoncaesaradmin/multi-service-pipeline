@@ -62,7 +62,7 @@ type RawProcessorConfig struct {
 type RawRuleProcessorConfig struct {
 	RulesTopic         string           `yaml:"rulesTopic"`
 	PollTimeout        time.Duration    `yaml:"pollTimeout"`
-	Logging            RawLoggingConfig `yaml:"logging"`
+	RelibLogging       RawLoggingConfig `yaml:"ruleenginelibLogging"`
 	RulesKafkaConfFile string           `yaml:"rulesKafkaConfigFile"`
 
 	RuleTasksTopic         string           `yaml:"ruleTasksTopic"`

@@ -126,7 +126,6 @@ func DefaultConfig(cfg *config.RawConfig) ProcConfig {
 	procConfig := ProcConfig{
 		Input: InputConfig{
 			Topics:            processing.Input.Topics,
-			PollTimeout:       processing.Input.PollTimeout,
 			ChannelBufferSize: processing.Input.ChannelBufferSize,
 			KafkaConfigMap:    utils.LoadConfigMap(processing.Input.KafkaConfFile),
 		},
@@ -135,11 +134,10 @@ func DefaultConfig(cfg *config.RawConfig) ProcConfig {
 			BatchSize:       processing.Processor.BatchSize,
 			RuleEngine: RuleEngineConfig{
 				RulesTopic:                  processing.Processor.RuleProcConfig.RulesTopic,
-				PollTimeout:                 processing.Processor.RuleProcConfig.PollTimeout,
 				RuleEngLibLogging:           processing.Processor.RuleProcConfig.RelibLogging.ConvertToLoggerConfig(),
 				RulesKafkaConfigMap:         utils.LoadConfigMap(processing.Processor.RuleProcConfig.RulesKafkaConfFile),
 				RuleTasksTopic:              processing.Processor.RuleProcConfig.RuleTasksTopic,
-				RuleTasksLogging:            processing.Processor.RuleProcConfig.RuleTasksLogging.ConvertToLoggerConfig(),
+				RuleHandlerLogging:          processing.Processor.RuleProcConfig.RuleHandlerLogging.ConvertToLoggerConfig(),
 				RuleTasksConsKafkaConfigMap: utils.LoadConfigMap(processing.Processor.RuleProcConfig.RuleTasksConsKafkaFile),
 				RuleTasksProdKafkaConfigMap: utils.LoadConfigMap(processing.Processor.RuleProcConfig.RuleTasksProdKafkaFile),
 			},

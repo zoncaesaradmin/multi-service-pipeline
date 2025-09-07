@@ -26,7 +26,6 @@ processing:
   input:
     topics: 
       - "cisco_nir-anomalies"                 # Input topics (env: PROCESSING_INPUT_TOPICS - comma separated)
-    pollTimeout: 1000ms                       # Poll timeout (env: PROCESSING_INPUT_POLL_TIMEOUT_MS)
     channelBufferSize: 1000                   # Input channel buffer size (env: PROCESSING_INPUT_BUFFER_SIZE)
     kafkaConfigFile: "kafka-consumer.yaml"    # Kafka consumer config file (env: PROCESSING_INPUT_KAFKA_CONFIG_FILE)
 
@@ -35,21 +34,20 @@ processing:
     batchSize: 100                            # Batch size for processing (env: PROCESSING_BATCH_SIZE)
     ruleEngine:
       rulesTopic: "cisco_nir-alertRules"      # Input rules topic (env: PROCESSING_RULES_TOPIC)
-      pollTimeout: 1000ms                     # Poll timeout (env: PROCESSING_RULES_POLL_TIMEOUT_MS)
       rulesKafkaConfigFile: "kafka-consumer-rules.yaml"  # Kafka consumer config file (env: PROCESSING_RULES_KAFKA_CONFIG_FILE)
       ruleenginelibLogging:
         level: "debug"
         fileName: "ruleenginelib.log"
         loggerName: "ruleenginelib"
         serviceName: "cratos"
+      ruleHandlerLogging:
+        level: "debug"
+        fileName: "rulehandler.log"
+        loggerName: "rulehandler"
+        serviceName: "cratos"
       ruleTasksTopic: "cisco_nir-ruletasks"
       ruleTasksConsKafkaConfigFile: "kafka-consumer-ruletasks.yaml"
       ruleTasksProdKafkaConfigFile: "kafka-producer-ruletasks.yaml"
-      ruleTasksLogging:
-        level: "debug"
-        fileName: "ruletasks.log"
-        loggerName: "ruletasks"
-        serviceName: "cratos"
 
   output:
     outputTopic: "cisco_nir-prealerts"      # Output topic (env: PROCESSING_OUTPUT_TOPIC)

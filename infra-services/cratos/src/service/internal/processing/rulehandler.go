@@ -18,8 +18,8 @@ type RuleEngineConfig struct {
 	PollTimeout                 time.Duration
 	RuleEngLibLogging           logging.LoggerConfig
 	RulesKafkaConfigMap         map[string]any
+	RuleHandlerLogging          logging.LoggerConfig
 	RuleTasksTopic              string
-	RuleTasksLogging            logging.LoggerConfig
 	RuleTasksConsKafkaConfigMap map[string]any
 	RuleTasksProdKafkaConfigMap map[string]any
 }
@@ -27,13 +27,13 @@ type RuleEngineConfig struct {
 type RuleEngineHandler struct {
 	ruleconsumer messagebus.Consumer
 	config       RuleEngineConfig
-	logger       logging.Logger
+	plogger      logging.Logger // handle to pipeline logger
 	reInst       relib.RuleEngineType
 	ctx          context.Context
 	cancel       context.CancelFunc
 
 	// fields related to background task of applying rule changes to DB records
-	rtlogger         logging.Logger
+	rlogger          logging.Logger // for both rules msg and rule tasks msg handling
 	ruleTaskProducer messagebus.Producer
 	ruleTaskConsumer messagebus.Consumer
 	isLeader         bool
@@ -45,6 +45,7 @@ func NewRuleHandler(config RuleEngineConfig, logger logging.Logger) *RuleEngineH
 	consumer := messagebus.NewConsumer(config.RulesKafkaConfigMap, "ruleConsGroup"+utils.GetEnv("HOSTNAME", ""))
 
 	reInst := relib.CreateRuleEngineInstance(
+		// this creates separate logger for rule engine lib handling
 		relib.LoggerInfo{
 			ServiceName: config.RuleEngLibLogging.ServiceName,
 			Level:       config.RuleEngLibLogging.Level.String(),
@@ -52,27 +53,30 @@ func NewRuleHandler(config RuleEngineConfig, logger logging.Logger) *RuleEngineH
 		},
 		[]string{relib.RuleTypeMgmt})
 
-	rtlogger, err := logging.NewLogger(&config.RuleTasksLogging)
+	logger.Infof("SREEK +++++++++++ rlogger = %v", config.RuleHandlerLogging)
+	logger.Infof("SREEK +++++++++++ relogger = %v", config.RuleEngLibLogging)
+	rlogger, err := logging.NewLogger(&config.RuleHandlerLogging)
 	if err != nil {
 		logger.Errorw("RULE HANDLER - Failed to create rule tasks logger, using ruleengine logger", "error", err)
-		rtlogger = logger
+		rlogger = logger
 	}
 
 	h := &RuleEngineHandler{
 		ruleconsumer: consumer,
 		config:       config,
-		logger:       logger,
+		plogger:      logger,
 		isLeader:     false,
 		reInst:       reInst,
-		rtlogger:     rtlogger,
+		rlogger:      rlogger,
 	}
 
-	logger.Infow("Initialized Rule Engine Handler", "ruleTopic", config.RulesTopic, "ruleTasksTopic", h.config.RuleTasksTopic)
+	logger.Info("Initialized Rule Handler module")
+	rlogger.Infow("Initialized Rule Handler", "ruleTopic", config.RulesTopic, "ruleTasksTopic", h.config.RuleTasksTopic)
 	return h
 }
 
 func (rh *RuleEngineHandler) Start() error {
-	rh.logger.Infow("Starting Rule Engine Handler", "topic", rh.config.RulesTopic)
+	rh.rlogger.Infow("Starting Rule Engine Handler", "topic", rh.config.RulesTopic)
 
 	// Create context for cancellation
 	rh.ctx, rh.cancel = context.WithCancel(context.Background())
@@ -89,19 +93,19 @@ func (rh *RuleEngineHandler) Start() error {
 			return
 		}
 
-		rh.rtlogger.Debugw("RULE TASK HANDLER - Received task", "size", len(message.Value))
+		rh.rlogger.Debugw("RULE TASK HANDLER - Received task", "size", len(message.Value))
 
 		// Process rule task
 		// TODO: simplify by using data unmarshal into struct and get the action below
-		sendToDBBatchProcessor(rh.ctx, rh.logger, message.Value, "RULE_TASK")
+		sendToDBBatchProcessor(rh.ctx, rh.rlogger, message.Value, "RULE_TASK")
 
 		if err := rh.ruleTaskConsumer.Commit(context.Background(), message); err != nil {
-			rh.rtlogger.Errorw("RULE TASK HANDLER - Failed to commit message", "error", err)
+			rh.rlogger.Errorw("RULE TASK HANDLER - Failed to commit message", "error", err)
 		}
 	})
 
 	rh.ruleTaskConsumer.OnAssign(func(assignments []messagebus.PartitionAssignment) {
-		rh.rtlogger.Infow("RULE TASK HANDLER - Assigned partitions", "partitions", assignments)
+		rh.rlogger.Infow("RULE TASK HANDLER - Assigned partitions", "partitions", assignments)
 		for _, assignment := range assignments {
 			if assignment.Partition == 0 {
 				// select self as leader to generate tasks
@@ -112,7 +116,7 @@ func (rh *RuleEngineHandler) Start() error {
 	})
 
 	rh.ruleTaskConsumer.OnRevoke(func(revoked []messagebus.PartitionAssignment) {
-		rh.rtlogger.Infow("RULE TASK HANDLER - Revoked partitions", "partitions", revoked)
+		rh.rlogger.Infow("RULE TASK HANDLER - Revoked partitions", "partitions", revoked)
 		for _, r := range revoked {
 			if r.Partition == 0 {
 				// relinquish leadership
@@ -123,41 +127,41 @@ func (rh *RuleEngineHandler) Start() error {
 	})
 
 	if err := rh.ruleTaskConsumer.Subscribe([]string{rh.config.RuleTasksTopic}); err != nil {
-		rh.rtlogger.Errorw("RULE TASK HANDLER - Failed to subscribe to rule tasks topic", "error", err)
+		rh.rlogger.Errorw("RULE TASK HANDLER - Failed to subscribe to rule tasks topic", "error", err)
 		return fmt.Errorf("failed to subscribe to rule tasks topic: %w", err)
 	}
 
 	// Register OnMessage callback for main rules topic
 	rh.ruleconsumer.OnMessage(func(message *messagebus.Message) {
 		if message != nil {
-			rh.logger.Debugw("RULE HANDLER - Received message", "size", len(message.Value))
+			rh.rlogger.Debugw("RULE HANDLER - Received message", "size", len(message.Value))
 
 			res, err := rh.reInst.HandleRuleEvent(message.Value)
 			if err != nil {
-				rh.logger.Errorw("RULE HANDLER - Failed to handle rule event", "error", err)
+				rh.rlogger.Errorw("RULE HANDLER - Failed to handle rule event", "error", err)
 			} else if res != nil && len(res.RuleJSON) > 0 {
-				rh.logger.Debugw("RULE HANDLER - Converted rule JSON", "action", res.Action, "size", len(res.RuleJSON))
+				rh.rlogger.Debugw("RULE HANDLER - Converted rule JSON", "action", res.Action, "size", len(res.RuleJSON))
 
 				// Only leader distributes rule tasks
 				if rh.Leader() {
 					if rh.distributeRuleTask(res) {
-						rh.logger.Debugw("RULE HANDLER - Successfully distributed rule task", "action", res.Action)
+						rh.rlogger.Debugw("RULE HANDLER - Successfully distributed rule task", "action", res.Action)
 					}
 				} else {
-					rh.logger.Debug("RULE HANDLER - Not leader, skipping rule task distribution")
+					rh.rlogger.Debug("RULE HANDLER - Not leader, skipping rule task distribution")
 				}
 			}
 
 			// Commit the message
 			if err := rh.ruleconsumer.Commit(context.Background(), message); err != nil {
-				rh.logger.Errorw("RULE HANDLER - Failed to commit message", "error", err)
+				rh.rlogger.Errorw("RULE HANDLER - Failed to commit message", "error", err)
 			}
 		}
 	})
 
 	// Subscribe to topics
 	if err := rh.ruleconsumer.Subscribe([]string{rh.config.RulesTopic}); err != nil {
-		rh.logger.Errorw("Failed to subscribe to rules topic", "error", err)
+		rh.rlogger.Errorw("Failed to subscribe to rules topic", "error", err)
 		return fmt.Errorf("failed to subscribe to rules topic: %w", err)
 	}
 
@@ -165,7 +169,7 @@ func (rh *RuleEngineHandler) Start() error {
 }
 
 func (rh *RuleEngineHandler) Stop() error {
-	rh.logger.Info("RULE HANDLER - Stopping Rule Engine Handler")
+	rh.rlogger.Info("Stopping Rule Engine Handler...")
 
 	if rh.cancel != nil {
 		rh.cancel()
@@ -175,31 +179,31 @@ func (rh *RuleEngineHandler) Stop() error {
 
 	if rh.ruleconsumer != nil {
 		if err := rh.ruleconsumer.Close(); err != nil {
-			rh.logger.Errorw("RULE HANDLER - Failed to close consumer", "error", err)
+			rh.rlogger.Errorw("Failed to close consumer", "error", err)
 			return err
 		}
 	}
 
 	if rh.ruleTaskConsumer != nil {
 		if err := rh.ruleTaskConsumer.Close(); err != nil {
-			rh.logger.Errorw("RULE HANDLER - Failed to close rule task consumer", "error", err)
+			rh.rlogger.Errorw("Failed to close rule task consumer", "error", err)
 			return err
 		}
 	}
 
 	if rh.ruleTaskProducer != nil {
 		if err := rh.ruleTaskProducer.Close(); err != nil {
-			rh.logger.Errorw("RULE HANDLER - Failed to close rule task producer", "error", err)
+			rh.rlogger.Errorw("Failed to close rule task producer", "error", err)
 			return err
 		}
 	}
 
-	rh.logger.Info("RULE HANDLER - Stopped Rule Engine Handler")
+	rh.plogger.Info("Stopped Rule Engine Handler")
 	return nil
 }
 
 func sendToDBBatchProcessor(ctx context.Context, logger logging.Logger, ruleBytes []byte, action string) {
-	logger.Infow("DB_BATCH - sending rule to DB batch processor", "action", action)
+	logger.Infow("RULE TASK HANDLER - sending rule to DB batch processor", "action", action)
 }
 
 func (rh *RuleEngineHandler) GetStats() map[string]interface{} {
@@ -215,14 +219,14 @@ func (rh *RuleEngineHandler) GetStats() map[string]interface{} {
 func (rh *RuleEngineHandler) applyRuleToRecord(aObj *alert.Alert) (*alert.Alert, error) {
 	if needsRuleProcessing(aObj) {
 		convRecord := ConvertAlertObjectToRuleEngineInput(aObj)
-		rh.logger.WithField("recId", recordIdentifier(aObj)).Infof("RECORD PROC - converted data: %v", convRecord)
+		rh.plogger.WithField("recId", recordIdentifier(aObj)).Infof("RECORD PROC - converted data: %v", convRecord)
 		lookupResult := rh.reInst.EvaluateRules(relib.Data(convRecord))
 		if lookupResult.IsRuleHit {
-			rh.logger.Infof("RECORD PROC - rule hit for record %s, rule UUID: %s, eval results: %v", recordIdentifier(aObj), lookupResult.RuleUUID, lookupResult.CriteriaHit)
+			rh.plogger.Infof("RECORD PROC - rule hit for record %s, rule UUID: %s, eval results: %v", recordIdentifier(aObj), lookupResult.RuleUUID, lookupResult.CriteriaHit)
 			// rule matched
 			aObj.RuleId = lookupResult.RuleUUID
 			for _, action := range lookupResult.Actions {
-				rh.logger.Infof("RECORD PROC - action type: %s", action.ActionType)
+				rh.plogger.Infof("RECORD PROC - action type: %s", action.ActionType)
 				switch action.ActionType {
 				case relib.RuleActionSeverityOverride:
 					aObj.Severity = action.ActionValueStr
@@ -234,15 +238,15 @@ func (rh *RuleEngineHandler) applyRuleToRecord(aObj *alert.Alert) (*alert.Alert,
 					aObj.IsRuleCustomReco = true
 					aObj.RuleCustomRecoStr = strings.Split(action.ActionValueStr, ",")
 				default:
-					rh.logger.Warnf("RECORD PROC - unknown action type: %s", action.ActionType)
+					rh.plogger.Warnf("RECORD PROC - unknown action type: %s", action.ActionType)
 				}
 			}
 		} else {
 			// no rule matched
-			rh.logger.WithField("recId", recordIdentifier(aObj)).Infof("RECORD PROC - no rule hit")
+			rh.plogger.WithField("recId", recordIdentifier(aObj)).Infof("RECORD PROC - no rule hit")
 		}
 	} else {
-		rh.logger.WithField("recId", recordIdentifier(aObj)).Infof("RECORD PROC - skipped rule lookup")
+		rh.plogger.WithField("recId", recordIdentifier(aObj)).Infof("RECORD PROC - skipped rule lookup")
 	}
 	return aObj, nil
 }
@@ -271,7 +275,7 @@ func (rh *RuleEngineHandler) distributeRuleTask(res *relib.RuleMsgResult) bool {
 	defer cancel()
 
 	if _, _, err := rh.ruleTaskProducer.Send(ctx, out); err != nil {
-		rh.logger.Errorw("RULE HANDLER - Failed to send rule task message", "error", err)
+		rh.plogger.Errorw("RULE HANDLER - Failed to send rule task message", "error", err)
 		return false
 	}
 

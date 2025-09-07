@@ -104,11 +104,11 @@ func sampleRawConfig() ProcConfig {
 					ComponentName: "ruleenginelib",
 					ServiceName:   "cratos",
 				},
-				RuleTasksLogging: logging.LoggerConfig{
+				RuleHandlerLogging: logging.LoggerConfig{
 					Level:         logging.InfoLevel,
-					FilePath:      "/tmp/ruletasks.log",
-					LoggerName:    "ruletasks",
-					ComponentName: "ruletasks",
+					FilePath:      "/tmp/rulehandler.log",
+					LoggerName:    "rulehandler",
+					ComponentName: "rulehandler",
 					ServiceName:   "cratos",
 				},
 				RulesKafkaConfigMap:         map[string]any{"bootstrap.servers": "localhost:9092"},
@@ -161,11 +161,11 @@ func TestNewProcessor(t *testing.T) {
 					ComponentName: "ruleenginelib",
 					ServiceName:   "cratos",
 				},
-				RuleTasksLogging: logging.LoggerConfig{
+				RuleHandlerLogging: logging.LoggerConfig{
 					Level:         logging.InfoLevel,
 					FilePath:      testLogFile,
-					LoggerName:    "ruletasks",
-					ComponentName: "ruletasks",
+					LoggerName:    "rulehandler",
+					ComponentName: "rulehandler",
 					ServiceName:   "cratos",
 				},
 				RulesKafkaConfigMap:         map[string]any{bootstrapServersKey: "localhost:9092"},
@@ -228,11 +228,11 @@ func TestProcessorGetStats(t *testing.T) {
 				ComponentName: "ruleenginelib",
 				ServiceName:   "cratos",
 			},
-			RuleTasksLogging: logging.LoggerConfig{
+			RuleHandlerLogging: logging.LoggerConfig{
 				Level:         logging.InfoLevel,
 				FilePath:      testLogFile,
-				LoggerName:    "ruletasks",
-				ComponentName: "ruletasks",
+				LoggerName:    "rulehandler",
+				ComponentName: "rulehandler",
 				ServiceName:   "cratos",
 			},
 			RulesKafkaConfigMap:         map[string]any{bootstrapServersKey: "localhost:9092"},

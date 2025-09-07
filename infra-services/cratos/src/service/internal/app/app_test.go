@@ -64,13 +64,11 @@ func sampleRawConfig(kafkaConfigPath string) *config.RawConfig {
 		Processing: config.RawProcessingConfig{
 			Input: config.RawInputConfig{
 				Topics:            []string{"input-topic"},
-				PollTimeout:       1 * time.Second,
 				ChannelBufferSize: 1000,
 			},
 			Processor: config.RawProcessorConfig{
 				RuleProcConfig: config.RawRuleProcessorConfig{
-					RulesTopic:  "alert-rules-topic",
-					PollTimeout: 5 * time.Second,
+					RulesTopic: "alert-rules-topic",
 					RelibLogging: config.RawLoggingConfig{
 						Level:       "info",
 						FileName:    "/tmp/ruleenginelib.log",
@@ -79,10 +77,10 @@ func sampleRawConfig(kafkaConfigPath string) *config.RawConfig {
 					},
 					RulesKafkaConfFile: kafkaConfigPath,
 					RuleTasksTopic:     "rule-tasks-topic",
-					RuleTasksLogging: config.RawLoggingConfig{
+					RuleHandlerLogging: config.RawLoggingConfig{
 						Level:       "debug",
-						FileName:    "/tmp/ruletasks.log",
-						LoggerName:  "ruletasks",
+						FileName:    "/tmp/rulehandler.log",
+						LoggerName:  "rulehandler",
 						ServiceName: "cratos",
 					},
 					RuleTasksConsKafkaFile: kafkaConfigPath,

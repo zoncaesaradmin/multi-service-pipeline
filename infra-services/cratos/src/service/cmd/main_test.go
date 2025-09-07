@@ -412,9 +412,9 @@ func sampleRawConfig() *config.RawConfig {
 						LoggerName:  "ruleenginelib",
 						ServiceName: "cratos",
 					},
-					RuleTasksLogging: config.RawLoggingConfig{
+					RuleHandlerLogging: config.RawLoggingConfig{
 						FileName:    logFileName,
-						LoggerName:  "ruleevents",
+						LoggerName:  "rulehandler",
 						ServiceName: "cratos",
 					},
 				},

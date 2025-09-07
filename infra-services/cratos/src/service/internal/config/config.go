@@ -46,10 +46,9 @@ type RawProcessingConfig struct {
 
 // InputConfig holds input handler configuration
 type RawInputConfig struct {
-	Topics            []string      `yaml:"topics"`
-	PollTimeout       time.Duration `yaml:"pollTimeout"`
-	ChannelBufferSize int           `yaml:"channelBufferSize"`
-	KafkaConfFile     string        `yaml:"kafkaConfigFile"`
+	Topics            []string `yaml:"topics"`
+	ChannelBufferSize int      `yaml:"channelBufferSize"`
+	KafkaConfFile     string   `yaml:"kafkaConfigFile"`
 }
 
 // ProcessorConfig holds processor configuration
@@ -61,12 +60,11 @@ type RawProcessorConfig struct {
 
 type RawRuleProcessorConfig struct {
 	RulesTopic         string           `yaml:"rulesTopic"`
-	PollTimeout        time.Duration    `yaml:"pollTimeout"`
 	RelibLogging       RawLoggingConfig `yaml:"ruleenginelibLogging"`
 	RulesKafkaConfFile string           `yaml:"rulesKafkaConfigFile"`
 
 	RuleTasksTopic         string           `yaml:"ruleTasksTopic"`
-	RuleTasksLogging       RawLoggingConfig `yaml:"ruleTasksLogging"`
+	RuleHandlerLogging     RawLoggingConfig `yaml:"ruleHandlerLogging"`
 	RuleTasksConsKafkaFile string           `yaml:"ruleTasksConsKafkaConfigFile"`
 	RuleTasksProdKafkaFile string           `yaml:"ruleTasksProdKafkaConfigFile"`
 }
@@ -104,7 +102,6 @@ func LoadConfig() *RawConfig {
 		Processing: RawProcessingConfig{
 			Input: RawInputConfig{
 				Topics:            parseTopics(utils.GetEnv("PROCESSING_INPUT_TOPICS", "cisco_nir-anomalies")),
-				PollTimeout:       time.Duration(utils.GetEnvInt("PROCESSING_INPUT_POLL_TIMEOUT_MS", 1000)) * time.Millisecond,
 				ChannelBufferSize: utils.GetEnvInt("PROCESSING_INPUT_BUFFER_SIZE", 1000),
 			},
 			Processor: RawProcessorConfig{
@@ -209,9 +206,6 @@ func overrideWithEnvVars(config *RawConfig) {
 	// Processing configuration overrides
 	if topics := utils.GetEnv("PROCESSING_INPUT_TOPICS", ""); topics != "" {
 		config.Processing.Input.Topics = parseTopics(topics)
-	}
-	if pollTimeout := utils.GetEnvInt("PROCESSING_INPUT_POLL_TIMEOUT_MS", -1); pollTimeout != -1 {
-		config.Processing.Input.PollTimeout = time.Duration(pollTimeout) * time.Millisecond
 	}
 	if bufferSize := utils.GetEnvInt("PROCESSING_INPUT_BUFFER_SIZE", -1); bufferSize != -1 {
 		config.Processing.Input.ChannelBufferSize = bufferSize

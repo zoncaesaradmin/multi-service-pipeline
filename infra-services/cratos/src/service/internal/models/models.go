@@ -1,6 +1,7 @@
 package models
 
 import (
+	"context"
 	"time"
 )
 
@@ -14,14 +15,18 @@ const (
 	ChannelMessageTypeControl ChannelMessageType = "control"
 )
 
+// CommitCallback represents a function that commits the offset for a message
+type CommitCallback func(ctx context.Context) error
+
 // ChannelMessage represents a common message structure for channel communication
 type ChannelMessage struct {
-	Type      ChannelMessageType `json:"type"`
-	Timestamp time.Time          `json:"timestamp"`
-	Data      []byte             `json:"data"`
-	Meta      map[string]string  `json:"meta"`
-	Key       string             `json:"key"`
-	Partition int32              `json:"partition"`
+	Type           ChannelMessageType `json:"type"`
+	Timestamp      time.Time          `json:"timestamp"`
+	Data           []byte             `json:"data"`
+	Meta           map[string]string  `json:"meta"`
+	Key            string             `json:"key"`
+	Partition      int32              `json:"partition"`
+	CommitCallback CommitCallback     `json:"-"` // Not serialized, used for offset management
 }
 
 // NewChannelMessage creates a new channel message with the given type and data
@@ -54,6 +59,19 @@ func (m *ChannelMessage) IsDataMessage() bool {
 // IsControlMessage checks if the message is a control message
 func (m *ChannelMessage) IsControlMessage() bool {
 	return m.Type == ChannelMessageTypeControl
+}
+
+// Commit commits the offset for this message if a commit callback is available
+func (m *ChannelMessage) Commit(ctx context.Context) error {
+	if m.CommitCallback != nil {
+		return m.CommitCallback(ctx)
+	}
+	return nil
+}
+
+// HasCommitCallback checks if this message has a commit callback
+func (m *ChannelMessage) HasCommitCallback() bool {
+	return m.CommitCallback != nil
 }
 
 // ErrorResponse represents an error response

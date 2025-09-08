@@ -112,16 +112,35 @@ func (o *OutputHandler) flushBatch(batch []*models.ChannelMessage) {
 
 	o.logger.Debugw("Flushing batch to Kafka", "batch_size", len(batch), "topic", o.config.OutputTopic)
 
+	// Process each message individually
+	successCount := 0
 	for i, message := range batch {
 		if err := o.sendMessage(message); err != nil {
-			o.logger.Errorw("Failed to send message", "error", err, "batch_index", i)
+			o.logger.Errorw("Failed to send message", "error", err, "batch_index", i, "key", message.Key)
+			// Don't commit offset for failed messages
+		} else {
+			// Commit offset immediately after successful send
+			if message.HasCommitCallback() {
+				if err := message.Commit(context.Background()); err != nil {
+					o.logger.Errorw("Failed to commit message after successful send", "error", err, "key", message.Key)
+				}
+			}
+			successCount++
 		}
 	}
 
-	o.logger.Debugw("Batch flushed successfully", "messages_sent", len(batch))
+	o.logger.Debugw("Batch flushed successfully",
+		"total_messages", len(batch),
+		"successful_messages", successCount,
+		"failed_messages", len(batch)-successCount)
 }
 
 func (o *OutputHandler) sendMessage(channelMsg *models.ChannelMessage) error {
+	// Check if this is an empty message (no alerts generated)
+	if len(channelMsg.Data) == 0 && channelMsg.Meta["empty_result"] == "true" {
+		o.logger.Debugw("Skipping empty message send to Kafka", "key", channelMsg.Key)
+		return nil // Success - we don't need to send empty messages
+	}
 
 	message := &messagebus.Message{
 		Topic:     o.config.OutputTopic,

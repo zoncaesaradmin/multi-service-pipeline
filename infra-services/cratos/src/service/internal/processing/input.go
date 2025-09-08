@@ -62,16 +62,24 @@ func (i *InputHandler) Start() error {
 	i.consumer.OnMessage(func(message *messagebus.Message) {
 		if message != nil {
 			i.logger.Debugw("Received kafka data message", "size", len(message.Value))
+
+			// Create commit callback that will be called after successful processing
+			commitCallback := func(ctx context.Context) error {
+				if err := i.consumer.Commit(ctx, message); err != nil {
+					i.logger.Warnw("Failed to commit message", "error", err, "key", message.Key)
+					return err
+				}
+				i.logger.Debugw("Message committed successfully", "key", message.Key, "offset", message.Offset)
+				return nil
+			}
+
 			channelMsg := models.NewDataMessage(message.Value, message.Key, message.Partition)
+			channelMsg.CommitCallback = commitCallback
 			for k, v := range message.Headers {
 				channelMsg.Meta[k] = v
 			}
 			i.inputCh <- channelMsg
 			i.logger.Debugw("Input message received", "key", message.Key, "headers", message.Headers)
-			// Commit the message
-			if err := i.consumer.Commit(context.Background(), message); err != nil {
-				i.logger.Warnw("Failed to commit message", "error", err)
-			}
 		}
 	})
 

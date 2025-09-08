@@ -71,7 +71,8 @@ func (p *Processor) processLoop() {
 			return
 		case message := <-p.inputCh:
 			if err := p.processMessage(message); err != nil {
-				p.logger.Errorw("Failed to process message", "error", err)
+				p.logger.Errorw("Failed to process message", "error", err, "key", message.Key)
+				// Note: We don't commit the offset for failed messages, so they will be reprocessed
 			}
 		}
 	}
@@ -83,10 +84,11 @@ func (p *Processor) processMessage(message *models.ChannelMessage) error {
 	// For non-data messages (control messages), forward them as-is
 	if !message.IsDataMessage() {
 		outputMessage := &models.ChannelMessage{
-			Type:      message.Type,
-			Data:      message.Data,
-			Timestamp: message.Timestamp,
-			Partition: message.Partition,
+			Type:           message.Type,
+			Data:           message.Data,
+			Timestamp:      message.Timestamp,
+			Partition:      message.Partition,
+			CommitCallback: message.CommitCallback, // Propagate commit callback
 		}
 
 		p.outputCh <- outputMessage
@@ -126,12 +128,24 @@ func (p *Processor) processMessage(message *models.ChannelMessage) error {
 
 		// Create a new message with processed data
 		outputMessage := models.NewDataMessage(processedData, message.Key, message.Partition)
+		outputMessage.CommitCallback = message.CommitCallback // Propagate commit callback
 		for k, v := range message.Meta {
 			outputMessage.Meta[k] = v
 		}
 
 		p.outputCh <- outputMessage
 		p.logger.Debug("Processed message sent to output channel")
+	} else {
+		// Even if no alerts are generated, we should commit the offset
+		// Create an empty output message just to trigger the commit
+		outputMessage := models.NewDataMessage([]byte{}, message.Key, message.Partition)
+		outputMessage.CommitCallback = message.CommitCallback
+		outputMessage.Meta = map[string]string{"empty_result": "true"}
+		for k, v := range message.Meta {
+			outputMessage.Meta[k] = v
+		}
+		p.outputCh <- outputMessage
+		p.logger.Debugw("No alerts generated, sending empty message to trigger commit", "key", message.Key)
 	}
 
 	return nil

@@ -1,6 +1,7 @@
 package steps
 
 import (
+	"sharedgomodule/utils"
 	"testgomodule/impl"
 	"time"
 
@@ -12,13 +13,17 @@ type CommonStepBindings struct {
 }
 
 func (b *CommonStepBindings) KafkaProducerReady() error {
-	prodHandler := impl.NewProducerHandler(b.SuiteCtx.L)
+	// Create trace-aware logger with contextual trace ID
+	traceID := utils.CreateContextualTraceID(b.SuiteCtx.CurrentScenario, b.SuiteCtx.ExampleData)
+	traceLogger := utils.WithTraceLoggerFromID(b.SuiteCtx.L, traceID)
+
+	prodHandler := impl.NewProducerHandler(traceLogger)
 	if err := prodHandler.Start(); err != nil {
-		b.SuiteCtx.L.Errorf("Failed to start producer: %w", err)
+		traceLogger.Errorf("Failed to start producer: %w", err)
 		return err
 	}
 	b.SuiteCtx.ProducerHandler = prodHandler
-	b.SuiteCtx.L.Infof("Kafka producer started successfully.")
+	traceLogger.Infof("Kafka producer started successfully.")
 	// reset
 	b.SuiteCtx.SentDataSize = 0
 	b.SuiteCtx.SentDataCount = 0
@@ -30,14 +35,18 @@ func (b *CommonStepBindings) KafkaConsumerReady() error {
 }
 
 func (b *CommonStepBindings) KafkaConsumersStarted(topic string) error {
-	consHandler := impl.NewConsumerHandler(b.SuiteCtx.L)
+	// Create trace-aware logger with contextual trace ID
+	traceID := utils.CreateContextualTraceID(b.SuiteCtx.CurrentScenario, b.SuiteCtx.ExampleData)
+	traceLogger := utils.WithTraceLoggerFromID(b.SuiteCtx.L, traceID)
+
+	consHandler := impl.NewConsumerHandler(traceLogger)
 	if err := consHandler.Start(); err != nil {
-		b.SuiteCtx.L.Errorf("Failed to start consumer on topic %s", topic, err)
+		traceLogger.Errorf("Failed to start consumer on topic %s", topic, err)
 		return err
 	}
 	b.SuiteCtx.ConsHandler = consHandler
 	time.Sleep(5 * time.Second) // wait for consumer to be ready
-	b.SuiteCtx.L.Infof("Kafka consumers started on topic %s.", topic)
+	traceLogger.Infof("Kafka consumers started on topic %s.", topic)
 	// reset
 	b.SuiteCtx.ConsHandler.Reset()
 	return nil

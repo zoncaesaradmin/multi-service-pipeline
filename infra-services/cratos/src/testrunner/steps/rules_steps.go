@@ -2,6 +2,7 @@ package steps
 
 import (
 	"errors"
+	"sharedgomodule/utils"
 	"testgomodule/impl"
 	"time"
 
@@ -13,22 +14,42 @@ type StepBindings struct {
 }
 
 func (b *StepBindings) SendInputConfig(configFile string) error {
+	// Capture config file as example data for trace ID generation
+	if b.Cctx.ExampleData == nil {
+		b.Cctx.ExampleData = make(map[string]string)
+	}
+	b.Cctx.ExampleData["rule"] = configFile
+
 	return b.SendInputConfigToTopic(configFile, b.Cctx.InConfigTopic)
 }
 
 func (b *StepBindings) SendInputConfigToTopic(configFile string, topic string) error {
 	rBytes, err := LoadRulesFromJSON(configFile)
 	if err != nil {
-		b.Cctx.L.Infof("Failed to load from rules config file %s\n", configFile)
+		// Use trace-aware logging if scenario is available
+		traceID := utils.CreateContextualTraceID(b.Cctx.CurrentScenario, b.Cctx.ExampleData)
+		traceLogger := utils.WithTraceLoggerFromID(b.Cctx.L, traceID)
+		traceLogger.Infof("Failed to load from rules config file %s\n", configFile)
 		return err
 	}
+
+	// Create trace ID for config messages too (for consistency)
+	traceID := utils.CreateContextualTraceID(b.Cctx.CurrentScenario, b.Cctx.ExampleData)
+	traceLogger := utils.WithTraceLoggerFromID(b.Cctx.L, traceID)
+
 	b.Cctx.ProducerHandler.Send(topic, rBytes, nil)
-	b.Cctx.L.Infof("Sent config %s over Kafka topic %s\n", configFile, topic)
+	traceLogger.Infof("Sent config %s over Kafka topic %s with trace ID %s\n", configFile, topic, traceID)
 	time.Sleep(5 * time.Second) // slight delay to ensure config is processed first
 	return nil
 }
 
 func (b *StepBindings) SendInputData(dataFile string) error {
+	// Capture data file as example data for trace ID generation
+	if b.Cctx.ExampleData == nil {
+		b.Cctx.ExampleData = make(map[string]string)
+	}
+	b.Cctx.ExampleData["rec"] = dataFile
+
 	return b.SendInputDataToTopic(dataFile, b.Cctx.InDataTopic)
 }
 
@@ -38,16 +59,28 @@ func (b *StepBindings) SendInputDataToTopic(dataFile string, topic string) error
 		b.Cctx.L.Infof("Failed to load from data file %s\n", dataFile)
 		return err
 	}
+
+	// Create trace ID from current scenario name and example data
+	traceID := utils.CreateContextualTraceID(b.Cctx.CurrentScenario, b.Cctx.ExampleData)
+	if traceID == "" {
+		traceID = "testrunner-default-trace"
+	}
+
+	// Use trace-aware logging
+	traceLogger := utils.WithTraceLoggerFromID(b.Cctx.L, traceID)
+
 	metaDataMap := map[string]string{
 		"testData":   "true",
-		"X-Trace-Id": "test-trace-id-12345",
+		"X-Trace-Id": traceID,
 	}
+
 	b.Cctx.ProducerHandler.Send(topic, aBytes, metaDataMap)
 	b.Cctx.SentDataSize += len(aBytes)
 	b.Cctx.SentDataCount++
 	b.Cctx.ConsHandler.SetExpectedCount(1)
 	b.Cctx.ConsHandler.SetExpectedMap(metaDataMap)
-	b.Cctx.L.Infof("Sent data %s over Kafka topic %s\n", dataFile, topic)
+
+	traceLogger.Infof("Sent data %s over Kafka topic %s with trace ID %s\n", dataFile, topic, traceID)
 	return nil
 }
 
@@ -80,6 +113,12 @@ func (b *StepBindings) VerifyIfDataIsFullyReceived() error {
 }
 
 func (b *StepBindings) VerifyIfValidFabric(fabricName string) error {
+	// Capture fabric as example data for trace ID generation
+	if b.Cctx.ExampleData == nil {
+		b.Cctx.ExampleData = make(map[string]string)
+	}
+	b.Cctx.ExampleData["fab"] = fabricName
+
 	if !b.Cctx.ConsHandler.VerifyDataField("fabricName", fabricName) {
 		return errors.New("fabric does not match")
 	}
@@ -101,6 +140,12 @@ func (b *StepBindings) VerifyIfAcknowledged() error {
 }
 
 func (b *StepBindings) VerifyIfRecordHasCustomMessage(expectedMessage string) error {
+	// Capture message as example data for trace ID generation
+	if b.Cctx.ExampleData == nil {
+		b.Cctx.ExampleData = make(map[string]string)
+	}
+	b.Cctx.ExampleData["msg"] = expectedMessage
+
 	if !b.Cctx.ConsHandler.VerifyDataField("ruleCustomRecoStr", expectedMessage) {
 		return errors.New("custom message does not match")
 	}
@@ -109,6 +154,12 @@ func (b *StepBindings) VerifyIfRecordHasCustomMessage(expectedMessage string) er
 }
 
 func (b *StepBindings) VerifyIfRecordHasSeverity(expectedSeverity string) error {
+	// Capture severity as example data for trace ID generation
+	if b.Cctx.ExampleData == nil {
+		b.Cctx.ExampleData = make(map[string]string)
+	}
+	b.Cctx.ExampleData["sev"] = expectedSeverity
+
 	if !b.Cctx.ConsHandler.VerifyDataField("severity", expectedSeverity) {
 		return errors.New("severity does not match")
 	}

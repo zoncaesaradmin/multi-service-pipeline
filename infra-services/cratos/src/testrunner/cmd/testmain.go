@@ -299,6 +299,17 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 	}
 	suiteCtx := &impl.CustomContext{L: logger}
 
+	// Track current scenario for trace ID generation
+	ctx.Before(func(ctx context.Context, sc *godog.Scenario) (context.Context, error) {
+		suiteCtx.CurrentScenario = sc.Name
+		// Reset example data for each scenario
+		suiteCtx.ExampleData = make(map[string]string)
+
+		traceLogger := logger.WithField("scenario", sc.Name)
+		traceLogger.Info("Starting scenario")
+		return ctx, nil
+	})
+
 	steps.InitializeCommonSteps(ctx, suiteCtx)
 	steps.InitializeRulesSteps(ctx, suiteCtx)
 }

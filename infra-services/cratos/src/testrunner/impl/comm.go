@@ -22,6 +22,8 @@ type CustomContext struct {
 	ProducerHandler *ProducerHandler
 	SentDataSize    int
 	SentDataCount   int
+	CurrentScenario string            // Track current scenario for trace ID
+	ExampleData     map[string]string // Track current example data for scenario outlines
 }
 
 type ConsumerHandler struct {
@@ -60,18 +62,27 @@ func (i *ConsumerHandler) Start() error {
 	// Register OnMessage callback
 	i.consumer.OnMessage(func(message *messagebus.Message) {
 		if message != nil {
+			// Extract trace ID from message headers for trace-aware logging
+			traceID := utils.ExtractTraceID(message.Headers)
+			var msgLogger logging.Logger
+			if traceID != "" {
+				msgLogger = utils.WithTraceLoggerFromID(i.logger, traceID)
+			} else {
+				msgLogger = i.logger
+			}
+
 			if EnsureMapMatches(i.expectedMap, message.Headers) {
-				i.logger.Infow("Received valid test data message", "size", len(message.Value))
+				msgLogger.Infow("Received valid test data message", "size", len(message.Value))
 				i.receivedCount++
 				if i.receivedCount == i.expectedCount {
 					i.receivedAll = true
 					i.receivedMsg = *message
 				}
 			} else {
-				i.logger.Debugw("Received some other data message", "size", len(message.Value))
+				msgLogger.Debugw("Received some other data message", "size", len(message.Value))
 			}
 			if err := i.consumer.Commit(context.Background(), message); err != nil {
-				i.logger.Warnw("Failed to commit message", "error", err)
+				msgLogger.Warnw("Failed to commit message", "error", err)
 			}
 		}
 	})

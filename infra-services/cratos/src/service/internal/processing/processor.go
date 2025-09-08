@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"servicegomodule/internal/models"
 	"sharedgomodule/logging"
+	"sharedgomodule/utils"
 	"time"
 
 	"telemetry/utils/alert"
@@ -79,7 +80,13 @@ func (p *Processor) processLoop() {
 }
 
 func (p *Processor) processMessage(message *models.ChannelMessage) error {
-	p.logger.Debugw("Processing message", "type", message.Type, "size", len(message.Data))
+	// Use trace-aware logger if context is available
+	msgLogger := p.logger
+	if message.Context != nil {
+		msgLogger = utils.WithTraceLogger(p.logger, message.Context)
+	}
+
+	msgLogger.Debugw("Processing message", "type", message.Type, "size", len(message.Data))
 
 	// For non-data messages (control messages), forward them as-is
 	if !message.IsDataMessage() {
@@ -89,6 +96,7 @@ func (p *Processor) processMessage(message *models.ChannelMessage) error {
 			Timestamp:      message.Timestamp,
 			Partition:      message.Partition,
 			CommitCallback: message.CommitCallback, // Propagate commit callback
+			Context:        message.Context,        // Propagate trace context
 		}
 
 		p.outputCh <- outputMessage
@@ -99,7 +107,7 @@ func (p *Processor) processMessage(message *models.ChannelMessage) error {
 	aStream := &alert.AlertStream{}
 	err := proto.Unmarshal(message.Data, aStream)
 	if err != nil {
-		p.logger.Errorf("Failed to unmarshal input record: %w", err)
+		msgLogger.Errorf("Failed to unmarshal input record: %w", err)
 		return fmt.Errorf("failed to unmarshal input record: %w", err)
 	}
 
@@ -108,7 +116,7 @@ func (p *Processor) processMessage(message *models.ChannelMessage) error {
 
 		processedRecord, err := p.reHandler.applyRuleToRecord(aObj)
 		if err != nil {
-			p.logger.Errorw("Failed to apply rule processing", "error", err)
+			msgLogger.Errorw("Failed to apply rule processing", "error", err)
 			// keep the record unchanged if processing fails
 			outAlerts = append(outAlerts, aObj)
 			continue
@@ -129,17 +137,19 @@ func (p *Processor) processMessage(message *models.ChannelMessage) error {
 		// Create a new message with processed data
 		outputMessage := models.NewDataMessage(processedData, message.Key, message.Partition)
 		outputMessage.CommitCallback = message.CommitCallback // Propagate commit callback
+		outputMessage.Context = message.Context               // Propagate trace context
 		for k, v := range message.Meta {
 			outputMessage.Meta[k] = v
 		}
 
 		p.outputCh <- outputMessage
-		p.logger.Debug("Processed message sent to output channel")
+		msgLogger.Debug("Processed message sent to output channel")
 	} else {
 		// Even if no alerts are generated, we should commit the offset
 		// Create an empty output message just to trigger the commit
 		outputMessage := models.NewDataMessage([]byte{}, message.Key, message.Partition)
 		outputMessage.CommitCallback = message.CommitCallback
+		outputMessage.Context = message.Context // Propagate trace context
 		outputMessage.Meta = map[string]string{"empty_result": "true"}
 		for k, v := range message.Meta {
 			outputMessage.Meta[k] = v

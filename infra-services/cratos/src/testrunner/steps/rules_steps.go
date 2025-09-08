@@ -38,7 +38,10 @@ func (b *StepBindings) SendInputDataToTopic(dataFile string, topic string) error
 		b.Cctx.L.Infof("Failed to load from data file %s\n", dataFile)
 		return err
 	}
-	metaDataMap := map[string]string{"testData": "true"}
+	metaDataMap := map[string]string{
+		"testData":   "true",
+		"X-Trace-Id": "test-trace-id-12345",
+	}
 	b.Cctx.ProducerHandler.Send(topic, aBytes, metaDataMap)
 	b.Cctx.SentDataSize += len(aBytes)
 	b.Cctx.SentDataCount++

@@ -292,7 +292,7 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 		FilePath:      filepath.Join(logDir, "testrunner.log"),
 		LoggerName:    "testrunner",
 		ComponentName: "test-component",
-		ServiceName:   "test-service",
+		ServiceName:   "cratos",
 	})
 	if err != nil {
 		log.Fatalf("Failed to create logger: %v", err)

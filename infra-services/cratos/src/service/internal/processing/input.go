@@ -6,6 +6,7 @@ import (
 	"servicegomodule/internal/models"
 	"sharedgomodule/logging"
 	"sharedgomodule/messagebus"
+	"sharedgomodule/utils"
 	"time"
 )
 
@@ -61,25 +62,39 @@ func (i *InputHandler) Start() error {
 	// Register OnMessage callback
 	i.consumer.OnMessage(func(message *messagebus.Message) {
 		if message != nil {
-			i.logger.Debugw("Received kafka data message", "size", len(message.Value))
+			// Extract or generate trace ID from message headers
+			traceID := utils.ExtractTraceID(message.Headers)
+			traceCtx := utils.WithTraceID(context.Background(), traceID)
+
+			// Use trace-aware logger for this message
+			msgLogger := utils.WithTraceLogger(i.logger, traceCtx)
+			msgLogger.Debugw("Received kafka data message", "size", len(message.Value))
 
 			// Create commit callback that will be called after successful processing
 			commitCallback := func(ctx context.Context) error {
 				if err := i.consumer.Commit(ctx, message); err != nil {
-					i.logger.Warnw("Failed to commit message", "error", err, "key", message.Key)
+					msgLogger.Warnw("Failed to commit message", "error", err, "key", message.Key)
 					return err
 				}
-				i.logger.Debugw("Message committed successfully", "key", message.Key, "offset", message.Offset)
+				msgLogger.Debugw("Message committed successfully", "key", message.Key, "offset", message.Offset)
 				return nil
 			}
 
 			channelMsg := models.NewDataMessage(message.Value, message.Key, message.Partition)
 			channelMsg.CommitCallback = commitCallback
+			channelMsg.Context = traceCtx // Attach trace context to message
+
+			// Ensure trace ID is in message headers for downstream processing
+			if channelMsg.Meta == nil {
+				channelMsg.Meta = make(map[string]string)
+			}
 			for k, v := range message.Headers {
 				channelMsg.Meta[k] = v
 			}
+			channelMsg.Meta[utils.TraceIDHeader] = traceID // Ensure trace ID is propagated
+
 			i.inputCh <- channelMsg
-			i.logger.Debugw("Input message received", "key", message.Key, "headers", message.Headers)
+			msgLogger.Debugw("Input message received", "key", message.Key, "headers", message.Headers)
 		}
 	})
 

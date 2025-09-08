@@ -27,6 +27,7 @@ type ChannelMessage struct {
 	Key            string             `json:"key"`
 	Partition      int32              `json:"partition"`
 	CommitCallback CommitCallback     `json:"-"` // Not serialized, used for offset management
+	Context        context.Context    `json:"-"` // Not serialized, used for trace propagation
 }
 
 // NewChannelMessage creates a new channel message with the given type and data

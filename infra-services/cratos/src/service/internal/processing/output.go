@@ -115,14 +115,20 @@ func (o *OutputHandler) flushBatch(batch []*models.ChannelMessage) {
 	// Process each message individually
 	successCount := 0
 	for i, message := range batch {
+		// Use trace-aware logger if available
+		msgLogger := o.logger
+		if message.Context != nil {
+			msgLogger = utils.WithTraceLogger(o.logger, message.Context)
+		}
+
 		if err := o.sendMessage(message); err != nil {
-			o.logger.Errorw("Failed to send message", "error", err, "batch_index", i, "key", message.Key)
+			msgLogger.Errorw("Failed to send message", "error", err, "batch_index", i, "key", message.Key)
 			// Don't commit offset for failed messages
 		} else {
 			// Commit offset immediately after successful send
 			if message.HasCommitCallback() {
 				if err := message.Commit(context.Background()); err != nil {
-					o.logger.Errorw("Failed to commit message after successful send", "error", err, "key", message.Key)
+					msgLogger.Errorw("Failed to commit message after successful send", "error", err, "key", message.Key)
 				}
 			}
 			successCount++
@@ -136,16 +142,35 @@ func (o *OutputHandler) flushBatch(batch []*models.ChannelMessage) {
 }
 
 func (o *OutputHandler) sendMessage(channelMsg *models.ChannelMessage) error {
+	// Use trace-aware logger if available
+	msgLogger := o.logger
+	if channelMsg.Context != nil {
+		msgLogger = utils.WithTraceLogger(o.logger, channelMsg.Context)
+	}
+
 	// Check if this is an empty message (no alerts generated)
 	if len(channelMsg.Data) == 0 && channelMsg.Meta["empty_result"] == "true" {
-		o.logger.Debugw("Skipping empty message send to Kafka", "key", channelMsg.Key)
+		msgLogger.Debugw("Skipping empty message send to Kafka", "key", channelMsg.Key)
 		return nil // Success - we don't need to send empty messages
+	}
+
+	// Ensure trace ID is in the message headers for downstream services
+	headers := make(map[string]string)
+	for k, v := range channelMsg.Meta {
+		headers[k] = v
+	}
+
+	// Extract and ensure trace ID is propagated
+	if channelMsg.Context != nil {
+		if traceID, ok := utils.GetTraceID(channelMsg.Context); ok {
+			headers[utils.TraceIDHeader] = traceID
+		}
 	}
 
 	message := &messagebus.Message{
 		Topic:     o.config.OutputTopic,
 		Value:     channelMsg.Data,
-		Headers:   channelMsg.Meta,
+		Headers:   headers,
 		Key:       channelMsg.Key,
 		Partition: channelMsg.Partition,
 	}
@@ -155,7 +180,7 @@ func (o *OutputHandler) sendMessage(channelMsg *models.ChannelMessage) error {
 		return fmt.Errorf("failed to send message to topic %s: %w", o.config.OutputTopic, err)
 	}
 
-	o.logger.Debugw("Message sent successfully", "topic", o.config.OutputTopic, "size", len(channelMsg.Data), "headers", channelMsg.Meta)
+	msgLogger.Debugw("Message sent successfully", "topic", o.config.OutputTopic, "size", len(channelMsg.Data), "headers", headers)
 	return nil
 }
 

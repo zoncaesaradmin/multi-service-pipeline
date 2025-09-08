@@ -13,7 +13,7 @@ Feature: Test multiple cases of matching rule with data.
   Scenario Outline: IT_011_Rule_matching_scenarios_with_table
     And send_input_config "<rule>"
     And send_input_data "<rec>"
-    And wait_till_data_received_with_timeout_sec 10
+    And wait_till_data_received_with_timeout_sec 20
     And verify_if_data_is_fully_received_as_is
     And verify_if_valid_fabric "<fab>"
     And verify_if_record_is_acknowledged

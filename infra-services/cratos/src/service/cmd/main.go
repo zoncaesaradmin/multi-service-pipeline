@@ -197,9 +197,9 @@ func isRunningInContainer() bool {
 
 // logEnvironmentInfo logs information about the current environment
 func logEnvironmentInfo() {
-	appEnv := getEnvWithDefault("APP_ENV", "production")
-	appName := getEnvWithDefault("APP_NAME", "cratos")
-	appVersion := getEnvWithDefault("APP_VERSION", "unknown")
+	appEnv := utils.GetEnv("APP_ENV", "production")
+	appName := utils.GetEnv("APP_NAME", "cratos")
+	appVersion := utils.GetEnv("APP_VERSION", "unknown")
 
 	log.Printf("🚀 Starting %s v%s in %s environment", appName, appVersion, appEnv)
 
@@ -208,12 +208,4 @@ func logEnvironmentInfo() {
 	} else {
 		log.Println("💻 Running in local development environment")
 	}
-}
-
-// getEnvWithDefault gets an environment variable with a default value
-func getEnvWithDefault(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
 }

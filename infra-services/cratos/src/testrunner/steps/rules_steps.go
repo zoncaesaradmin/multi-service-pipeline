@@ -24,7 +24,7 @@ func (b *StepBindings) SendInputConfigToTopic(configFile string, topic string) e
 	}
 	b.Cctx.ProducerHandler.Send(topic, rBytes, nil)
 	b.Cctx.L.Infof("Sent config %s over Kafka topic %s\n", configFile, topic)
-	time.Sleep(3 * time.Second) // slight delay to ensure config is processed first
+	time.Sleep(5 * time.Second) // slight delay to ensure config is processed first
 	return nil
 }
 

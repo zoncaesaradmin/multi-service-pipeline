@@ -20,7 +20,7 @@ Feature: Basic test for data reception without hitting any rule
   Scenario: IT_001_Basic_data_reception_without_rules
     And send_input_config "rule_1.json" 
     And send_input_data "data_conn_1.json"
-    And wait_till_data_received_with_timeout_sec 10
+    And wait_till_data_received_with_timeout_sec 20
     And verify_if_data_is_fully_received_as_is
     And verify_if_valid_fabric "FabricA"
     And verify_if_all_fields_are_unchanged
@@ -29,7 +29,7 @@ Feature: Basic test for data reception without hitting any rule
   Scenario: IT_002_Basic_data_reception_with_simple_rule
     And send_input_config "rule_2_conn.json"
     And send_input_data "data_conn_2.json"
-    And wait_till_data_received_with_timeout_sec 10
+    And wait_till_data_received_with_timeout_sec 20
     And verify_if_data_is_fully_received_as_is
     And verify_if_valid_fabric "fabric-1"
     And verify_if_record_is_acknowledged

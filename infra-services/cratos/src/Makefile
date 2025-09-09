@@ -101,7 +101,8 @@ help:
 # ==============================================================================
 
 # Start target - Production ready build with coverage enforcement
-start: coverage-enforce service-build
+start: service-build
+	@$(MAKE) coverage-enforce
 	@echo "✅ Service built with enforced coverage and ready for deployment!"
 
 automation: testrunner-build

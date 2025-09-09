@@ -257,10 +257,10 @@ func (rh *RuleEngineHandler) GetStats() map[string]interface{} {
 	}
 }
 
-func (rh *RuleEngineHandler) applyRuleToRecord(aObj *alert.Alert) (*alert.Alert, error) {
+func (rh *RuleEngineHandler) applyRuleToRecord(l logging.Logger, aObj *alert.Alert) (*alert.Alert, error) {
 	if needsRuleProcessing(aObj) {
 		convRecord := ConvertAlertObjectToRuleEngineInput(aObj)
-		rh.plogger.WithField("recId", recordIdentifier(aObj)).Infof("RECORD PROC - converted data: %v", convRecord)
+		l.WithField("recId", recordIdentifier(aObj)).Infof("RECORD PROC - converted data: %v", convRecord)
 		lookupResult := rh.reInst.EvaluateRules(relib.Data(convRecord))
 		if lookupResult.IsRuleHit {
 			// rule matched
@@ -281,16 +281,16 @@ func (rh *RuleEngineHandler) applyRuleToRecord(aObj *alert.Alert) (*alert.Alert,
 					aObj.RuleCustomRecoStr = strings.Split(action.ActionValueStr, ",")
 					toPrintActionMap["customreco"] = aObj.RuleCustomRecoStr
 				default:
-					rh.plogger.Warnf("RECORD PROC - unknown action type: %s", action.ActionType)
+					l.Warnf("RECORD PROC - unknown action type: %s", action.ActionType)
 				}
 			}
-			rh.plogger.WithField("recId", recordIdentifier(aObj)).Debugw("RECORD PROC - rule hit", "matchCriteria", lookupResult.CriteriaHit, "actionsApplied", toPrintActionMap)
+			l.Debugw("RECORD PROC - rule hit", "matchCriteria", lookupResult.CriteriaHit, "actionsApplied", toPrintActionMap)
 		} else {
 			// no rule matched
-			rh.plogger.WithField("recId", recordIdentifier(aObj)).Infow("RECORD PROC - no rule hit", "record", convRecord)
+			l.WithField("recId", recordIdentifier(aObj)).Infow("RECORD PROC - no rule hit", "record", convRecord)
 		}
 	} else {
-		rh.plogger.WithField("recId", recordIdentifier(aObj)).Infof("RECORD PROC - skipped rule lookup")
+		l.WithField("recId", recordIdentifier(aObj)).Infof("RECORD PROC - skipped rule lookup")
 	}
 	return aObj, nil
 }

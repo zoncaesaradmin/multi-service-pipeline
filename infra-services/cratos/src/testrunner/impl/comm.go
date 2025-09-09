@@ -7,7 +7,9 @@ import (
 	"sharedgomodule/logging"
 	"sharedgomodule/messagebus"
 	"sharedgomodule/utils"
+	"sync"
 	"telemetry/utils/alert"
+	"testgomodule/types"
 
 	"google.golang.org/protobuf/proto"
 )
@@ -24,6 +26,8 @@ type CustomContext struct {
 	SentDataCount   int
 	CurrentScenario string            // Track current scenario for trace ID
 	ExampleData     map[string]string // Track current example data for scenario outlines
+	SentDataMeta    types.SentDataMeta
+	SentConfigMeta  types.SentConfigMeta
 }
 
 type ConsumerHandler struct {
@@ -36,6 +40,7 @@ type ConsumerHandler struct {
 	expectedCount int
 	expectedMap   map[string]string
 	receivedMsg   messagebus.Message
+	mutex         sync.Mutex
 }
 
 // NewInputHandler creates a new input handler
@@ -54,7 +59,7 @@ func NewConsumerHandler(logger logging.Logger) *ConsumerHandler {
 // Start starts the input handler
 func (i *ConsumerHandler) Start() error {
 	topics := []string{"cisco_nir-prealerts"}
-	i.logger.Infow("Starting consumer handler", "topics", topics)
+	//i.logger.Infow("Starting consumer handler", "topics", topics)
 
 	// Create context for cancellation
 	i.ctx, i.cancel = context.WithCancel(context.Background())
@@ -71,15 +76,16 @@ func (i *ConsumerHandler) Start() error {
 				msgLogger = i.logger
 			}
 
-			if EnsureMapMatches(i.expectedMap, message.Headers) {
-				msgLogger.Infow("Received valid test data message", "size", len(message.Value))
+			expHeaders := i.GetExpectedHeaders()
+			if EnsureMapMatches(expHeaders, message.Headers) {
+				msgLogger.Infow("Received valid test data message", "headers", message.Headers, "expHeaders", expHeaders)
 				i.receivedCount++
 				if i.receivedCount == i.expectedCount {
 					i.receivedAll = true
 					i.receivedMsg = *message
 				}
 			} else {
-				msgLogger.Debugw("Received some other data message", "size", len(message.Value))
+				msgLogger.Debugw("Received some other data message", "headers", message.Headers, "expHeaders", expHeaders)
 			}
 			if err := i.consumer.Commit(context.Background(), message); err != nil {
 				msgLogger.Warnw("Failed to commit message", "error", err)
@@ -126,11 +132,25 @@ func (i *ConsumerHandler) SetExpectedCount(count int) {
 	i.expectedCount = count
 }
 
-func (i *ConsumerHandler) SetExpectedMap(expectedMap map[string]string) {
+func (i *ConsumerHandler) SetExpectedHeaders(expectedMap map[string]string) {
+	i.mutex.Lock()
+	defer i.mutex.Unlock()
 	i.expectedMap = expectedMap
 }
 
+func (i *ConsumerHandler) GetExpectedHeaders() map[string]string {
+	i.mutex.Lock()
+	defer i.mutex.Unlock()
+	return i.expectedMap
+}
+
+func (i *ConsumerHandler) GetReceivedMsgSize() int {
+	return len(i.receivedMsg.Value)
+}
+
 func (i *ConsumerHandler) Reset() {
+	i.mutex.Lock()
+	defer i.mutex.Unlock()
 	i.receivedCount = 0
 	i.expectedCount = 0
 	i.receivedAll = false
@@ -145,7 +165,7 @@ func (i *ConsumerHandler) VerifyDataField(field string, value interface{}) bool 
 		i.logger.Errorf("Failed to unmarshal input record: %w", err)
 		return false
 	}
-	i.logger.Infof("Data record: %+v", aStream)
+	//i.logger.Infof("Data record: %+v", aStream)
 
 	successCount := 0
 	for _, aObj := range aStream.AlertObject {
@@ -187,7 +207,7 @@ func (i *ConsumerHandler) checkRuleCustomReco(aObj interface{}, value interface{
 	if objVal, ok := aObj.(interface{ GetRuleCustomRecoStr() []string }); ok {
 		expectedValue := value.(string)
 		for _, reco := range objVal.GetRuleCustomRecoStr() {
-			i.logger.Infof("Verifying ruleCustomRecoStr with actual=%s expected=%s", reco, expectedValue)
+			//i.logger.Infof("Verifying ruleCustomRecoStr with actual=%s expected=%s", reco, expectedValue)
 			if reco == expectedValue {
 				return true
 			}
@@ -229,7 +249,7 @@ func NewProducerHandler(logger logging.Logger) *ProducerHandler {
 	}
 }
 func (o *ProducerHandler) Start() error {
-	o.logger.Debug("Starting producer handler")
+	//o.logger.Debug("Starting producer handler")
 	return nil
 }
 

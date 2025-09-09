@@ -3,6 +3,7 @@ package steps
 import (
 	"errors"
 	"sharedgomodule/utils"
+	"strconv"
 	"testgomodule/impl"
 	"time"
 
@@ -18,27 +19,26 @@ func (b *StepBindings) SendInputConfig(configFile string) error {
 	if b.Cctx.ExampleData == nil {
 		b.Cctx.ExampleData = make(map[string]string)
 	}
-	b.Cctx.ExampleData["rule"] = configFile
+	b.Cctx.ExampleData["X"] = configFile
 
 	return b.SendInputConfigToTopic(configFile, b.Cctx.InConfigTopic)
 }
 
 func (b *StepBindings) SendInputConfigToTopic(configFile string, topic string) error {
-	rBytes, err := LoadRulesFromJSON(configFile)
-	if err != nil {
-		// Use trace-aware logging if scenario is available
-		traceID := utils.CreateContextualTraceID(b.Cctx.CurrentScenario, b.Cctx.ExampleData)
-		traceLogger := utils.WithTraceLoggerFromID(b.Cctx.L, traceID)
-		traceLogger.Infof("Failed to load from rules config file %s\n", configFile)
-		return err
-	}
-
 	// Create trace ID for config messages too (for consistency)
 	traceID := utils.CreateContextualTraceID(b.Cctx.CurrentScenario, b.Cctx.ExampleData)
 	traceLogger := utils.WithTraceLoggerFromID(b.Cctx.L, traceID)
 
+	rBytes, configMeta, err := LoadRulesFromJSON(configFile)
+	if err != nil {
+		// Use trace-aware logging if scenario is available
+		traceLogger.Infof("Failed to load from rules config file %s\n", configFile)
+		return err
+	}
+
+	b.Cctx.SentConfigMeta = configMeta
 	b.Cctx.ProducerHandler.Send(topic, rBytes, nil)
-	traceLogger.Infof("Sent config %s over Kafka topic %s with trace ID %s\n", configFile, topic, traceID)
+	traceLogger.Infof("Sent config %s over Kafka topic %s and trace ID in headers\n", configFile, topic)
 	time.Sleep(5 * time.Second) // slight delay to ensure config is processed first
 	return nil
 }
@@ -48,13 +48,13 @@ func (b *StepBindings) SendInputData(dataFile string) error {
 	if b.Cctx.ExampleData == nil {
 		b.Cctx.ExampleData = make(map[string]string)
 	}
-	b.Cctx.ExampleData["rec"] = dataFile
+	b.Cctx.ExampleData["X"] = dataFile
 
 	return b.SendInputDataToTopic(dataFile, b.Cctx.InDataTopic)
 }
 
 func (b *StepBindings) SendInputDataToTopic(dataFile string, topic string) error {
-	aBytes, err := LoadAlertFromJSON(dataFile)
+	aBytes, dataMeta, err := LoadAlertFromJSON(dataFile)
 	if err != nil {
 		b.Cctx.L.Infof("Failed to load from data file %s\n", dataFile)
 		return err
@@ -74,13 +74,14 @@ func (b *StepBindings) SendInputDataToTopic(dataFile string, topic string) error
 		"X-Trace-Id": traceID,
 	}
 
-	b.Cctx.ProducerHandler.Send(topic, aBytes, metaDataMap)
+	b.Cctx.ConsHandler.SetExpectedHeaders(metaDataMap)
+	b.Cctx.ConsHandler.SetExpectedCount(1)
 	b.Cctx.SentDataSize += len(aBytes)
 	b.Cctx.SentDataCount++
-	b.Cctx.ConsHandler.SetExpectedCount(1)
-	b.Cctx.ConsHandler.SetExpectedMap(metaDataMap)
+	b.Cctx.SentDataMeta = dataMeta
+	b.Cctx.ProducerHandler.Send(topic, aBytes, metaDataMap)
 
-	traceLogger.Infof("Sent data %s over Kafka topic %s with trace ID %s\n", dataFile, topic, traceID)
+	traceLogger.Infof("Sent data %s over Kafka topic %s and trace ID in headers\n", dataFile, topic)
 	return nil
 }
 
@@ -108,16 +109,17 @@ func (b *StepBindings) WaitTillDataReceivedOnTopicWithTimeoutSec(topic string, t
 }
 
 func (b *StepBindings) VerifyIfDataIsFullyReceived() error {
+	receivedSize := b.Cctx.ConsHandler.GetReceivedMsgSize()
+	if receivedSize != b.Cctx.SentDataSize {
+		return errors.New("data size mismatch: sent " + strconv.Itoa(b.Cctx.SentDataSize) + " bytes, received " + strconv.Itoa(receivedSize) + " bytes")
+	}
 	b.Cctx.L.Infof("Verified: Data received without loss.")
 	return nil
 }
 
-func (b *StepBindings) VerifyIfValidFabric(fabricName string) error {
-	// Capture fabric as example data for trace ID generation
-	if b.Cctx.ExampleData == nil {
-		b.Cctx.ExampleData = make(map[string]string)
-	}
-	b.Cctx.ExampleData["fab"] = fabricName
+func (b *StepBindings) VerifyIfValidFabric() error {
+	// fetch sent fabric name from meta
+	fabricName := b.Cctx.SentDataMeta.FabricName
 
 	if !b.Cctx.ConsHandler.VerifyDataField("fabricName", fabricName) {
 		return errors.New("fabric does not match")
@@ -126,25 +128,20 @@ func (b *StepBindings) VerifyIfValidFabric(fabricName string) error {
 	return nil
 }
 
-func (b *StepBindings) VerifyIfNoFieldModified() error {
-	b.Cctx.L.Infof("Verified: No field is modified as expected.\n")
-	return nil
-}
-
 func (b *StepBindings) VerifyIfAcknowledged() error {
-	if !b.Cctx.ConsHandler.VerifyDataField("acknowledged", true) {
+	// fetch sent fabric name from meta
+	ack := b.Cctx.SentConfigMeta.ActionAcknowledged
+
+	if !b.Cctx.ConsHandler.VerifyDataField("acknowledged", ack) {
 		return errors.New("field 'acknowledged' is not true as expected")
 	}
-	b.Cctx.L.Infof("Verified: Record is acknowledged.\n")
+	b.Cctx.L.Infof("Verified: Record has acknowledged '%v'\n", ack)
 	return nil
 }
 
-func (b *StepBindings) VerifyIfRecordHasCustomMessage(expectedMessage string) error {
-	// Capture message as example data for trace ID generation
-	if b.Cctx.ExampleData == nil {
-		b.Cctx.ExampleData = make(map[string]string)
-	}
-	b.Cctx.ExampleData["msg"] = expectedMessage
+func (b *StepBindings) VerifyIfRecordHasCustomMessage() error {
+	// fetch sent custom message from meta
+	expectedMessage := b.Cctx.SentConfigMeta.ActionCustomRecoValue
 
 	if !b.Cctx.ConsHandler.VerifyDataField("ruleCustomRecoStr", expectedMessage) {
 		return errors.New("custom message does not match")
@@ -153,12 +150,9 @@ func (b *StepBindings) VerifyIfRecordHasCustomMessage(expectedMessage string) er
 	return nil
 }
 
-func (b *StepBindings) VerifyIfRecordHasSeverity(expectedSeverity string) error {
-	// Capture severity as example data for trace ID generation
-	if b.Cctx.ExampleData == nil {
-		b.Cctx.ExampleData = make(map[string]string)
-	}
-	b.Cctx.ExampleData["sev"] = expectedSeverity
+func (b *StepBindings) VerifyIfRecordHasSeverity() error {
+	// fetch sent severity from meta
+	expectedSeverity := b.Cctx.SentConfigMeta.ActionSeverityValue
 
 	if !b.Cctx.ConsHandler.VerifyDataField("severity", expectedSeverity) {
 		return errors.New("severity does not match")
@@ -173,18 +167,16 @@ func InitializeRulesSteps(ctx *godog.ScenarioContext, suiteMetadataCtx *impl.Cus
 	ctx.Step(`^send input data "([^"]*)" over kafka topic "([^"]*)"$`, bindings.SendInputDataToTopic)
 	ctx.Step(`^wait till the sent data is received on kafka topic "([^"]*)" with a timeout of (\d+) seconds$`, bindings.WaitTillDataReceivedOnTopicWithTimeoutSec)
 	ctx.Step(`^verify if the data is fully received without loss$`, bindings.VerifyIfDataIsFullyReceived)
-	ctx.Step(`^verify if no field is modified as expected$`, bindings.VerifyIfNoFieldModified)
 	// same as above steps but written in code function style
 	ctx.Step(`^send_input_config_to_topic "([^"]*)" "([^"]*)"$`, bindings.SendInputConfigToTopic)
 	ctx.Step(`^send_input_data_to_topic "([^"]*)", "([^"]*)"$`, bindings.SendInputDataToTopic)
 	ctx.Step(`^wait_till_data_received_on_topic_with_timeout_sec "([^"]*)", (\d+)$`, bindings.WaitTillDataReceivedOnTopicWithTimeoutSec)
 	ctx.Step(`^verify_if_data_is_fully_received_as_is$`, bindings.VerifyIfDataIsFullyReceived)
 
-	ctx.Step(`^verify_if_valid_fabric "([^"]*)"$`, bindings.VerifyIfValidFabric)
-	ctx.Step(`^verify_if_all_fields_are_unchanged$`, bindings.VerifyIfNoFieldModified)
-	ctx.Step(`^verify_if_record_is_acknowledged$`, bindings.VerifyIfAcknowledged)
-	ctx.Step(`^verify_if_record_has_custom_message "([^"]*)"$`, bindings.VerifyIfRecordHasCustomMessage)
-	ctx.Step(`^verify_if_record_has_severity "([^"]*)"$`, bindings.VerifyIfRecordHasSeverity)
+	ctx.Step(`^verify_if_valid_fabric$`, bindings.VerifyIfValidFabric)
+	ctx.Step(`^verify_if_record_has_acknowledged$`, bindings.VerifyIfAcknowledged)
+	ctx.Step(`^verify_if_record_has_custom_message$`, bindings.VerifyIfRecordHasCustomMessage)
+	ctx.Step(`^verify_if_record_has_severity$`, bindings.VerifyIfRecordHasSeverity)
 
 	ctx.Step(`^send_input_config "([^"]*)"$`, bindings.SendInputConfig)
 	ctx.Step(`^send_input_data "([^"]*)"$`, bindings.SendInputData)

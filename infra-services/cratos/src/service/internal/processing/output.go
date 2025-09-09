@@ -95,7 +95,7 @@ func (o *OutputHandler) produceLoop() {
 
 		case message := <-o.outputCh:
 			batch = append(batch, message)
-			o.logger.Debugw("Added message to batch", "batch_size", len(batch), "type", message.Type)
+			//o.logger.Debugw("Added message to batch", "batch_size", len(batch), "type", message.Type)
 
 			if len(batch) >= o.config.BatchSize {
 				o.flushBatch(batch)
@@ -110,7 +110,7 @@ func (o *OutputHandler) flushBatch(batch []*models.ChannelMessage) {
 		return
 	}
 
-	o.logger.Debugw("Flushing batch to Kafka", "batch_size", len(batch), "topic", o.config.OutputTopic)
+	//o.logger.Debugw("Flushing batch to Kafka", "batch_size", len(batch), "topic", o.config.OutputTopic)
 
 	// Process each message individually
 	successCount := 0

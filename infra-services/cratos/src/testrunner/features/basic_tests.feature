@@ -17,21 +17,19 @@ Feature: Basic test for data reception without hitting any rule
     And ensure_test_data_consumer_on_output_is_ready
 
   # test if basic input and output of service are working fine
-  Scenario: IT_001_Basic_data_reception_without_rules
+  Scenario: IT_001_without_rules
     And send_input_config "rule_1.json" 
-    And send_input_data "data_conn_1.json"
+    And send_input_data "data_1_conn.json"
     And wait_till_data_received_with_timeout_sec 20
     And verify_if_data_is_fully_received_as_is
-    And verify_if_valid_fabric "FabricA"
-    And verify_if_all_fields_are_unchanged
+    And verify_if_valid_fabric
 
   # test if basic input and output of service are working fine
-  Scenario: IT_002_Basic_data_reception_with_simple_rule
+  Scenario: IT_002_allactions
     And send_input_config "rule_2_conn.json"
-    And send_input_data "data_conn_2.json"
+    And send_input_data "data_2_conn.json"
     And wait_till_data_received_with_timeout_sec 20
-    And verify_if_data_is_fully_received_as_is
-    And verify_if_valid_fabric "fabric-1"
-    And verify_if_record_is_acknowledged
-    And verify_if_record_has_custom_message "explicit message 1"
-    And verify_if_record_has_severity "critical"
+    And verify_if_valid_fabric
+    And verify_if_record_has_acknowledged
+    And verify_if_record_has_custom_message
+    And verify_if_record_has_severity

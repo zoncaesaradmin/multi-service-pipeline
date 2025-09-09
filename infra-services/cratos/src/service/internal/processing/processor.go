@@ -114,7 +114,7 @@ func (p *Processor) processMessage(message *models.ChannelMessage) error {
 	var outAlerts []*alert.Alert
 	for _, aObj := range aStream.AlertObject {
 
-		processedRecord, err := p.reHandler.applyRuleToRecord(aObj)
+		processedRecord, err := p.reHandler.applyRuleToRecord(msgLogger, aObj)
 		if err != nil {
 			msgLogger.Errorw("Failed to apply rule processing", "error", err)
 			// keep the record unchanged if processing fails

@@ -46,7 +46,7 @@ func (b *CommonStepBindings) KafkaConsumersStarted(topic string) error {
 	}
 	b.SuiteCtx.ConsHandler = consHandler
 	time.Sleep(5 * time.Second) // wait for consumer to be ready
-	traceLogger.Infof("Kafka consumers started on topic %s.", topic)
+	traceLogger.Infof("Kafka consumer started on topic %s.", topic)
 	// reset
 	b.SuiteCtx.ConsHandler.Reset()
 	return nil

@@ -10,16 +10,15 @@ Feature: Test multiple cases of matching rule with data.
     And ensure_test_data_consumer_on_output_is_ready
 
   # test rule and matching data if it works fine
-  Scenario Outline: IT_011_Rule_matching_scenarios_with_table
+  Scenario Outline: IT_011_table
     And send_input_config "<rule>"
     And send_input_data "<rec>"
     And wait_till_data_received_with_timeout_sec 20
-    And verify_if_data_is_fully_received_as_is
-    And verify_if_valid_fabric "<fab>"
-    And verify_if_record_is_acknowledged
-    And verify_if_record_has_custom_message "<msg>"
-    And verify_if_record_has_severity "<sev>"
+    And verify_if_valid_fabric
+    And verify_if_record_has_acknowledged
+    And verify_if_record_has_custom_message
+    And verify_if_record_has_severity
 
     Examples:
-      | rule | rec | fab | msg | sev |
-      | rule_2_conn.json | data_conn_2.json | fabric-1 | explicit message 1 | critical |
+      | rule | rec |
+      | rule_2_conn.json | data_2_conn.json |

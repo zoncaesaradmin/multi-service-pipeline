@@ -103,7 +103,7 @@ func CreateScenarioOutlineTraceID(scenarioName string, exampleData map[string]st
 			}
 		}
 		if suffix != "" {
-			baseTraceID += "_EX_" + suffix
+			baseTraceID += "_" + suffix
 		}
 	}
 

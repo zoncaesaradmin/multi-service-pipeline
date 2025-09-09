@@ -286,6 +286,9 @@ func (o *ProducerHandler) Send(topic string, data []byte, headers map[string]str
 }
 
 func EnsureMapContains(expected, data map[string]string) bool {
+	if len(expected) == 0 {
+		return false
+	}
 	for k, v := range expected {
 		dv, ok := data[k]
 		if !ok || dv != v {

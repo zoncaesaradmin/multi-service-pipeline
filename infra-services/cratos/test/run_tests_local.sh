@@ -340,13 +340,13 @@ generate_report() {
     log_info "=== QUICK SUMMARY ==="
     cat "$REPORT_FILE" | grep -A 10 "Test Execution:"
     
-    # Print last 100 lines of test execution report if it exists
+    # Print last 50 lines of test execution report if it exists
     if [ -f "$TEST_EXEC_REPORT" ]; then
         echo
-        log_info "=== LAST 100 LINES OF TEST EXECUTION REPORT ==="
+        log_info "=== LAST 50 LINES OF TEST EXECUTION REPORT ==="
         log_info "File: $TEST_EXEC_REPORT"
         echo "----------------------------------------"
-        tail -100 "$TEST_EXEC_REPORT"
+        tail -50 "$TEST_EXEC_REPORT"
         echo "----------------------------------------"
         log_info "=== END OF TEST EXECUTION REPORT ==="
     else

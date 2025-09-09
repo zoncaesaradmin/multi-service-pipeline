@@ -46,6 +46,8 @@ func TestLocalProducerClose(t *testing.T) {
 
 func TestLocalConsumerSubscribeAndPoll(t *testing.T) {
 	CleanupMessageBus()
+	CleanupOffsets()
+
 	prod := &LocalProducer{}
 	cons := NewConsumer(map[string]any{}, "testcgroup").(*LocalConsumer)
 	received := make(chan *Message, 1)
@@ -72,8 +74,11 @@ func TestLocalConsumerSubscribeAndPoll(t *testing.T) {
 }
 
 func TestLocalConsumerCommitAndClose(t *testing.T) {
-	cons := &LocalConsumer{lastRead: make(map[string]int64)}
-	msg := &Message{Topic: "commit", Value: []byte("data")}
+	CleanupMessageBus()
+	CleanupOffsets()
+
+	cons := NewConsumer(map[string]any{}, "test-commit-group").(*LocalConsumer)
+	msg := &Message{Topic: "commit", Value: []byte("data"), Offset: 5}
 	if err := cons.Commit(context.Background(), msg); err != nil {
 		t.Errorf("Commit returned error: %v", err)
 	}
@@ -104,7 +109,11 @@ func TestCleanupMessageBusAndStats(t *testing.T) {
 }
 
 func TestLocalConsumerInterfaceHooks(t *testing.T) {
-	cons := &LocalConsumer{lastRead: make(map[string]int64), watcherDone: make(chan struct{})}
+	// Clean up before test to ensure clean state
+	CleanupMessageBus()
+	CleanupOffsets()
+
+	cons := NewConsumer(map[string]any{}, "test-hooks-group").(*LocalConsumer)
 	assignCalled := false
 	revokeCalled := false
 	msgCalled := false
@@ -123,4 +132,5 @@ func TestLocalConsumerInterfaceHooks(t *testing.T) {
 	if !msgCalled {
 		t.Error("OnMessage not called")
 	}
+	cons.Close()
 }

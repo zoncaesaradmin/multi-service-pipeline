@@ -77,7 +77,7 @@ func (i *ConsumerHandler) Start() error {
 			}
 
 			expHeaders := i.GetExpectedHeaders()
-			if EnsureMapMatches(expHeaders, message.Headers) {
+			if EnsureMapContains(expHeaders, message.Headers) {
 				msgLogger.Infow("Received valid test data message", "headers", message.Headers, "expHeaders", expHeaders)
 				i.receivedCount++
 				if i.receivedCount == i.expectedCount {
@@ -85,7 +85,7 @@ func (i *ConsumerHandler) Start() error {
 					i.receivedMsg = *message
 				}
 			} else {
-				msgLogger.Debugw("Received some other data message", "headers", message.Headers, "expHeaders", expHeaders)
+				msgLogger.Debugw("Received some other data message", "headers", message.Headers)
 			}
 			if err := i.consumer.Commit(context.Background(), message); err != nil {
 				msgLogger.Warnw("Failed to commit message", "error", err)
@@ -141,7 +141,11 @@ func (i *ConsumerHandler) SetExpectedHeaders(expectedMap map[string]string) {
 func (i *ConsumerHandler) GetExpectedHeaders() map[string]string {
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
-	return i.expectedMap
+	result := make(map[string]string)
+	for k, v := range i.expectedMap {
+		result[k] = v
+	}
+	return result
 }
 
 func (i *ConsumerHandler) GetReceivedMsgSize() int {
@@ -281,7 +285,7 @@ func (o *ProducerHandler) Send(topic string, data []byte, headers map[string]str
 	return nil
 }
 
-func EnsureMapMatches(expected, data map[string]string) bool {
+func EnsureMapContains(expected, data map[string]string) bool {
 	for k, v := range expected {
 		dv, ok := data[k]
 		if !ok || dv != v {

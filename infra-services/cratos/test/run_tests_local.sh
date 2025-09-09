@@ -95,6 +95,17 @@ cleanup() {
         rm -rf "$COVERAGE_DIR"
     fi
     
+    # Clean up LocalBus data
+    if [ -d "/tmp/cratos-messagebus-test" ]; then
+        rm -rf "/tmp/cratos-messagebus-test"
+        log_info "Cleaned up LocalBus message data"
+    fi
+    
+    if [ -d "/tmp/cratos-messagebus-offsets" ]; then
+        rm -rf "/tmp/cratos-messagebus-offsets"
+        log_info "Cleaned up LocalBus offset data"
+    fi
+    
     log_success "Cleanup completed"
 }
 
@@ -328,6 +339,20 @@ generate_report() {
     echo
     log_info "=== QUICK SUMMARY ==="
     cat "$REPORT_FILE" | grep -A 10 "Test Execution:"
+    
+    # Print last 100 lines of test execution report if it exists
+    if [ -f "$TEST_EXEC_REPORT" ]; then
+        echo
+        log_info "=== LAST 100 LINES OF TEST EXECUTION REPORT ==="
+        log_info "File: $TEST_EXEC_REPORT"
+        echo "----------------------------------------"
+        tail -100 "$TEST_EXEC_REPORT"
+        echo "----------------------------------------"
+        log_info "=== END OF TEST EXECUTION REPORT ==="
+    else
+        echo
+        log_warning "Test execution report not found at: $TEST_EXEC_REPORT"
+    fi
 }
 
 # Main execution
@@ -347,13 +372,29 @@ main() {
     setup_directories
 
     # Ensure local bus topic directories exist for tests
-    LOCAL_BUS_BASE="/tmp/cratos-messagebus"
+    LOCAL_BUS_BASE="/tmp/cratos-messagebus-test"
+    LOCAL_BUS_OFFSETS="/tmp/cratos-messagebus-offsets"
+    
+    # Clean up any existing local bus data to ensure clean test state
+    if [ -d "$LOCAL_BUS_BASE" ]; then
+        log_info "Cleaning existing LocalBus message data"
+        rm -rf "$LOCAL_BUS_BASE"
+    fi
+    
+    if [ -d "$LOCAL_BUS_OFFSETS" ]; then
+        log_info "Cleaning existing LocalBus offset data"
+        rm -rf "$LOCAL_BUS_OFFSETS"
+    fi
+    
+    # Create fresh directories
     for topic in cisco_nir-anomalies cisco_nir-prealerts cisco_nir-alertRules cisco_nir-ruletasks; do
-        if [ ! -d "$LOCAL_BUS_BASE/$topic" ]; then
-            mkdir -p "$LOCAL_BUS_BASE/$topic"
-            log_info "Created local bus topic directory: $LOCAL_BUS_BASE/$topic"
-        fi
+        mkdir -p "$LOCAL_BUS_BASE/$topic"
+        log_info "Created clean local bus topic directory: $LOCAL_BUS_BASE/$topic"
     done
+    
+    # Create offset directory
+    mkdir -p "$LOCAL_BUS_OFFSETS"
+    log_info "Created clean local bus offset directory: $LOCAL_BUS_OFFSETS"
     
     if [ "$BUILD_MODE" = "build" ] || [ "$BUILD_MODE" = "all" ]; then
         # Build phase

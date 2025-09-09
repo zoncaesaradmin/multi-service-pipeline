@@ -10,6 +10,8 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -17,12 +19,14 @@ import (
 // File-based message storage for cross-process communication
 var (
 	messageBusDir = "/tmp/cratos-messagebus-test"
+	offsetDir     = "/tmp/cratos-messagebus-offsets"
 	globalMutex   = sync.RWMutex{}
 )
 
 // init ensures the message bus directory exists
 func init() {
 	os.MkdirAll(messageBusDir, 0755)
+	os.MkdirAll(offsetDir, 0755)
 }
 
 // LocalProducer file-based implementation for development
@@ -35,8 +39,10 @@ func NewProducer(configMap map[string]any, clientId string) Producer {
 	// Update messageBusDir if specified in config
 	if baseDir := GetStringValue(configMap, "local.base.dir", ""); baseDir != "" {
 		messageBusDir = baseDir
-		// Ensure the directory exists
+		offsetDir = filepath.Join(baseDir, "offsets")
+		// Ensure the directories exist
 		os.MkdirAll(messageBusDir, 0755)
+		os.MkdirAll(offsetDir, 0755)
 	}
 
 	return &LocalProducer{}
@@ -129,26 +135,77 @@ type LocalConsumer struct {
 	assigned      []PartitionAssignment
 	watcherCancel context.CancelFunc
 	watcherDone   chan struct{}
+	consumerGroup string // Store consumer group for persistent offset tracking
 }
 
 // NewConsumer creates a new local consumer with configuration from YAML file
-// The cgroup parameter is ignored for local implementation as it's single consumer
+// The cgroup parameter is used for persistent offset tracking
 func NewConsumer(configMap map[string]any, cgroup string) Consumer {
 	// Create local consumer with configuration
 	consumer := &LocalConsumer{
-		lastRead:    make(map[string]int64),
-		assigned:    []PartitionAssignment{},
-		watcherDone: make(chan struct{}),
+		lastRead:      make(map[string]int64),
+		assigned:      []PartitionAssignment{},
+		watcherDone:   make(chan struct{}),
+		consumerGroup: cgroup,
 	}
 
 	// Update messageBusDir if specified in config
 	if baseDir := GetStringValue(configMap, "local.base.dir", ""); baseDir != "" {
 		messageBusDir = baseDir
-		// Ensure the directory exists
+		offsetDir = filepath.Join(baseDir, "offsets")
+		// Ensure the directories exist
 		os.MkdirAll(messageBusDir, 0755)
+		os.MkdirAll(offsetDir, 0755)
 	}
 
 	return consumer
+}
+
+// getOffsetFilePath returns the path to the offset file for a consumer group and topic
+func (c *LocalConsumer) getOffsetFilePath(topic string) string {
+	// Handle empty consumer group by using a default
+	consumerGroup := c.consumerGroup
+	if consumerGroup == "" {
+		consumerGroup = "default-consumer-group"
+	}
+
+	// Use consumer group to create unique offset files per group
+	groupDir := filepath.Join(offsetDir, consumerGroup)
+	os.MkdirAll(groupDir, 0755)
+	return filepath.Join(groupDir, fmt.Sprintf("%s.offset", topic))
+}
+
+// loadLastReadOffset loads the last read offset for a topic from persistent storage
+func (c *LocalConsumer) loadLastReadOffset(topic string) int64 {
+	offsetFile := c.getOffsetFilePath(topic)
+	data, err := os.ReadFile(offsetFile)
+	if err != nil {
+		// File doesn't exist or can't be read, start from -1 (will read from offset 0)
+		// Use debug level logging to avoid confusion in tests
+		log.Printf("[MessageBus] DEBUG: No offset file found for topic %s, starting from beginning", topic)
+		return -1
+	}
+
+	offsetStr := strings.TrimSpace(string(data))
+	offset, err := strconv.ParseInt(offsetStr, 10, 64)
+	if err != nil {
+		log.Printf("[MessageBus] WARNING: Invalid offset in file for topic %s: %v, starting from beginning", topic, err)
+		return -1
+	}
+
+	log.Printf("[MessageBus] DEBUG: Loaded offset %d for topic %s from persistent storage", offset, topic)
+	return offset
+} // saveLastReadOffset saves the last read offset for a topic to persistent storage
+func (c *LocalConsumer) saveLastReadOffset(topic string, offset int64) error {
+	offsetFile := c.getOffsetFilePath(topic)
+	data := fmt.Sprintf("%d\n", offset)
+	err := os.WriteFile(offsetFile, []byte(data), 0644)
+	if err != nil {
+		log.Printf("[MessageBus] Failed to save offset %d for topic %s: %v", offset, topic, err)
+		return err
+	}
+	log.Printf("[MessageBus] Saved offset %d for topic %s to persistent storage", offset, topic)
+	return nil
 }
 
 // Subscribe subscribes to topics
@@ -172,8 +229,9 @@ func (c *LocalConsumer) Subscribe(topics []string) error {
 	newAssigned := make([]PartitionAssignment, 0, len(topics))
 	for _, topic := range topics {
 		newTopics[topic] = struct{}{}
+		// Load persistent offset or initialize to -1 if not exists
 		if _, exists := c.lastRead[topic]; !exists {
-			c.lastRead[topic] = -1
+			c.lastRead[topic] = c.loadLastReadOffset(topic)
 		}
 		// Only one partition for local bus
 		newAssigned = append(newAssigned, PartitionAssignment{Topic: topic, Partition: 0})
@@ -256,7 +314,7 @@ func (c *LocalConsumer) pollTopicsForMessages() {
 			continue
 		}
 		if _, exists := c.lastRead[topic]; !exists {
-			c.lastRead[topic] = -1
+			c.lastRead[topic] = c.loadLastReadOffset(topic)
 		}
 		lastOffset := c.lastRead[topic]
 		nextOffset := lastOffset + 1
@@ -266,22 +324,46 @@ func (c *LocalConsumer) pollTopicsForMessages() {
 		}
 		messageData, err := os.ReadFile(filename)
 		if err != nil {
+			log.Printf("[MessageBus] Failed to read message file %s: %v", filename, err)
 			continue
 		}
 		var message Message
 		if err := json.Unmarshal(messageData, &message); err != nil {
+			log.Printf("[MessageBus] Failed to unmarshal message from %s: %v", filename, err)
 			continue
 		}
+
+		// Update in-memory offset
 		c.lastRead[topic] = nextOffset
+
+		// Save offset to persistent storage
+		if err := c.saveLastReadOffset(topic, nextOffset); err != nil {
+			log.Printf("[MessageBus] Failed to save offset for topic %s: %v", topic, err)
+		}
+
+		log.Printf("[MessageBus] Consumer read message from topic %s at offset %d", topic, nextOffset)
+
 		if c.onMessage != nil {
 			go c.onMessage(&message)
 		}
 	}
 }
 
-// Commit commits the offset (no-op for local)
+// Commit commits the offset (saves to persistent storage for local)
 func (c *LocalConsumer) Commit(ctx context.Context, message *Message) error {
-	// Local implementation doesn't need actual commit
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	// Update the last read offset for this topic
+	if currentOffset, exists := c.lastRead[message.Topic]; exists && message.Offset > currentOffset {
+		c.lastRead[message.Topic] = message.Offset
+		// Save to persistent storage
+		if err := c.saveLastReadOffset(message.Topic, message.Offset); err != nil {
+			return fmt.Errorf("failed to commit offset for topic %s: %w", message.Topic, err)
+		}
+		log.Printf("[MessageBus] Committed offset %d for topic %s", message.Offset, message.Topic)
+	}
+
 	return nil
 }
 
@@ -303,33 +385,84 @@ func CleanupMessageBus() error {
 	return os.RemoveAll(messageBusDir)
 }
 
+// CleanupOffsets removes all offset files (useful for development)
+func CleanupOffsets() error {
+	return os.RemoveAll(offsetDir)
+}
+
+// CleanupAll removes all message and offset files (useful for development)
+func CleanupAll() error {
+	if err := CleanupMessageBus(); err != nil {
+		return fmt.Errorf("failed to cleanup message bus: %w", err)
+	}
+	if err := CleanupOffsets(); err != nil {
+		return fmt.Errorf("failed to cleanup offsets: %w", err)
+	}
+	return nil
+}
+
 // GetMessageBusStats returns statistics about the message bus
 func GetMessageBusStats() map[string]interface{} {
 	stats := make(map[string]interface{})
 
+	// Get message stats
 	if _, err := os.Stat(messageBusDir); os.IsNotExist(err) {
 		stats["status"] = "no_messages"
-		return stats
+	} else {
+		topics, err := os.ReadDir(messageBusDir)
+		if err != nil {
+			stats["error"] = err.Error()
+		} else {
+			topicStats := make(map[string]int)
+			for _, topic := range topics {
+				if topic.IsDir() {
+					topicDir := filepath.Join(messageBusDir, topic.Name())
+					files, err := os.ReadDir(topicDir)
+					if err == nil {
+						topicStats[topic.Name()] = len(files)
+					}
+				}
+			}
+			stats["topics"] = topicStats
+		}
 	}
 
-	topics, err := os.ReadDir(messageBusDir)
-	if err != nil {
-		stats["error"] = err.Error()
-		return stats
-	}
-
-	topicStats := make(map[string]int)
-	for _, topic := range topics {
-		if topic.IsDir() {
-			topicDir := filepath.Join(messageBusDir, topic.Name())
-			files, err := os.ReadDir(topicDir)
-			if err == nil {
-				topicStats[topic.Name()] = len(files)
+	// Get offset stats
+	offsetStats := make(map[string]map[string]int64)
+	if _, err := os.Stat(offsetDir); !os.IsNotExist(err) {
+		consumerGroups, err := os.ReadDir(offsetDir)
+		if err == nil {
+			for _, group := range consumerGroups {
+				if group.IsDir() {
+					groupOffsets := make(map[string]int64)
+					groupDir := filepath.Join(offsetDir, group.Name())
+					offsetFiles, err := os.ReadDir(groupDir)
+					if err == nil {
+						for _, offsetFile := range offsetFiles {
+							if !offsetFile.IsDir() && strings.HasSuffix(offsetFile.Name(), ".offset") {
+								topic := strings.TrimSuffix(offsetFile.Name(), ".offset")
+								offsetPath := filepath.Join(groupDir, offsetFile.Name())
+								if data, err := os.ReadFile(offsetPath); err == nil {
+									if offset, err := strconv.ParseInt(strings.TrimSpace(string(data)), 10, 64); err == nil {
+										groupOffsets[topic] = offset
+									}
+								}
+							}
+						}
+					}
+					if len(groupOffsets) > 0 {
+						offsetStats[group.Name()] = groupOffsets
+					}
+				}
 			}
 		}
 	}
 
-	stats["topics"] = topicStats
 	stats["message_bus_dir"] = messageBusDir
+	stats["offset_dir"] = offsetDir
+	if len(offsetStats) > 0 {
+		stats["consumer_offsets"] = offsetStats
+	}
+
 	return stats
 }

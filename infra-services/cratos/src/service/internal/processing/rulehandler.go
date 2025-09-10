@@ -2,6 +2,7 @@ package processing
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sharedgomodule/logging"
 	"sharedgomodule/messagebus"
@@ -133,7 +134,7 @@ func (rh *RuleEngineHandler) handleRuleTaskMessage(message *messagebus.Message) 
 	rh.rlogger.Debugw("RULE TASK HANDLER - Received task", "size", len(message.Value))
 
 	// Process rule task with structured data unmarshaling
-	sendToDBBatchProcessor(rh.ctx, rh.rlogger, message.Value, "RULE_TASK")
+	sendToDBBatchProcessor(rh.ctx, rh.rlogger, message.Value, rh.reInst)
 
 	if err := rh.ruleTaskConsumer.Commit(context.Background(), message); err != nil {
 		rh.rlogger.Errorw("RULE TASK HANDLER - Failed to commit message", "error", err)
@@ -243,8 +244,8 @@ func (rh *RuleEngineHandler) Stop() error {
 	return nil
 }
 
-func sendToDBBatchProcessor(ctx context.Context, logger logging.Logger, ruleBytes []byte, action string) {
-	logger.Infow("RULE TASK HANDLER - sending rule to DB batch processor", "action", action)
+func sendToDBBatchProcessor(ctx context.Context, logger logging.Logger, taskBytes []byte, reInst relib.RuleEngineType) {
+	logger.Info("RULE TASK HANDLER - sending rule to DB batch processor")
 }
 
 func (rh *RuleEngineHandler) GetStats() map[string]interface{} {
@@ -310,9 +311,15 @@ func (rh *RuleEngineHandler) SetLeader(isLeader bool) {
 }
 
 func (rh *RuleEngineHandler) distributeRuleTask(res *relib.RuleMsgResult) bool {
+	// Marshal the RuleMsgResult directly since it already has Action and RuleJSON
+	taskBytes, err := json.Marshal(res)
+	if err != nil {
+		rh.rlogger.Errorw("RULE HANDLER - Failed to marshal task data", "error", err)
+		return false
+	}
 	out := &messagebus.Message{
 		Topic: rh.config.RuleTasksTopic,
-		Value: res.RuleJSON,
+		Value: taskBytes,
 	}
 
 	ctx, cancel := context.WithTimeout(rh.ctx, 5*time.Second)

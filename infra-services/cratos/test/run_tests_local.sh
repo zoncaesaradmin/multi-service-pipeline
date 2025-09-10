@@ -289,7 +289,7 @@ generate_report() {
     log_info "Generating test script report..."
 
     REPORT_FILE="$RESULTS_DIR/report.txt"
-    TEST_EXEC_REPORT="$RESULTS_DIR/logs/test_execution_report.txt"
+    TEST_EXEC_REPORT="$RESULTS_DIR/logs/complete_test_execution_report.txt"
 
     {
         echo "=================================================="

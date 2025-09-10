@@ -590,7 +590,7 @@ func cleanupGroupKafkaResources(groupCtx *impl.CustomContext, logger logging.Log
 
 // Merge group reports into a single final report
 func mergeReports(logDir string, numGroups int, finalResult int) {
-	finalReportPath := filepath.Join(logDir, "test_execution_report.txt")
+	finalReportPath := filepath.Join(logDir, "complete_test_execution_report.txt")
 	finalFile, err := os.Create(finalReportPath)
 	if err != nil {
 		log.Printf("Failed to create final report file: %v", err)

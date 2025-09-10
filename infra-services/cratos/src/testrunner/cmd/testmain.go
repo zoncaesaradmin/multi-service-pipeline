@@ -10,7 +10,6 @@ import (
 	"os/signal"
 	"path/filepath"
 	"sharedgomodule/logging"
-	"sharedgomodule/utils"
 	"strings"
 	"sync"
 	"syscall"
@@ -285,20 +284,7 @@ func InitializeTestSuite(ctx *godog.TestSuiteContext) {
 	ctx.BeforeSuite(func() {
 		fmt.Println("Starting test suite - global setup")
 
-		// Initialize the global logger once for the entire test suite
-		logDir := os.Getenv("SERVICE_LOG_DIR")
-		if logDir == "" {
-			logDir = "./logs"
-		}
-
-		var err error
-		suiteLogger, err = logging.NewLogger(&logging.LoggerConfig{
-			Level:         logging.DebugLevel,
-			FilePath:      filepath.Join(logDir, "testrunner.log"),
-			LoggerName:    "testrunner",
-			ComponentName: "test-component",
-			ServiceName:   "cratos",
-		})
+		suiteLogger, err := getDefaultLogger()
 		if err != nil {
 			log.Fatalf("Failed to create suite logger: %v", err)
 		}
@@ -334,10 +320,6 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 
 		// Get logger from context (with fallback)
 		logger := getLoggerFromContext(goCtx)
-
-		// Create a trace-aware logger for this scenario
-		traceLogger := utils.WithTraceLoggerFromID(logger, utils.CreateContextualTraceID(sc.Name, suiteCtx.ExampleData))
-		traceLogger.Info("Starting scenario")
 
 		// Reset scenario-specific data while keeping the same context instance
 		suiteCtx.CurrentScenario = sc.Name
@@ -378,22 +360,29 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 			scenarioCtx = suiteCtx
 		}
 
-		// Clean up scenario resources
-		if scenarioCtx.ConsHandler != nil {
-			if stopErr := scenarioCtx.ConsHandler.Stop(); stopErr != nil {
-				logger.Errorw("Failed to stop consumer handler", "error", stopErr, "scenario", sc.Name)
+		featureName := getFeatureNameFromScenario(sc)
+
+		// handle per scenario cleanup only for scenarios NOT using feature-level cleanup
+		if featureName == "basic_tests" {
+			// Clean up scenario-level resources for any specific case
+			logger.Info("cleanup per scenario resources")
+			if scenarioCtx.ConsHandler != nil {
+				scenarioCtx.ConsHandler.Stop()
 			}
-			scenarioCtx.ConsHandler = nil
+			if scenarioCtx.ProducerHandler != nil {
+				scenarioCtx.ProducerHandler.Stop()
+			}
+		} else {
+			// For features using feature level resource setup,
+			// just reset consumer state but don't stop the handlers
+			if scenarioCtx.ConsHandler != nil {
+				// Reset consumer state between scenarios (if your ConsumerHandler has a Reset method)
+				scenarioCtx.ConsHandler.Reset()
+			}
+			logger.Debugw("Kafka resources maintained at feature level, skipping scenario cleanup", "feature", featureName)
 		}
 
-		if scenarioCtx.ProducerHandler != nil {
-			if stopErr := scenarioCtx.ProducerHandler.Stop(); stopErr != nil {
-				logger.Errorw("Failed to stop producer handler", "error", stopErr, "scenario", sc.Name)
-			}
-			scenarioCtx.ProducerHandler = nil
-		}
-
-		// Reset scenario context
+		// Always reset scenario context
 		scenarioCtx.CurrentScenario = ""
 		scenarioCtx.ExampleData = make(map[string]string)
 
@@ -416,13 +405,27 @@ func getLoggerFromContext(ctx context.Context) logging.Logger {
 	}
 	// Last resort: create a basic logger
 	log.Printf("Warning: No logger found in context, creating fallback logger")
-	logger, _ := logging.NewLogger(&logging.LoggerConfig{
-		Level:         logging.InfoLevel,
-		LoggerName:    "fallback",
-		ComponentName: "testrunner",
+	dLogger, err := getDefaultLogger()
+	if err != nil {
+		log.Fatalf("Failed to create fallback logger: %v", err)
+	}
+	return dLogger
+}
+
+func getDefaultLogger() (logging.Logger, error) {
+	// Initialize the global logger once for the entire test suite
+	logDir := os.Getenv("SERVICE_LOG_DIR")
+	if logDir == "" {
+		logDir = "./logs"
+	}
+
+	return logging.NewLogger(&logging.LoggerConfig{
+		Level:         logging.DebugLevel,
+		FilePath:      filepath.Join(logDir, "testrunner.log"),
+		LoggerName:    "testrunner",
+		ComponentName: "test-component",
 		ServiceName:   "cratos",
 	})
-	return logger
 }
 
 // Helper function to get suite context from Go context with fallback
@@ -448,20 +451,87 @@ func getFeatureNameFromScenario(sc *godog.Scenario) string {
 	return "unknown_feature"
 }
 
+// Setup Kafka producer and consumer at feature level
+func setupKafkaResourcesForFeature(logger logging.Logger) error {
+	logger.Info("Starting Kafka producer and consumer for feature")
+
+	// Initialize consumer handler
+	suiteCtx.ConsHandler = impl.NewConsumerHandler(logger)
+	if err := suiteCtx.ConsHandler.Start(); err != nil {
+		return fmt.Errorf("failed to start consumer handler: %w", err)
+	}
+	logger.Debug("Feature-level consumer handler started successfully")
+
+	// Initialize producer handler
+	suiteCtx.ProducerHandler = impl.NewProducerHandler(logger)
+	if err := suiteCtx.ProducerHandler.Start(); err != nil {
+		// If producer fails, cleanup consumer
+		if stopErr := suiteCtx.ConsHandler.Stop(); stopErr != nil {
+			logger.Errorw("Failed to stop consumer during producer setup failure", "error", stopErr)
+		}
+		suiteCtx.ConsHandler = nil
+		return fmt.Errorf("failed to start producer handler: %w", err)
+	}
+	logger.Debug("Feature-level producer handler started successfully")
+
+	suiteCtx.InConfigTopic = "cisco_nir-alertRules"
+	suiteCtx.InDataTopic = "cisco_nir-anomalies"
+	suiteCtx.OutDataTopic = "cisco_nir-prealerts"
+
+	logger.Info("Kafka resources initialized successfully for feature")
+	return nil
+}
+
+// Cleanup Kafka producer and consumer at feature level
+func cleanupKafkaResourcesForFeature() {
+	if suiteLogger == nil {
+		return
+	}
+
+	suiteLogger.Info("Cleaning up Kafka resources for feature")
+
+	// Cleanup consumer
+	if suiteCtx.ConsHandler != nil {
+		if err := suiteCtx.ConsHandler.Stop(); err != nil {
+			suiteLogger.Errorw("Failed to stop feature-level consumer handler", "error", err)
+		} else {
+			suiteLogger.Debug("Feature-level consumer handler stopped successfully")
+		}
+		suiteCtx.ConsHandler = nil
+	}
+
+	// Cleanup producer
+	if suiteCtx.ProducerHandler != nil {
+		if err := suiteCtx.ProducerHandler.Stop(); err != nil {
+			suiteLogger.Errorw("Failed to stop feature-level producer handler", "error", err)
+		} else {
+			suiteLogger.Debug("Feature-level producer handler stopped successfully")
+		}
+		suiteCtx.ProducerHandler = nil
+	}
+
+	suiteLogger.Info("Kafka resources cleanup completed for feature")
+}
+
 // Feature-level setup
 func setupFeatureResources(logger logging.Logger, featureName string) error {
-	logger.Infow("Setting up resources for feature", "feature", featureName)
+	logger.Infow("Setting up feature-level resources if any", "feature", featureName)
 
 	switch featureName {
 	case "basic_tests":
-		// Setup specific to basic_tests.feature
-		logger.Debug("Setting up basic_tests feature resources")
+		// Setup Kafka producer and consumer for basic_tests.feature
+		//logger.Debug("Setting up basic_tests feature resources with Kafka")
+		//return setupKafkaResourcesForFeature(logger)
+
 	case "one_to_one_tests":
-		// Setup specific to one_to_one_tests.feature
-		logger.Debug("Setting up one_to_one_tests feature resources")
+		// Setup Kafka producer and consumer for one_to_one_tests.feature
+		logger.Debug("Setting up one_to_one_tests feature resources with Kafka")
+		return setupKafkaResourcesForFeature(logger)
+
 	default:
 		// Default feature setup
 		logger.Debug("Setting up default feature resources")
+		return nil
 	}
 	return nil
 }
@@ -474,13 +544,17 @@ func cleanupFeatureResources(featureName string) {
 
 	switch featureName {
 	case "basic_tests":
-		if suiteLogger != nil {
-			suiteLogger.Debug("Cleaning up basic_tests feature resources")
-		}
+		// if suiteLogger != nil {
+		// 	suiteLogger.Debug("Cleaning up basic_tests feature resources with Kafka")
+		// }
+		// cleanupKafkaResourcesForFeature()
+
 	case "one_to_one_tests":
 		if suiteLogger != nil {
-			suiteLogger.Debug("Cleaning up one_to_one_tests feature resources")
+			suiteLogger.Debug("Cleaning up one_to_one_tests feature resources with Kafka")
 		}
+		cleanupKafkaResourcesForFeature()
+
 	default:
 		if suiteLogger != nil {
 			suiteLogger.Debug("Cleaning up default feature resources")

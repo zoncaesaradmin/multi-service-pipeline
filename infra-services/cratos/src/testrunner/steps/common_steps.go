@@ -54,10 +54,12 @@ func (b *CommonStepBindings) KafkaConsumersStarted(topic string) error {
 
 func InitializeCommonSteps(ctx *godog.ScenarioContext, suiteCtx *impl.CustomContext) {
 	bindings := &CommonStepBindings{SuiteCtx: suiteCtx}
+	// below two steps can be used if any specific scenario needs to start/stop producer/consumer
 	ctx.Step(`^kafka producer publishing test config and test data is ready$`, bindings.KafkaProducerReady)
 	ctx.Step(`^the test kafka consumer is listening on kafka topic "([^"]*)"$`, bindings.KafkaConsumersStarted)
 	ctx.Step(`^ensure_test_config_kafka_producer_is_ready$`, bindings.KafkaProducerReady)
 	ctx.Step(`^ensure_test_data_kafka_consumer_on_topic "([^"]*)"$`, bindings.KafkaConsumersStarted)
+	ctx.Step(`^ensure_test_data_consumer_on_output_is_ready$`, bindings.KafkaConsumerReady)
 	ctx.Step(`^set_input_config_topic "([^"]*)"$`, func(topic string) error {
 		bindings.SuiteCtx.InConfigTopic = topic
 		return nil
@@ -70,5 +72,4 @@ func InitializeCommonSteps(ctx *godog.ScenarioContext, suiteCtx *impl.CustomCont
 		bindings.SuiteCtx.OutDataTopic = topic
 		return nil
 	})
-	ctx.Step(`^ensure_test_data_consumer_on_output_is_ready$`, bindings.KafkaConsumerReady)
 }

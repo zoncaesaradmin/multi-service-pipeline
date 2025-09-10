@@ -17,7 +17,7 @@ func (b *CommonStepBindings) KafkaProducerReady() error {
 	traceID := utils.CreateContextualTraceID(b.SuiteCtx.CurrentScenario, b.SuiteCtx.ExampleData)
 	traceLogger := utils.WithTraceLoggerFromID(b.SuiteCtx.L, traceID)
 
-	prodHandler := impl.NewProducerHandler(traceLogger)
+	prodHandler := impl.NewProducerHandler(traceLogger, b.SuiteCtx.ExecGroupIndex)
 	if err := prodHandler.Start(); err != nil {
 		traceLogger.Errorf("Failed to start producer: %w", err)
 		return err
@@ -39,7 +39,7 @@ func (b *CommonStepBindings) KafkaConsumersStarted(topic string) error {
 	traceID := utils.CreateContextualTraceID(b.SuiteCtx.CurrentScenario, b.SuiteCtx.ExampleData)
 	traceLogger := utils.WithTraceLoggerFromID(b.SuiteCtx.L, traceID)
 
-	consHandler := impl.NewConsumerHandler(traceLogger)
+	consHandler := impl.NewConsumerHandler(traceLogger, b.SuiteCtx.ExecGroupIndex)
 	if err := consHandler.Start(); err != nil {
 		traceLogger.Errorf("Failed to start consumer on topic %s", topic, err)
 		return err

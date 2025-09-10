@@ -3,13 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"sharedgomodule/logging"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -22,16 +22,8 @@ import (
 )
 
 var (
-	currentFeature   string
-	featureSetupDone = make(map[string]bool)
-	featureMutex     sync.Mutex
-
 	testStatus     = "in_progress" // possible values: in_progress, complete
 	textReportPath string
-
-	// Global logger and context for the entire test suite
-	suiteLogger logging.Logger
-	suiteCtx    *impl.CustomContext
 )
 
 // Context keys for passing data through Go context
@@ -49,7 +41,7 @@ func serveReports() *http.Server {
 	})
 
 	http.HandleFunc("/report/text", func(w http.ResponseWriter, r *http.Request) {
-		data, err := ioutil.ReadFile(textReportPath)
+		data, err := os.ReadFile(textReportPath)
 		if err != nil {
 			w.WriteHeader(http.StatusNotFound)
 			w.Write([]byte("Text report not found"))
@@ -100,47 +92,6 @@ func setupLogDirectory() string {
 	return logDir
 }
 
-// runTestSuite executes the Godog test suite and returns the result
-func runTestSuite(logDir string) int {
-	featurePaths := getFeaturePaths()
-
-	textReportPath = filepath.Join(logDir, "test_execution_report.txt")
-	textFile, err := os.Create(textReportPath)
-	if err != nil {
-		log.Panicf("Failed to create text report file: %v", err)
-	}
-	defer textFile.Close()
-
-	optsText := godog.Options{
-		Format: "pretty",
-		Paths:  featurePaths,
-		Output: textFile,
-	}
-
-	return godog.TestSuite{
-		Name:                 "service-testrunner",
-		ScenarioInitializer:  InitializeScenario,
-		TestSuiteInitializer: InitializeTestSuite,
-		Options:              &optsText,
-	}.Run()
-}
-
-// appendSuiteResult writes the final test result to the report file
-func appendSuiteResult(suiteResult int) {
-	resultText := "SUITE RESULT: "
-	if suiteResult == 0 {
-		resultText += "SUCCESS"
-	} else {
-		resultText += "FAILURE"
-	}
-
-	f, err := os.OpenFile(textReportPath, os.O_APPEND|os.O_WRONLY, 0644)
-	if err == nil {
-		f.WriteString("\n" + resultText + "\n")
-		f.Close()
-	}
-}
-
 // handleServerShutdown manages the server based on environment configuration
 func handleServerShutdown(server *http.Server) {
 	go func() {
@@ -165,10 +116,11 @@ func main() {
 	server := serveReports()
 	testStatus = "in_progress"
 
-	suiteResult := runTestSuite(logDir)
+	// Run tests using unified approach (automatically handles parallel vs non-parallel)
+	runTestSuites(logDir)
+
 	testStatus = "complete"
 
-	appendSuiteResult(suiteResult)
 	handleServerShutdown(server)
 }
 
@@ -196,7 +148,7 @@ func getFeaturePaths() []string {
 	// Highest priority: FEATURE_LIST_FILE env var (file with list of feature files)
 	featureListFile := os.Getenv("FEATURE_LIST_FILE")
 	if featureListFile != "" {
-		data, err := ioutil.ReadFile(featureListFile)
+		data, err := os.ReadFile(featureListFile)
 		if err == nil {
 			// Each line is a feature file path
 			lines := []string{}
@@ -278,164 +230,412 @@ func trim(s string) string {
 	return s[start:end]
 }
 
-// --- HOOKS INTEGRATION ---
-
-func InitializeTestSuite(ctx *godog.TestSuiteContext) {
-	ctx.BeforeSuite(func() {
-		fmt.Println("Starting test suite - global setup")
-
-		suiteLogger, err := getDefaultLogger()
-		if err != nil {
-			log.Fatalf("Failed to create suite logger: %v", err)
-		}
-
-		// Initialize the global suite context once
-		suiteCtx = &impl.CustomContext{
-			L:           suiteLogger,
-			ExampleData: make(map[string]string),
-		}
-
-		suiteLogger.Info("Test suite initialized with global logger and context")
-	})
-
-	ctx.AfterSuite(func() {
-		if suiteLogger != nil {
-			suiteLogger.Info("Ending test suite - global cleanup")
-		} else {
-			fmt.Println("Ending test suite - global cleanup")
-		}
-		// Cleanup any remaining feature resources
-		cleanupAllFeatureResources()
-	})
+// Check if parallel execution is requested
+func shouldRunParallel() bool {
+	return os.Getenv("PARALLEL_EXECUTION") == "true"
 }
 
-func InitializeScenario(ctx *godog.ScenarioContext) {
-	ctx.Before(func(goCtx context.Context, sc *godog.Scenario) (context.Context, error) {
-		featureMutex.Lock()
-		defer featureMutex.Unlock()
-
-		// Add logger and suite context to the Go context
-		goCtx = context.WithValue(goCtx, loggerContextKey, suiteLogger)
-		goCtx = context.WithValue(goCtx, suiteContextKey, suiteCtx)
-
-		// Get logger from context (with fallback)
-		logger := getLoggerFromContext(goCtx)
-
-		// Reset scenario-specific data while keeping the same context instance
-		suiteCtx.CurrentScenario = sc.Name
-		suiteCtx.ExampleData = make(map[string]string)
-
-		featureName := getFeatureNameFromScenario(sc)
-
-		// Check if this is the first scenario in a new feature
-		if currentFeature != featureName {
-			// Cleanup previous feature if exists
-			if currentFeature != "" {
-				logger.Infow("Ending feature", "feature", currentFeature)
-				cleanupFeatureResources(currentFeature)
-			}
-
-			// Setup new feature
-			currentFeature = featureName
-			logger.Infow("Starting feature", "feature", featureName)
-			if err := setupFeatureResources(logger, featureName); err != nil {
-				return goCtx, fmt.Errorf("failed to setup feature %s: %w", featureName, err)
-			}
-			featureSetupDone[featureName] = true
+// Get concurrency level for parallel execution
+func getConcurrency() int {
+	if concStr := os.Getenv("TEST_CONCURRENCY"); concStr != "" {
+		if conc, err := strconv.Atoi(concStr); err == nil && conc > 0 {
+			return conc
 		}
-
-		logger.Infow("Starting scenario", "scenario", sc.Name, "feature", featureName)
-		return goCtx, nil
-	})
-
-	ctx.After(func(goCtx context.Context, sc *godog.Scenario, err error) (context.Context, error) {
-		// Get logger from context
-		logger := getLoggerFromContext(goCtx)
-		logger.Infow("Cleaning up scenario", "scenario", sc.Name)
-
-		// Get suite context from Go context
-		scenarioCtx := getSuiteContextFromContext(goCtx)
-		if scenarioCtx == nil {
-			logger.Warn("Suite context not found in Go context, using global")
-			scenarioCtx = suiteCtx
-		}
-
-		featureName := getFeatureNameFromScenario(sc)
-
-		// handle per scenario cleanup only for scenarios NOT using feature-level cleanup
-		if featureName == "basic_tests" {
-			// Clean up scenario-level resources for any specific case
-			logger.Info("cleanup per scenario resources")
-			if scenarioCtx.ConsHandler != nil {
-				scenarioCtx.ConsHandler.Stop()
-			}
-			if scenarioCtx.ProducerHandler != nil {
-				scenarioCtx.ProducerHandler.Stop()
-			}
-		} else {
-			// For features using feature level resource setup,
-			// just reset consumer state but don't stop the handlers
-			if scenarioCtx.ConsHandler != nil {
-				// Reset consumer state between scenarios (if your ConsumerHandler has a Reset method)
-				scenarioCtx.ConsHandler.Reset()
-			}
-			logger.Debugw("Kafka resources maintained at feature level, skipping scenario cleanup", "feature", featureName)
-		}
-
-		// Always reset scenario context
-		scenarioCtx.CurrentScenario = ""
-		scenarioCtx.ExampleData = make(map[string]string)
-
-		return goCtx, nil
-	})
-
-	// Register step definitions with the global context
-	steps.InitializeCommonSteps(ctx, suiteCtx)
-	steps.InitializeRulesSteps(ctx, suiteCtx)
+	}
+	return 1 // Default to sequential execution
 }
 
-// Helper function to get logger from Go context with fallback
-func getLoggerFromContext(ctx context.Context) logging.Logger {
-	if logger, ok := ctx.Value(loggerContextKey).(logging.Logger); ok {
-		return logger
+// Get maximum parallel groups from environment
+func getMaxParallelGroups() int {
+	if groupsStr := os.Getenv("MAX_PARALLEL_GROUPS"); groupsStr != "" {
+		if groups, err := strconv.Atoi(groupsStr); err == nil && groups > 0 {
+			return groups
+		}
 	}
-	// Fallback to global logger
-	if suiteLogger != nil {
-		return suiteLogger
+	return 2 // Default to 2 parallel groups
+}
+
+// Run test suites (handles both parallel and non-parallel execution)
+func runTestSuites(logDir string) int {
+	featurePaths := getFeaturePaths()
+
+	// Group features for execution (automatically handles parallel vs non-parallel)
+	featureGroups := groupFeaturesForExecution(featurePaths)
+
+	var wg sync.WaitGroup
+	results := make(chan int, len(featureGroups))
+
+	if len(featureGroups) > 1 {
+		fmt.Printf("Running %d feature groups in parallel\n", len(featureGroups))
+	} else {
+		fmt.Printf("Running %d feature group\n", len(featureGroups))
 	}
-	// Last resort: create a basic logger
-	log.Printf("Warning: No logger found in context, creating fallback logger")
-	dLogger, err := getDefaultLogger()
+
+	for i, group := range featureGroups {
+		wg.Add(1)
+		go func(groupIndex int, features []string) {
+			defer wg.Done()
+			result := runFeatureGroup(logDir, groupIndex, features)
+			results <- result
+		}(i, group)
+	}
+
+	// Wait for all suites to complete
+	wg.Wait()
+	close(results)
+
+	// Aggregate results
+	finalResult := 0
+	groupCount := 0
+	for result := range results {
+		groupCount++
+		if result != 0 {
+			finalResult = result // If any suite fails, overall result is failure
+		}
+	}
+
+	if len(featureGroups) > 1 {
+		fmt.Printf("Parallel execution completed: %d groups processed\n", groupCount)
+	} else {
+		fmt.Printf("Test execution completed: %d group processed\n", groupCount)
+	}
+
+	// Merge all reports
+	mergeReports(logDir, len(featureGroups), finalResult)
+
+	return finalResult
+}
+
+// Group features for execution (handles both parallel and non-parallel)
+func groupFeaturesForExecution(featurePaths []string) [][]string {
+	// Check if parallel execution is requested
+	if !shouldRunParallel() {
+		// Non-parallel execution: return all features as a single group (group 0)
+		return [][]string{featurePaths}
+	}
+
+	// Parallel execution: distribute features across multiple groups
+	maxGroups := getMaxParallelGroups()
+
+	if len(featurePaths) <= maxGroups {
+		// Each feature gets its own group
+		groups := make([][]string, len(featurePaths))
+		for i, path := range featurePaths {
+			groups[i] = []string{path}
+		}
+		return groups
+	}
+
+	// Distribute features across groups
+	groups := make([][]string, maxGroups)
+	for i, path := range featurePaths {
+		groupIndex := i % maxGroups
+		groups[groupIndex] = append(groups[groupIndex], path)
+	}
+
+	return groups
+}
+
+// Run a specific group of features
+func runFeatureGroup(logDir string, groupIndex int, features []string) int {
+	// Create group-specific report file (always use group_N format)
+	groupReportPath := filepath.Join(logDir, fmt.Sprintf("test_execution_report_%d.txt", groupIndex))
+
+	textFile, err := os.Create(groupReportPath)
 	if err != nil {
-		log.Fatalf("Failed to create fallback logger: %v", err)
+		log.Printf("Failed to create group report file: %v", err)
+		return 1
 	}
-	return dLogger
-}
+	defer textFile.Close()
 
-func getDefaultLogger() (logging.Logger, error) {
-	// Initialize the global logger once for the entire test suite
-	logDir := os.Getenv("SERVICE_LOG_DIR")
-	if logDir == "" {
-		logDir = "./logs"
-	}
+	// Create group-specific logger (always use group_N format)
+	logFileName := fmt.Sprintf("testrunner_%d.log", groupIndex)
+	loggerName := fmt.Sprintf("testrunner-%d", groupIndex)
+	suiteName := fmt.Sprintf("service-testrunner-%d", groupIndex)
 
-	return logging.NewLogger(&logging.LoggerConfig{
+	groupLogger, err := logging.NewLogger(&logging.LoggerConfig{
 		Level:         logging.DebugLevel,
-		FilePath:      filepath.Join(logDir, "testrunner.log"),
-		LoggerName:    "testrunner",
+		FilePath:      filepath.Join(logDir, logFileName),
+		LoggerName:    loggerName,
 		ComponentName: "test-component",
 		ServiceName:   "cratos",
 	})
+	if err != nil {
+		log.Printf("Failed to create group logger: %v", err)
+		return 1
+	}
+
+	groupLogger.Infow("Starting feature group", "group", groupIndex, "features", features)
+
+	// Get concurrency for this group (Godog built-in concurrency)
+	concurrency := getConcurrency()
+
+	optsText := godog.Options{
+		Format:      "pretty",
+		Paths:       features,
+		Output:      textFile,
+		Concurrency: concurrency,
+	}
+
+	// Create test suite with group-based initializers (treats non-parallel as single group)
+	result := godog.TestSuite{
+		Name:                 suiteName,
+		ScenarioInitializer:  scenarioInitializer(groupLogger, groupIndex),
+		TestSuiteInitializer: suiteInitializer(groupLogger, groupIndex),
+		Options:              &optsText,
+	}.Run()
+
+	groupLogger.Infow("Completed feature group", "group", groupIndex, "result", result)
+	return result
 }
 
-// Helper function to get suite context from Go context with fallback
-func getSuiteContextFromContext(ctx context.Context) *impl.CustomContext {
-	if suiteContext, ok := ctx.Value(suiteContextKey).(*impl.CustomContext); ok {
-		return suiteContext
+// Create group-specific scenario initializer (no global state, each group is independent)
+func scenarioInitializer(groupLogger logging.Logger, groupIndex int) func(*godog.ScenarioContext) {
+	// Create group-specific context - each group has its own isolated state
+	var groupCurrentFeature string
+	var groupFeatureSetupDone = make(map[string]bool)
+	var groupFeatureMutex sync.Mutex
+
+	groupSuiteCtx := &impl.CustomContext{
+		L:           groupLogger,
+		ExampleData: make(map[string]string),
 	}
-	// Fallback to global suite context
-	return suiteCtx
+
+	// Each group maintains its own isolated state - no global variables needed
+
+	return func(ctx *godog.ScenarioContext) {
+		ctx.Before(func(goCtx context.Context, sc *godog.Scenario) (context.Context, error) {
+			groupFeatureMutex.Lock()
+			defer groupFeatureMutex.Unlock()
+
+			// Add context
+			goCtx = context.WithValue(goCtx, loggerContextKey, groupLogger)
+			goCtx = context.WithValue(goCtx, suiteContextKey, groupSuiteCtx)
+
+			// Reset scenario-specific data
+			groupSuiteCtx.CurrentScenario = sc.Name
+			groupSuiteCtx.ExampleData = make(map[string]string)
+
+			featureName := getFeatureNameFromScenario(sc)
+
+			// Check if this is the first scenario in a new feature for this group
+			if groupCurrentFeature != featureName {
+				// Cleanup previous feature if exists
+				if groupCurrentFeature != "" {
+					groupLogger.Infow("Ending feature in group", "feature", groupCurrentFeature, "group", groupIndex)
+					cleanupGroupFeatureResources(groupSuiteCtx, groupCurrentFeature, groupLogger)
+				}
+
+				// Setup new feature for this group
+				groupCurrentFeature = featureName
+				groupLogger.Infow("Starting feature in group", "feature", featureName, "group", groupIndex)
+
+				if err := setupGroupFeatureResources(groupSuiteCtx, groupLogger, featureName, groupIndex); err != nil {
+					return goCtx, fmt.Errorf("failed to setup feature %s in group %d: %w", featureName, groupIndex, err)
+				}
+				groupFeatureSetupDone[featureName] = true
+			}
+
+			groupLogger.Infow("Starting scenario in group", "scenario", sc.Name, "feature", featureName, "group", groupIndex)
+			return goCtx, nil
+		})
+
+		ctx.After(func(goCtx context.Context, sc *godog.Scenario, err error) (context.Context, error) {
+			featureName := getFeatureNameFromScenario(sc)
+
+			// Handle cleanup based on feature type
+			if featureName == "basic_tests" {
+				// Clean up scenario-level resources
+				groupLogger.Infow("Cleaning up scenario resources in group", "scenario", sc.Name, "group", groupIndex)
+				if groupSuiteCtx.ConsHandler != nil {
+					groupSuiteCtx.ConsHandler.Stop()
+				}
+				if groupSuiteCtx.ProducerHandler != nil {
+					groupSuiteCtx.ProducerHandler.Stop()
+				}
+			} else {
+				// For features using feature level resource setup, just reset consumer state
+				if groupSuiteCtx.ConsHandler != nil {
+					groupSuiteCtx.ConsHandler.Reset()
+				}
+				groupLogger.Debugw("Kafka resources maintained at feature level in group, skipping scenario cleanup", "feature", featureName, "group", groupIndex)
+			}
+
+			// Reset scenario context
+			groupSuiteCtx.CurrentScenario = ""
+			groupSuiteCtx.ExampleData = make(map[string]string)
+
+			return goCtx, nil
+		})
+
+		// Register step definitions with the group context
+		steps.InitializeCommonSteps(ctx, groupSuiteCtx)
+		steps.InitializeRulesSteps(ctx, groupSuiteCtx)
+	}
 }
+
+// Create group-specific suite initializer
+func suiteInitializer(groupLogger logging.Logger, groupIndex int) func(*godog.TestSuiteContext) {
+	return func(ctx *godog.TestSuiteContext) {
+		ctx.BeforeSuite(func() {
+			groupLogger.Infow("Starting test suite for group", "group", groupIndex)
+		})
+
+		ctx.AfterSuite(func() {
+			groupLogger.Infow("Ending test suite for group", "group", groupIndex)
+			// Each group cleans up its own resources during scenario transitions
+		})
+	}
+}
+
+// Setup feature resources for a specific group
+func setupGroupFeatureResources(groupCtx *impl.CustomContext, logger logging.Logger, featureName string, groupIndex int) error {
+	logger.Infow("Setting up group feature resources", "feature", featureName, "group", groupIndex)
+
+	switch featureName {
+	case "basic_tests":
+		// basic_tests uses scenario-level setup, no feature-level setup needed
+		logger.Debugw("Basic tests use scenario-level setup", "group", groupIndex)
+		return nil
+
+	case "one_to_one_tests":
+		// Setup Kafka producer and consumer for one_to_one_tests.feature
+		logger.Debugw("Setting up one_to_one_tests feature resources with Kafka", "group", groupIndex)
+		return setupGroupKafkaResources(groupCtx, logger, groupIndex)
+
+	default:
+		// Default feature setup
+		logger.Debugw("Setting up default feature resources", "group", groupIndex)
+		return nil
+	}
+}
+
+// Setup Kafka resources for a specific group
+func setupGroupKafkaResources(groupCtx *impl.CustomContext, logger logging.Logger, groupIndex int) error {
+	logger.Infow("Starting Kafka producer and consumer for group", "group", groupIndex)
+
+	// Initialize consumer handler for this group
+	groupCtx.ConsHandler = impl.NewConsumerHandler(logger, groupIndex)
+	if err := groupCtx.ConsHandler.Start(); err != nil {
+		return fmt.Errorf("failed to start consumer handler for group %d: %w", groupIndex, err)
+	}
+	logger.Debugw("Group consumer handler started successfully", "group", groupIndex)
+
+	// Initialize producer handler for this group
+	groupCtx.ProducerHandler = impl.NewProducerHandler(logger, groupIndex)
+	if err := groupCtx.ProducerHandler.Start(); err != nil {
+		// If producer fails, cleanup consumer
+		if stopErr := groupCtx.ConsHandler.Stop(); stopErr != nil {
+			logger.Errorw("Failed to stop consumer during producer setup failure", "error", stopErr, "group", groupIndex)
+		}
+		groupCtx.ConsHandler = nil
+		return fmt.Errorf("failed to start producer handler for group %d: %w", groupIndex, err)
+	}
+	logger.Debugw("Group producer handler started successfully", "group", groupIndex)
+
+	// Set default topics for the group
+	groupCtx.InConfigTopic = "cisco_nir-alertRules"
+	groupCtx.InDataTopic = "cisco_nir-anomalies"
+	groupCtx.OutDataTopic = "cisco_nir-prealerts"
+	groupCtx.ExecGroupIndex = groupIndex
+
+	logger.Infow("Kafka resources initialized successfully for group", "group", groupIndex)
+	return nil
+}
+
+// Cleanup feature resources for a specific group
+func cleanupGroupFeatureResources(groupCtx *impl.CustomContext, featureName string, logger logging.Logger) {
+	logger.Infow("Cleaning up group feature resources", "feature", featureName)
+
+	switch featureName {
+	case "basic_tests":
+		// basic_tests uses scenario-level cleanup, no feature-level cleanup needed
+		logger.Debug("Basic tests use scenario-level cleanup")
+
+	case "one_to_one_tests":
+		logger.Debug("Cleaning up one_to_one_tests feature resources with Kafka")
+		cleanupGroupKafkaResources(groupCtx, logger)
+
+	default:
+		logger.Debug("Cleaning up default feature resources")
+	}
+}
+
+// Cleanup Kafka resources for a specific group
+func cleanupGroupKafkaResources(groupCtx *impl.CustomContext, logger logging.Logger) {
+	logger.Info("Cleaning up Kafka resources for group")
+
+	// Cleanup consumer
+	if groupCtx.ConsHandler != nil {
+		if err := groupCtx.ConsHandler.Stop(); err != nil {
+			logger.Errorw("Failed to stop group consumer handler", "error", err)
+		} else {
+			logger.Debug("Group consumer handler stopped successfully")
+		}
+		groupCtx.ConsHandler = nil
+	}
+
+	// Cleanup producer
+	if groupCtx.ProducerHandler != nil {
+		if err := groupCtx.ProducerHandler.Stop(); err != nil {
+			logger.Errorw("Failed to stop group producer handler", "error", err)
+		} else {
+			logger.Debug("Group producer handler stopped successfully")
+		}
+		groupCtx.ProducerHandler = nil
+	}
+
+	logger.Info("Kafka resources cleanup completed for group")
+}
+
+// Merge group reports into a single final report
+func mergeReports(logDir string, numGroups int, finalResult int) {
+	finalReportPath := filepath.Join(logDir, "test_execution_report.txt")
+	finalFile, err := os.Create(finalReportPath)
+	if err != nil {
+		log.Printf("Failed to create final report file: %v", err)
+		return
+	}
+	defer finalFile.Close()
+
+	// Set global textReportPath so the HTTP server can serve the merged report
+	textReportPath = finalReportPath
+
+	if numGroups > 1 {
+		finalFile.WriteString("=== PARALLEL TEST EXECUTION REPORT ===\n\n")
+	} else {
+		finalFile.WriteString("=== TEST EXECUTION REPORT ===\n\n")
+	}
+
+	for i := 0; i < numGroups; i++ {
+		groupReportPath := filepath.Join(logDir, fmt.Sprintf("test_execution_report_%d.txt", i))
+
+		finalFile.WriteString(fmt.Sprintf("=== GROUP %d RESULTS ===\n", i))
+
+		if data, err := os.ReadFile(groupReportPath); err == nil {
+			finalFile.Write(data)
+		} else {
+			finalFile.WriteString(fmt.Sprintf("Error reading group %d report: %v\n", i, err))
+		}
+
+		finalFile.WriteString(fmt.Sprintf("\n=== END GROUP %d ===\n\n", i))
+	}
+
+	// Add the final suite result status expected by test scripts
+	resultText := "SUITE RESULT: "
+	if finalResult == 0 {
+		resultText += "SUCCESS"
+	} else {
+		resultText += "FAILURE"
+	}
+	finalFile.WriteString(resultText + "\n")
+}
+
+// --- HOOKS INTEGRATION ---
+
+// --- CLEANUP AND SETUP FUNCTIONS ---
+
+// --- HELPER FUNCTIONS ---
 
 // Helper function to extract feature name from scenario
 func getFeatureNameFromScenario(sc *godog.Scenario) string {
@@ -449,122 +649,4 @@ func getFeatureNameFromScenario(sc *godog.Scenario) string {
 		}
 	}
 	return "unknown_feature"
-}
-
-// Setup Kafka producer and consumer at feature level
-func setupKafkaResourcesForFeature(logger logging.Logger) error {
-	logger.Info("Starting Kafka producer and consumer for feature")
-
-	// Initialize consumer handler
-	suiteCtx.ConsHandler = impl.NewConsumerHandler(logger)
-	if err := suiteCtx.ConsHandler.Start(); err != nil {
-		return fmt.Errorf("failed to start consumer handler: %w", err)
-	}
-	logger.Debug("Feature-level consumer handler started successfully")
-
-	// Initialize producer handler
-	suiteCtx.ProducerHandler = impl.NewProducerHandler(logger)
-	if err := suiteCtx.ProducerHandler.Start(); err != nil {
-		// If producer fails, cleanup consumer
-		if stopErr := suiteCtx.ConsHandler.Stop(); stopErr != nil {
-			logger.Errorw("Failed to stop consumer during producer setup failure", "error", stopErr)
-		}
-		suiteCtx.ConsHandler = nil
-		return fmt.Errorf("failed to start producer handler: %w", err)
-	}
-	logger.Debug("Feature-level producer handler started successfully")
-
-	suiteCtx.InConfigTopic = "cisco_nir-alertRules"
-	suiteCtx.InDataTopic = "cisco_nir-anomalies"
-	suiteCtx.OutDataTopic = "cisco_nir-prealerts"
-
-	logger.Info("Kafka resources initialized successfully for feature")
-	return nil
-}
-
-// Cleanup Kafka producer and consumer at feature level
-func cleanupKafkaResourcesForFeature() {
-	if suiteLogger == nil {
-		return
-	}
-
-	suiteLogger.Info("Cleaning up Kafka resources for feature")
-
-	// Cleanup consumer
-	if suiteCtx.ConsHandler != nil {
-		if err := suiteCtx.ConsHandler.Stop(); err != nil {
-			suiteLogger.Errorw("Failed to stop feature-level consumer handler", "error", err)
-		} else {
-			suiteLogger.Debug("Feature-level consumer handler stopped successfully")
-		}
-		suiteCtx.ConsHandler = nil
-	}
-
-	// Cleanup producer
-	if suiteCtx.ProducerHandler != nil {
-		if err := suiteCtx.ProducerHandler.Stop(); err != nil {
-			suiteLogger.Errorw("Failed to stop feature-level producer handler", "error", err)
-		} else {
-			suiteLogger.Debug("Feature-level producer handler stopped successfully")
-		}
-		suiteCtx.ProducerHandler = nil
-	}
-
-	suiteLogger.Info("Kafka resources cleanup completed for feature")
-}
-
-// Feature-level setup
-func setupFeatureResources(logger logging.Logger, featureName string) error {
-	logger.Infow("Setting up feature-level resources if any", "feature", featureName)
-
-	switch featureName {
-	case "basic_tests":
-		// Setup Kafka producer and consumer for basic_tests.feature
-		//logger.Debug("Setting up basic_tests feature resources with Kafka")
-		//return setupKafkaResourcesForFeature(logger)
-
-	case "one_to_one_tests":
-		// Setup Kafka producer and consumer for one_to_one_tests.feature
-		logger.Debug("Setting up one_to_one_tests feature resources with Kafka")
-		return setupKafkaResourcesForFeature(logger)
-
-	default:
-		// Default feature setup
-		logger.Debug("Setting up default feature resources")
-		return nil
-	}
-	return nil
-}
-
-// Feature-level cleanup
-func cleanupFeatureResources(featureName string) {
-	if suiteLogger != nil {
-		suiteLogger.Infow("Cleaning up resources for feature", "feature", featureName)
-	}
-
-	switch featureName {
-	case "basic_tests":
-		// if suiteLogger != nil {
-		// 	suiteLogger.Debug("Cleaning up basic_tests feature resources with Kafka")
-		// }
-		// cleanupKafkaResourcesForFeature()
-
-	case "one_to_one_tests":
-		if suiteLogger != nil {
-			suiteLogger.Debug("Cleaning up one_to_one_tests feature resources with Kafka")
-		}
-		cleanupKafkaResourcesForFeature()
-
-	default:
-		if suiteLogger != nil {
-			suiteLogger.Debug("Cleaning up default feature resources")
-		}
-	}
-}
-
-// Cleanup all feature resources (called in AfterSuite)
-func cleanupAllFeatureResources() {
-	if currentFeature != "" {
-		cleanupFeatureResources(currentFeature)
-	}
 }

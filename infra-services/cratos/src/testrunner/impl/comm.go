@@ -7,6 +7,7 @@ import (
 	"sharedgomodule/logging"
 	"sharedgomodule/messagebus"
 	"sharedgomodule/utils"
+	"strconv"
 	"sync"
 	"telemetry/utils/alert"
 	"testgomodule/types"
@@ -28,6 +29,7 @@ type CustomContext struct {
 	ExampleData     map[string]string // Track current example data for scenario outlines
 	SentDataMeta    types.SentDataMeta
 	SentConfigMeta  types.SentConfigMeta
+	ExecGroupIndex  int
 }
 
 type ConsumerHandler struct {
@@ -44,11 +46,11 @@ type ConsumerHandler struct {
 }
 
 // NewInputHandler creates a new input handler
-func NewConsumerHandler(logger logging.Logger) *ConsumerHandler {
+func NewConsumerHandler(logger logging.Logger, index int) *ConsumerHandler {
 
 	confFilename := utils.ResolveConfFilePath("kafka-consumer.yaml")
 	kafkaConf := utils.LoadConfigMap(confFilename)
-	consumer := messagebus.NewConsumer(kafkaConf, "prealertConsGroup"+os.Getenv("HOSTNAME"))
+	consumer := messagebus.NewConsumer(kafkaConf, "prealertConsGroup"+strconv.Itoa(index)+"-"+os.Getenv("HOSTNAME"))
 
 	return &ConsumerHandler{
 		consumer: consumer,
@@ -241,11 +243,11 @@ type ProducerHandler struct {
 	logger   logging.Logger
 }
 
-func NewProducerHandler(logger logging.Logger) *ProducerHandler {
+func NewProducerHandler(logger logging.Logger, index int) *ProducerHandler {
 	confFilename := utils.ResolveConfFilePath("kafka-producer.yaml")
 	kafkaConf := utils.LoadConfigMap(confFilename)
 
-	producer := messagebus.NewProducer(kafkaConf, "testAnomalyProducer"+os.Getenv("HOSTNAME"))
+	producer := messagebus.NewProducer(kafkaConf, "testAnomalyProducer"+strconv.Itoa(index)+"-"+os.Getenv("HOSTNAME"))
 
 	return &ProducerHandler{
 		producer: producer,

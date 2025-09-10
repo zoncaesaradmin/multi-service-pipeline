@@ -68,6 +68,14 @@ func (re *RuleEngine) DeleteRule(rule string) {
 	}
 }
 
+// GetRule retrieves a rule from the engine by its UUID
+func (re *RuleEngine) GetRule(ruleUUID string) (*RuleDefinition, bool) {
+	re.Mutex.Lock()
+	defer re.Mutex.Unlock()
+	rule, exists := re.RuleMap[ruleUUID]
+	return rule, exists
+}
+
 // EvaluateRules evaluates all rules against the provided data
 func (re *RuleEngine) EvaluateRules(data Data) RuleLookupResult {
 	re.Mutex.Lock()

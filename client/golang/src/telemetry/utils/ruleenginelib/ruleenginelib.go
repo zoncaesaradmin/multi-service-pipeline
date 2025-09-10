@@ -192,4 +192,7 @@ func (re *RuleEngine) initAlertRules() {
 type RuleEngineType interface {
 	HandleRuleEvent([]byte) (*RuleMsgResult, error)
 	EvaluateRules(Data) RuleLookupResult
+	GetRule(string) (*RuleDefinition, bool)
+	AddRule(string) error
+	DeleteRule(string)
 }

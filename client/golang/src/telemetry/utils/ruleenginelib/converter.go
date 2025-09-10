@@ -50,6 +50,7 @@ type RuleMatchCriteriaConfig struct {
 	UUID                        string          `json:"uuid"`
 	AlertRuleId                 string          `json:"alertRuleId"`
 	SiteId                      string          `json:"siteId,omitempty"`
+	Scope                       string          `json:"scope,omitempty"`
 }
 
 type MatchCriteria struct {
@@ -64,8 +65,12 @@ func processRuleMatchCriteria(rule AlertRuleConfig) map[string][]*RuleMatchCondi
 	for _, criteria := range rule.AlertRuleMatchCriteria {
 
 		primKey := criteria.SiteId
+		if criteria.Scope == ScopeSystem {
+			primKey = PrimaryKeySystem
+		}
 		if primKey == "" {
-			primKey = DefaultPrimaryKey // Use default key if no site ID specified
+			// Use default key if no site ID specified or it is not system cscope as well
+			primKey = PrimaryKeyDefault
 		}
 		conditionals := make([]AstConditional, 0)
 

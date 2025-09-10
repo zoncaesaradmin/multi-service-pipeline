@@ -631,12 +631,6 @@ func mergeReports(logDir string, numGroups int, finalResult int) {
 	finalFile.WriteString(resultText + "\n")
 }
 
-// --- HOOKS INTEGRATION ---
-
-// --- CLEANUP AND SETUP FUNCTIONS ---
-
-// --- HELPER FUNCTIONS ---
-
 // Helper function to extract feature name from scenario
 func getFeatureNameFromScenario(sc *godog.Scenario) string {
 	// Godog scenarios contain the feature URI

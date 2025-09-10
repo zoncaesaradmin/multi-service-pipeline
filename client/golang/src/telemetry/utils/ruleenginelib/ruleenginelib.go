@@ -23,7 +23,9 @@ const (
 const (
 	RuleTypeMgmt      = "ALERT_RULES"
 	RuleTypeSource    = "GLOBAL_CATEGORY_RULES"
-	DefaultPrimaryKey = "DEFAULT_PRIMARY_KEY"
+	ScopeSystem       = "platform-system"
+	PrimaryKeyDefault = "PRIMARY_KEY_DEFAULT"
+	PrimaryKeySystem  = "PRIMARY_KEY_SYSTEM"
 )
 
 // Constants for CRUD operations on rule

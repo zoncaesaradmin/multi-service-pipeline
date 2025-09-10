@@ -10,6 +10,9 @@ import (
 	"os/signal"
 	"path/filepath"
 	"sharedgomodule/logging"
+	"sharedgomodule/utils"
+	"strings"
+	"sync"
 	"syscall"
 	"testgomodule/impl"
 	"testgomodule/steps"
@@ -19,8 +22,26 @@ import (
 	"github.com/joho/godotenv"
 )
 
-var testStatus = "in_progress" // possible values: in_progress, complete
-var textReportPath string
+var (
+	currentFeature   string
+	featureSetupDone = make(map[string]bool)
+	featureMutex     sync.Mutex
+
+	testStatus     = "in_progress" // possible values: in_progress, complete
+	textReportPath string
+
+	// Global logger and context for the entire test suite
+	suiteLogger logging.Logger
+	suiteCtx    *impl.CustomContext
+)
+
+// Context keys for passing data through Go context
+type contextKey string
+
+const (
+	loggerContextKey contextKey = "suite-logger"
+	suiteContextKey  contextKey = "suite-context"
+)
 
 func serveReports() *http.Server {
 	http.HandleFunc("/report/status", func(w http.ResponseWriter, r *http.Request) {
@@ -39,24 +60,11 @@ func serveReports() *http.Server {
 		w.Write(data)
 	})
 
-	// http.HandleFunc("/report/json", func(w http.ResponseWriter, r *http.Request) {
-	// 	jsonReportPath := filepath.Join(os.Getenv("SERVICE_LOG_DIR"), "test_execution_report.json")
-	// 	data, err := ioutil.ReadFile(jsonReportPath)
-	// 	if err != nil {
-	// 		w.WriteHeader(http.StatusNotFound)
-	// 		w.Write([]byte("JSON report not found"))
-	// 		return
-	// 	}
-	// 	w.Header().Set("Content-Type", "application/json")
-	// 	w.Write(data)
-	// })
-
 	port := os.Getenv("REPORT_PORT")
 	if port == "" {
 		port = "4478"
 	}
 	fmt.Println("Starting report server on port:", port)
-	// Start HTTP server in a goroutine and signal when it's done
 	server := &http.Server{Addr: ":" + port}
 
 	return server
@@ -275,41 +283,214 @@ func trim(s string) string {
 
 func InitializeTestSuite(ctx *godog.TestSuiteContext) {
 	ctx.BeforeSuite(func() {
-		fmt.Println("🔧 Global setup: runs ONCE before all features")
-		// Add global setup logic here
+		fmt.Println("Starting test suite - global setup")
+
+		// Initialize the global logger once for the entire test suite
+		logDir := os.Getenv("SERVICE_LOG_DIR")
+		if logDir == "" {
+			logDir = "./logs"
+		}
+
+		var err error
+		suiteLogger, err = logging.NewLogger(&logging.LoggerConfig{
+			Level:         logging.DebugLevel,
+			FilePath:      filepath.Join(logDir, "testrunner.log"),
+			LoggerName:    "testrunner",
+			ComponentName: "test-component",
+			ServiceName:   "cratos",
+		})
+		if err != nil {
+			log.Fatalf("Failed to create suite logger: %v", err)
+		}
+
+		// Initialize the global suite context once
+		suiteCtx = &impl.CustomContext{
+			L:           suiteLogger,
+			ExampleData: make(map[string]string),
+		}
+
+		suiteLogger.Info("Test suite initialized with global logger and context")
 	})
+
 	ctx.AfterSuite(func() {
-		fmt.Println("🧹 Global cleanup: runs ONCE after all features")
-		// Add global cleanup logic here
+		if suiteLogger != nil {
+			suiteLogger.Info("Ending test suite - global cleanup")
+		} else {
+			fmt.Println("Ending test suite - global cleanup")
+		}
+		// Cleanup any remaining feature resources
+		cleanupAllFeatureResources()
 	})
 }
 
-// Scenario step registration
 func InitializeScenario(ctx *godog.ScenarioContext) {
-	logDir := os.Getenv("SERVICE_LOG_DIR")
-	logger, err := logging.NewLogger(&logging.LoggerConfig{
-		Level:         logging.DebugLevel,
-		FilePath:      filepath.Join(logDir, "testrunner.log"),
-		LoggerName:    "testrunner",
-		ComponentName: "test-component",
-		ServiceName:   "cratos",
-	})
-	if err != nil {
-		log.Fatalf("Failed to create logger: %v", err)
-	}
-	suiteCtx := &impl.CustomContext{L: logger}
+	ctx.Before(func(goCtx context.Context, sc *godog.Scenario) (context.Context, error) {
+		featureMutex.Lock()
+		defer featureMutex.Unlock()
 
-	// Track current scenario for trace ID generation
-	ctx.Before(func(ctx context.Context, sc *godog.Scenario) (context.Context, error) {
+		// Add logger and suite context to the Go context
+		goCtx = context.WithValue(goCtx, loggerContextKey, suiteLogger)
+		goCtx = context.WithValue(goCtx, suiteContextKey, suiteCtx)
+
+		// Get logger from context (with fallback)
+		logger := getLoggerFromContext(goCtx)
+
+		// Create a trace-aware logger for this scenario
+		traceLogger := utils.WithTraceLoggerFromID(logger, utils.CreateContextualTraceID(sc.Name, suiteCtx.ExampleData))
+		traceLogger.Info("Starting scenario")
+
+		// Reset scenario-specific data while keeping the same context instance
 		suiteCtx.CurrentScenario = sc.Name
-		// Reset example data for each scenario
 		suiteCtx.ExampleData = make(map[string]string)
 
-		traceLogger := logger.WithField("scenario", sc.Name)
-		traceLogger.Info("Starting scenario")
-		return ctx, nil
+		featureName := getFeatureNameFromScenario(sc)
+
+		// Check if this is the first scenario in a new feature
+		if currentFeature != featureName {
+			// Cleanup previous feature if exists
+			if currentFeature != "" {
+				logger.Infow("Ending feature", "feature", currentFeature)
+				cleanupFeatureResources(currentFeature)
+			}
+
+			// Setup new feature
+			currentFeature = featureName
+			logger.Infow("Starting feature", "feature", featureName)
+			if err := setupFeatureResources(logger, featureName); err != nil {
+				return goCtx, fmt.Errorf("failed to setup feature %s: %w", featureName, err)
+			}
+			featureSetupDone[featureName] = true
+		}
+
+		logger.Infow("Starting scenario", "scenario", sc.Name, "feature", featureName)
+		return goCtx, nil
 	})
 
+	ctx.After(func(goCtx context.Context, sc *godog.Scenario, err error) (context.Context, error) {
+		// Get logger from context
+		logger := getLoggerFromContext(goCtx)
+		logger.Infow("Cleaning up scenario", "scenario", sc.Name)
+
+		// Get suite context from Go context
+		scenarioCtx := getSuiteContextFromContext(goCtx)
+		if scenarioCtx == nil {
+			logger.Warn("Suite context not found in Go context, using global")
+			scenarioCtx = suiteCtx
+		}
+
+		// Clean up scenario resources
+		if scenarioCtx.ConsHandler != nil {
+			if stopErr := scenarioCtx.ConsHandler.Stop(); stopErr != nil {
+				logger.Errorw("Failed to stop consumer handler", "error", stopErr, "scenario", sc.Name)
+			}
+			scenarioCtx.ConsHandler = nil
+		}
+
+		if scenarioCtx.ProducerHandler != nil {
+			if stopErr := scenarioCtx.ProducerHandler.Stop(); stopErr != nil {
+				logger.Errorw("Failed to stop producer handler", "error", stopErr, "scenario", sc.Name)
+			}
+			scenarioCtx.ProducerHandler = nil
+		}
+
+		// Reset scenario context
+		scenarioCtx.CurrentScenario = ""
+		scenarioCtx.ExampleData = make(map[string]string)
+
+		return goCtx, nil
+	})
+
+	// Register step definitions with the global context
 	steps.InitializeCommonSteps(ctx, suiteCtx)
 	steps.InitializeRulesSteps(ctx, suiteCtx)
+}
+
+// Helper function to get logger from Go context with fallback
+func getLoggerFromContext(ctx context.Context) logging.Logger {
+	if logger, ok := ctx.Value(loggerContextKey).(logging.Logger); ok {
+		return logger
+	}
+	// Fallback to global logger
+	if suiteLogger != nil {
+		return suiteLogger
+	}
+	// Last resort: create a basic logger
+	log.Printf("Warning: No logger found in context, creating fallback logger")
+	logger, _ := logging.NewLogger(&logging.LoggerConfig{
+		Level:         logging.InfoLevel,
+		LoggerName:    "fallback",
+		ComponentName: "testrunner",
+		ServiceName:   "cratos",
+	})
+	return logger
+}
+
+// Helper function to get suite context from Go context with fallback
+func getSuiteContextFromContext(ctx context.Context) *impl.CustomContext {
+	if suiteContext, ok := ctx.Value(suiteContextKey).(*impl.CustomContext); ok {
+		return suiteContext
+	}
+	// Fallback to global suite context
+	return suiteCtx
+}
+
+// Helper function to extract feature name from scenario
+func getFeatureNameFromScenario(sc *godog.Scenario) string {
+	// Godog scenarios contain the feature URI
+	if sc.Uri != "" {
+		// Extract filename without extension
+		parts := strings.Split(sc.Uri, "/")
+		if len(parts) > 0 {
+			filename := parts[len(parts)-1]
+			return strings.TrimSuffix(filename, ".feature")
+		}
+	}
+	return "unknown_feature"
+}
+
+// Feature-level setup
+func setupFeatureResources(logger logging.Logger, featureName string) error {
+	logger.Infow("Setting up resources for feature", "feature", featureName)
+
+	switch featureName {
+	case "basic_tests":
+		// Setup specific to basic_tests.feature
+		logger.Debug("Setting up basic_tests feature resources")
+	case "one_to_one_tests":
+		// Setup specific to one_to_one_tests.feature
+		logger.Debug("Setting up one_to_one_tests feature resources")
+	default:
+		// Default feature setup
+		logger.Debug("Setting up default feature resources")
+	}
+	return nil
+}
+
+// Feature-level cleanup
+func cleanupFeatureResources(featureName string) {
+	if suiteLogger != nil {
+		suiteLogger.Infow("Cleaning up resources for feature", "feature", featureName)
+	}
+
+	switch featureName {
+	case "basic_tests":
+		if suiteLogger != nil {
+			suiteLogger.Debug("Cleaning up basic_tests feature resources")
+		}
+	case "one_to_one_tests":
+		if suiteLogger != nil {
+			suiteLogger.Debug("Cleaning up one_to_one_tests feature resources")
+		}
+	default:
+		if suiteLogger != nil {
+			suiteLogger.Debug("Cleaning up default feature resources")
+		}
+	}
+}
+
+// Cleanup all feature resources (called in AfterSuite)
+func cleanupAllFeatureResources() {
+	if currentFeature != "" {
+		cleanupFeatureResources(currentFeature)
+	}
 }

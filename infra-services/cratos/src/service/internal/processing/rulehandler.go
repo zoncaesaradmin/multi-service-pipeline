@@ -15,6 +15,11 @@ import (
 	"time"
 )
 
+const (
+	TaskCheckerInitInterval = time.Duration(5 * time.Minute)
+	TaskCheckerInterval     = time.Duration(20 * time.Minute)
+)
+
 type RuleEngineConfig struct {
 	RulesTopic                  string
 	PollTimeout                 time.Duration
@@ -40,6 +45,8 @@ type RuleEngineHandler struct {
 	ruleTaskConsumer messagebus.Consumer
 	isLeader         bool
 	leaderMutex      sync.RWMutex
+	leaderCancel     context.CancelFunc
+	leaderCtx        context.Context
 }
 
 func NewRuleHandler(config RuleEngineConfig, logger logging.Logger) *RuleEngineHandler {
@@ -360,6 +367,14 @@ func (rh *RuleEngineHandler) SetLeader(isLeader bool) {
 	rh.leaderMutex.Lock()
 	defer rh.leaderMutex.Unlock()
 	rh.isLeader = isLeader
+	if isLeader {
+		rh.leaderCtx, rh.leaderCancel = context.WithCancel(rh.ctx)
+		go periodicRuleTaskChecker(rh.rlogger, rh.leaderCtx)
+	} else if rh.leaderCancel != nil {
+		rh.leaderCancel()
+		rh.leaderCancel = nil
+		rh.leaderCtx = nil
+	}
 }
 
 func (rh *RuleEngineHandler) distributeRuleTask(res *relib.RuleMsgResult) bool {
@@ -392,4 +407,31 @@ func containsActionType(actions []relib.RuleHitAction, actionType string) (bool,
 		}
 	}
 	return false, ""
+}
+
+func periodicRuleTaskChecker(l logging.Logger, ctx context.Context) {
+
+	select {
+	case <-time.After(TaskCheckerInitInterval):
+		processPendingTasks()
+	case <-ctx.Done():
+		l.Info("periodic rule task checker is cancelled before work started")
+	}
+
+	ticker := time.NewTicker(TaskCheckerInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			l.Info("periodic rule task checker is cancelled")
+			return
+		case <-ticker.C:
+			processPendingTasks()
+		}
+	}
+}
+
+func processPendingTasks() {
+	// add handling to fetch rule tasks from DB and generate tasks into rule tasks topic
 }

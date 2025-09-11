@@ -84,7 +84,7 @@ func TestConvertFunc(t *testing.T) {
 		return
 	}
 
-	fmt.Printf("received msg unmarshalled: %+v\n", rInput)
+	//fmt.Printf("received msg unmarshalled: %+v\n", rInput)
 
 	ruleJsonBytes, err := ConvertToRuleEngineFormat(rInput.AlertRules)
 	if err != nil {
@@ -97,5 +97,5 @@ func TestConvertFunc(t *testing.T) {
 		return
 	}
 
-	fmt.Printf("converted rules - %s\n", string(ruleJsonBytes))
+	//fmt.Printf("converted rules - %s\n", string(ruleJsonBytes))
 }

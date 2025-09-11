@@ -33,11 +33,13 @@ func TestEvaluateRules(t *testing.T) {
 	ruleDefinition := &RuleDefinition{
 		AlertRuleUUID: testRuleUUID,
 		Name:          "Test Rule",
+		Priority:      100, // Add priority for proper indexing
 		Enabled:       true,
 		MatchCriteriaEntries: map[string][]*RuleMatchCondition{
 			"default": {
 				{
-					CriteriaUUID: "condition-1",
+					CriteriaUUID:      "condition-1",
+					PrimaryMatchValue: "PRIMARY_KEY_DEFAULT", // Add primary key for indexing
 					Condition: AstCondition{
 						All: []AstConditional{
 							{Identifier: "planet", Operator: "eq", Value: "Earth"},
@@ -51,8 +53,8 @@ func TestEvaluateRules(t *testing.T) {
 		},
 	}
 
-	// Add the rule to the engine
-	re.RuleMap[testRuleUUID] = ruleDefinition
+	// Add the rule to the engine using the new method that rebuilds indexes
+	re.AddRuleDefinition(ruleDefinition)
 
 	// Test with matching data
 	data := Data{"planet": "Earth"}

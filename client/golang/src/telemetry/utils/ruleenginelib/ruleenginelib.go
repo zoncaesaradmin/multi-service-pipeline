@@ -130,7 +130,6 @@ func isRelevantRule(meta AlertRuleMetadata, validTypes []string) bool {
 func (re *RuleEngine) HandleRuleEvent(msgBytes []byte, userMeta UserMetaData) (*RuleMsgResult, error) {
 	var rInput AlertRuleMsg
 	trLogger := re.Logger.WithField("traceId", userMeta.TraceId)
-	//l := re.Logger.WithField("traceId", meta.Tags["traceID"])
 	if err := json.Unmarshal(msgBytes, &rInput); err != nil {
 		trLogger.Infof("Failed to unmarshal rule message: %v", err.Error())
 		// log and ignore invalid messages

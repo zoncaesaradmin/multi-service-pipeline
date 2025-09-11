@@ -87,6 +87,22 @@ func (log *Logger) Panicf(msg string, err error, params ...interface{}) {
 	log.logger.Panic().Stack().Err(errors.WithStack(err)).Msgf(msg, params...)
 }
 
+// WithField returns a new Logger instance with the specified field added to the context
+func (log *Logger) WithField(key string, value interface{}) *Logger {
+	newLogger := log.logger.With().Interface(key, value).Logger()
+	return &Logger{logger: &newLogger}
+}
+
+// WithFields returns a new Logger instance with multiple fields added to the context
+func (log *Logger) WithFields(fields map[string]interface{}) *Logger {
+	context := log.logger.With()
+	for key, value := range fields {
+		context = context.Interface(key, value)
+	}
+	newLogger := context.Logger()
+	return &Logger{logger: &newLogger}
+}
+
 func CreateLoggerInstance(svcName string, logFilePath string, level zerolog.Level) *Logger {
 	logConfig := LoggerConfig{
 		ServiceName: svcName,

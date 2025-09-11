@@ -139,13 +139,18 @@ func (rh *RuleEngineHandler) handleRuleTaskMessage(message *messagebus.Message) 
 		return
 	}
 
-	rh.rlogger.Debugw("RULE TASK HANDLER - Received task", "size", len(message.Value))
+	// Extract or generate trace ID from message headers
+	traceID := utils.ExtractTraceID(message.Headers)
+	// Use trace-aware logger for this message
+	msgLogger := utils.WithTraceLoggerFromID(rh.rlogger, traceID)
+
+	msgLogger.Debugw("RULE TASK HANDLER - Received task", "size", len(message.Value))
 
 	// Process rule task with structured data unmarshaling
-	sendToDBBatchProcessor(rh.ctx, rh.rlogger, message.Value, rh.reInst)
+	sendToDBBatchProcessor(rh.ctx, msgLogger, message.Value, rh.reInst)
 
 	if err := rh.ruleTaskConsumer.Commit(context.Background(), message); err != nil {
-		rh.rlogger.Errorw("RULE TASK HANDLER - Failed to commit message", "error", err)
+		msgLogger.Errorw("RULE TASK HANDLER - Failed to commit message", "error", err)
 	}
 }
 
@@ -191,30 +196,36 @@ func (rh *RuleEngineHandler) handleRuleMessage(message *messagebus.Message) {
 		return
 	}
 
-	rh.rlogger.Debugw("RULE HANDLER - Received message", "size", len(message.Value))
+	// Extract or generate trace ID from message headers
+	traceID := utils.ExtractTraceID(message.Headers)
+	// Use trace-aware logger for this message
+	msgLogger := utils.WithTraceLoggerFromID(rh.rlogger, traceID)
 
-	res, err := rh.reInst.HandleRuleEvent(message.Value)
+	msgLogger.Debugw("RULE HANDLER - Received message", "size", len(message.Value))
+
+	userMeta := relib.UserMetaData{TraceId: traceID}
+	res, err := rh.reInst.HandleRuleEvent(message.Value, userMeta)
 	if err != nil {
-		rh.rlogger.Errorw("RULE HANDLER - Failed to handle rule event", "error", err)
+		msgLogger.Errorw("RULE HANDLER - Failed to handle rule event", "error", err)
 	} else if res != nil && len(res.RuleJSON) > 0 {
-		rh.processRuleResult(res)
+		rh.processRuleEvent(msgLogger, traceID, res)
 	}
 
 	if err := rh.ruleconsumer.Commit(context.Background(), message); err != nil {
-		rh.rlogger.Errorw("RULE HANDLER - Failed to commit message", "error", err)
+		msgLogger.Errorw("RULE HANDLER - Failed to commit message", "error", err)
 	}
 }
 
-// processRuleResult handles rule processing results and task distribution
-func (rh *RuleEngineHandler) processRuleResult(res *relib.RuleMsgResult) {
-	rh.rlogger.Debugw("RULE HANDLER - Converted rule JSON", "action", res.Action, "convertedRule", string(res.RuleJSON))
+// processRuleEvent handles rule event processing results and task distribution
+func (rh *RuleEngineHandler) processRuleEvent(l logging.Logger, traceID string, res *relib.RuleMsgResult) {
+	l.Debugw("RULE HANDLER - Converted rule JSON", "action", res.Action, "convertedRule", string(res.RuleJSON))
 
 	if rh.Leader() {
-		if rh.distributeRuleTask(res) {
-			rh.rlogger.Debugw("RULE HANDLER - Successfully distributed rule task", "action", res.Action)
+		if rh.distributeRuleTask(l, traceID, res) {
+			l.Debugw("RULE HANDLER - Successfully distributed rule task", "action", res.Action)
 		}
 	} else {
-		rh.rlogger.Debug("RULE HANDLER - Not leader, skipping rule task distribution")
+		l.Debug("RULE HANDLER - Not leader, skipping rule task distribution")
 	}
 }
 
@@ -377,23 +388,26 @@ func (rh *RuleEngineHandler) SetLeader(isLeader bool) {
 	}
 }
 
-func (rh *RuleEngineHandler) distributeRuleTask(res *relib.RuleMsgResult) bool {
+func (rh *RuleEngineHandler) distributeRuleTask(l logging.Logger, traceID string, res *relib.RuleMsgResult) bool {
 	// Marshal the RuleMsgResult directly since it already has Action and RuleJSON
 	taskBytes, err := json.Marshal(res)
 	if err != nil {
-		rh.rlogger.Errorw("RULE HANDLER - Failed to marshal task data", "error", err)
+		l.Errorw("RULE HANDLER - Failed to marshal task data", "error", err)
 		return false
 	}
 	out := &messagebus.Message{
 		Topic: rh.config.RuleTasksTopic,
 		Value: taskBytes,
+		Headers: map[string]string{
+			utils.TraceIDHeader: traceID,
+		},
 	}
 
 	ctx, cancel := context.WithTimeout(rh.ctx, 5*time.Second)
 	defer cancel()
 
 	if _, _, err := rh.ruleTaskProducer.Send(ctx, out); err != nil {
-		rh.plogger.Errorw("RULE HANDLER - Failed to send rule task message", "error", err)
+		l.Errorw("RULE HANDLER - Failed to send rule task message", "error", err)
 		return false
 	}
 

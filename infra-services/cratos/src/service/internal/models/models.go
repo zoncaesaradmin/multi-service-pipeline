@@ -8,6 +8,9 @@ import (
 // MessageType defines the type of message being passed through the channels
 type ChannelMessageType string
 
+// MessageOrigin defines the type of message origin
+type ChannelMessageOrigin string
+
 const (
 	// ChannelMessageTypeData represents data messages that need processing
 	ChannelMessageTypeData ChannelMessageType = "data"
@@ -15,19 +18,25 @@ const (
 	ChannelMessageTypeControl ChannelMessageType = "control"
 )
 
+const (
+	ChannelMessageOriginKafka ChannelMessageOrigin = "kafka"
+	ChannelMessageOriginDb    ChannelMessageOrigin = "database"
+)
+
 // CommitCallback represents a function that commits the offset for a message
 type CommitCallback func(ctx context.Context) error
 
 // ChannelMessage represents a common message structure for channel communication
 type ChannelMessage struct {
-	Type           ChannelMessageType `json:"type"`
-	Timestamp      time.Time          `json:"timestamp"`
-	Data           []byte             `json:"data"`
-	Meta           map[string]string  `json:"meta"`
-	Key            string             `json:"key"`
-	Partition      int32              `json:"partition"`
-	CommitCallback CommitCallback     `json:"-"` // Not serialized, used for offset management
-	Context        context.Context    `json:"-"` // Not serialized, used for trace propagation
+	Origin         ChannelMessageOrigin `json:"origin"` // e.g., "kafka" (from source service), DB read
+	Type           ChannelMessageType   `json:"type"`
+	Timestamp      time.Time            `json:"timestamp"`
+	Data           []byte               `json:"data"`
+	Meta           map[string]string    `json:"meta"`
+	Key            string               `json:"key"`
+	Partition      int32                `json:"partition"`
+	CommitCallback CommitCallback       `json:"-"` // Not serialized, used for offset management
+	Context        context.Context      `json:"-"` // Not serialized, used for trace propagation
 }
 
 // NewChannelMessage creates a new channel message with the given type and data

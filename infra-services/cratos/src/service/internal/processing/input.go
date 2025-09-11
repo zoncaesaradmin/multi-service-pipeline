@@ -82,6 +82,7 @@ func (i *InputHandler) Start() error {
 
 			channelMsg := models.NewDataMessage(message.Value, message.Key, message.Partition)
 			channelMsg.CommitCallback = commitCallback
+			channelMsg.Origin = models.ChannelMessageOriginKafka
 			channelMsg.Context = traceCtx // Attach trace context to message
 
 			// Ensure trace ID is in message headers for downstream processing

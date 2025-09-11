@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"servicegomodule/internal/models"
 	"sharedgomodule/logging"
 	"sharedgomodule/messagebus"
 	"sharedgomodule/utils"
@@ -258,42 +259,93 @@ func (rh *RuleEngineHandler) GetStats() map[string]interface{} {
 	}
 }
 
-func (rh *RuleEngineHandler) applyRuleToRecord(l logging.Logger, aObj *alert.Alert) (*alert.Alert, error) {
-	if needsRuleProcessing(aObj) {
-		convRecord := ConvertAlertObjectToRuleEngineInput(aObj)
-		l.WithField("recId", recordIdentifier(aObj)).Infof("RECORD PROC - converted data: %v", convRecord)
-		lookupResult := rh.reInst.EvaluateRules(relib.Data(convRecord))
-		if lookupResult.IsRuleHit {
-			// rule matched
-			aObj.RuleId = lookupResult.RuleUUID
-			toPrintActionMap := make(map[string]any, 0)
-			for _, action := range lookupResult.Actions {
-				switch action.ActionType {
-				case relib.RuleActionSeverityOverride:
-					aObj.Severity = action.ActionValueStr
-					toPrintActionMap["severity"] = aObj.Severity
-				case relib.RuleActionAcknowledge:
-					aObj.Acknowledged = true
-					aObj.AckTs = time.Now().UTC().Format(time.RFC3339)
-					aObj.AutoAck = true
-					toPrintActionMap["ack"] = true
-				case relib.RuleActionCustomizeRecommendation:
-					aObj.IsRuleCustomReco = true
-					aObj.RuleCustomRecoStr = strings.Split(action.ActionValueStr, ",")
-					toPrintActionMap["customreco"] = aObj.RuleCustomRecoStr
-				default:
-					l.Warnf("RECORD PROC - unknown action type: %s", action.ActionType)
-				}
-			}
-			l.Debugw("RECORD PROC - rule hit", "matchCriteria", lookupResult.CriteriaHit, "actionsApplied", toPrintActionMap)
-		} else {
-			// no rule matched
-			l.WithField("recId", recordIdentifier(aObj)).Infow("RECORD PROC - no rule hit", "record", convRecord)
-		}
-	} else {
+func (rh *RuleEngineHandler) applyRuleToRecord(l logging.Logger, aObj *alert.Alert, origin models.ChannelMessageOrigin) (*alert.Alert, error) {
+	if !needsRuleProcessing(aObj) {
 		l.WithField("recId", recordIdentifier(aObj)).Infof("RECORD PROC - skipped rule lookup")
+		return aObj, nil
 	}
+
+	convRecord := ConvertAlertObjectToRuleEngineInput(aObj)
+	l.WithField("recId", recordIdentifier(aObj)).Infof("RECORD PROC - converted data: %v", convRecord)
+
+	lookupResult := rh.reInst.EvaluateRules(relib.Data(convRecord))
+
+	if lookupResult.IsRuleHit {
+		rh.handleRuleHit(l, aObj, lookupResult)
+	} else {
+		rh.handleRuleMiss(l, aObj, lookupResult, origin)
+	}
+
 	return aObj, nil
+}
+
+func (rh *RuleEngineHandler) handleRuleHit(l logging.Logger, aObj *alert.Alert, lookupResult relib.RuleLookupResult) {
+	aObj.RuleId = lookupResult.RuleUUID
+	toPrintActionMap := make(map[string]string, 0)
+
+	for _, action := range lookupResult.Actions {
+		toPrintActionMap[action.ActionType] = action.ActionValueStr
+		applyRuleAction(aObj, action.ActionType, action.ActionValueStr)
+	}
+
+	l.Debugw("RECORD PROC - rule hit", "matchCriteria", lookupResult.CriteriaHit, "actionsApplied", toPrintActionMap)
+}
+
+func (rh *RuleEngineHandler) handleRuleMiss(l logging.Logger, aObj *alert.Alert, lookupResult relib.RuleLookupResult, origin models.ChannelMessageOrigin) {
+	toPrintActionMap := make(map[string]string, 0)
+
+	if origin == models.ChannelMessageOriginDb {
+		rh.revertToDefaultActions(aObj, lookupResult)
+	}
+
+	l.WithField("recId", recordIdentifier(aObj)).Infow("RECORD PROC - no rule hit", "actionsApplied", toPrintActionMap)
+}
+
+func (rh *RuleEngineHandler) revertToDefaultActions(aObj *alert.Alert, lookupResult relib.RuleLookupResult) {
+	allSupportedActions := []string{
+		relib.RuleActionAcknowledge,
+		relib.RuleActionSeverityOverride,
+		relib.RuleActionCustomizeRecommendation,
+	}
+
+	for _, sAction := range allSupportedActions {
+		if contains, actionValue := containsActionType(lookupResult.Actions, sAction); contains {
+			applyRuleAction(aObj, sAction, actionValue)
+		} else {
+			applyDefaultAction(aObj, sAction)
+		}
+	}
+}
+
+func applyRuleAction(aObj *alert.Alert, actionType string, actionValue string) {
+	switch actionType {
+	case relib.RuleActionSeverityOverride:
+		aObj.Severity = actionValue
+	case relib.RuleActionAcknowledge:
+		aObj.Acknowledged = true
+		aObj.AckTs = time.Now().UTC().Format(time.RFC3339)
+		aObj.AutoAck = true
+	case relib.RuleActionCustomizeRecommendation:
+		aObj.IsRuleCustomReco = true
+		aObj.RuleCustomRecoStr = strings.Split(actionValue, ",")
+	default:
+	}
+}
+
+func applyDefaultAction(aObj *alert.Alert, actionType string) {
+	switch actionType {
+	case relib.RuleActionSeverityOverride:
+		// fetch default severity from mapping and apply
+		//aObj.Severity = "minor"
+	case relib.RuleActionAcknowledge:
+		aObj.Acknowledged = false
+		aObj.AckTs = ""
+		aObj.AutoAck = false
+	case relib.RuleActionCustomizeRecommendation:
+		aObj.IsRuleCustomReco = false
+		aObj.RuleCustomRecoStr = []string{}
+	default:
+	}
 }
 
 // return current leadership state
@@ -331,4 +383,13 @@ func (rh *RuleEngineHandler) distributeRuleTask(res *relib.RuleMsgResult) bool {
 	}
 
 	return true
+}
+
+func containsActionType(actions []relib.RuleHitAction, actionType string) (bool, string) {
+	for _, action := range actions {
+		if action.ActionType == actionType {
+			return true, action.ActionValueStr
+		}
+	}
+	return false, ""
 }

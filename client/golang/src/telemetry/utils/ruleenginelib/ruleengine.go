@@ -39,6 +39,10 @@ type RuleDefinition struct {
 }
 
 type RuleMatchCondition struct {
+	// fields from rule
+	AlertRuleUUID string `json:"alertRuleUUID,omitempty"` // link to rule holding this
+	Priority      int64  `json:"priority,omitempty"`      // priority of the rule this condition belongs to
+
 	CriteriaUUID      string       `json:"criteriaUUID,omitempty"`
 	PrimaryMatchValue string       `json:"primaryMatchValue,omitempty"`
 	Condition         AstCondition `json:"condition"`

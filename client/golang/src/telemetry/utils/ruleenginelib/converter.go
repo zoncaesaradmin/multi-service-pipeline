@@ -114,6 +114,8 @@ func processRuleMatchCriteria(rule AlertRuleConfig) map[string][]*RuleMatchCondi
 
 		matchCriteriaEntries[criteria.UUID] = append(matchCriteriaEntries[criteria.UUID],
 			&RuleMatchCondition{
+				AlertRuleUUID:     rule.UUID,
+				Priority:          rule.Priority,
 				CriteriaUUID:      criteria.UUID,
 				PrimaryMatchValue: primKey,
 				Condition: AstCondition{

@@ -1104,3 +1104,178 @@ func TestMultiplePrimaryKeys(t *testing.T) {
 		t.Error("Expected index integrity to be valid for multi-key rule")
 	}
 }
+
+// TestConditionLevelOptimization validates that the rule engine works at condition level instead of rule level
+func TestConditionLevelOptimization(t *testing.T) {
+	re := NewRuleEngineInstance(nil, nil)
+
+	// Create a rule with multiple conditions having different PrimaryMatchValues
+	rule := &RuleDefinition{
+		AlertRuleUUID: "condition-test-rule",
+		Name:          "Multi-Condition Rule",
+		Priority:      100,
+		Enabled:       true,
+		MatchCriteriaEntries: map[string][]*RuleMatchCondition{
+			"criteria-1": {
+				{
+					AlertRuleUUID:     "condition-test-rule",
+					Priority:          100,
+					CriteriaUUID:      "crit-fabric1",
+					PrimaryMatchValue: "fabric-1",
+					Condition: AstCondition{
+						All: []AstConditional{
+							{Identifier: "fabricName", Operator: "eq", Value: "fabric-1"},
+							{Identifier: "category", Operator: "eq", Value: "HARDWARE"},
+						},
+					},
+				},
+			},
+			"criteria-2": {
+				{
+					AlertRuleUUID:     "condition-test-rule",
+					Priority:          100,
+					CriteriaUUID:      "crit-fabric2",
+					PrimaryMatchValue: "fabric-2",
+					Condition: AstCondition{
+						All: []AstConditional{
+							{Identifier: "fabricName", Operator: "eq", Value: "fabric-2"},
+							{Identifier: "category", Operator: "eq", Value: "SOFTWARE"},
+						},
+					},
+				},
+			},
+		},
+		Actions: []*RuleAction{
+			{ActionType: "SEVERITY_OVERRIDE", ActionValueStr: "critical"},
+		},
+	}
+
+	re.AddRuleDefinition(rule)
+
+	// Verify that conditions are indexed separately by primary key
+	stats := re.GetPrimaryKeyStats()
+	if stats["fabric-1"] != 1 {
+		t.Errorf("Expected 1 condition for fabric-1, got %d", stats["fabric-1"])
+	}
+	if stats["fabric-2"] != 1 {
+		t.Errorf("Expected 1 condition for fabric-2, got %d", stats["fabric-2"])
+	}
+
+	// Test evaluation for fabric-1 data
+	data1 := Data{
+		"fabricName": "fabric-1",
+		"category":   "HARDWARE",
+	}
+
+	result1 := re.EvaluateRules(data1)
+	if !result1.IsRuleHit {
+		t.Error("Expected rule hit for fabric-1 data")
+	}
+	if result1.RuleUUID != "condition-test-rule" {
+		t.Errorf("Expected rule UUID 'condition-test-rule', got '%s'", result1.RuleUUID)
+	}
+
+	// Test evaluation for fabric-2 data
+	data2 := Data{
+		"fabricName": "fabric-2",
+		"category":   "SOFTWARE",
+	}
+
+	result2 := re.EvaluateRules(data2)
+	if !result2.IsRuleHit {
+		t.Error("Expected rule hit for fabric-2 data")
+	}
+	if result2.RuleUUID != "condition-test-rule" {
+		t.Errorf("Expected rule UUID 'condition-test-rule', got '%s'", result2.RuleUUID)
+	}
+
+	// Test that incorrect data doesn't match
+	data3 := Data{
+		"fabricName": "fabric-1",
+		"category":   "SOFTWARE", // Wrong category for fabric-1
+	}
+
+	result3 := re.EvaluateRules(data3)
+	if result3.IsRuleHit {
+		t.Error("Expected no rule hit for mismatched fabric-1 data")
+	}
+
+	t.Log("Condition-level optimization test passed: conditions indexed and evaluated independently")
+}
+
+// TestConditionPriorityOrdering validates that conditions with same primary key are ordered by priority
+func TestConditionPriorityOrdering(t *testing.T) {
+	re := NewRuleEngineInstance(&EvaluatorOptions{SortAscending: false}, nil)
+
+	// Create two rules with same primary key but different priorities
+	highPriorityRule := &RuleDefinition{
+		AlertRuleUUID: "high-priority-rule",
+		Name:          "High Priority Rule",
+		Priority:      200,
+		Enabled:       true,
+		MatchCriteriaEntries: map[string][]*RuleMatchCondition{
+			"criteria-1": {
+				{
+					AlertRuleUUID:     "high-priority-rule",
+					Priority:          200,
+					CriteriaUUID:      "high-crit",
+					PrimaryMatchValue: "test-fabric",
+					Condition: AstCondition{
+						All: []AstConditional{
+							{Identifier: "fabricName", Operator: "eq", Value: "test-fabric"},
+						},
+					},
+				},
+			},
+		},
+		Actions: []*RuleAction{
+			{ActionType: "ESCALATE", ActionValueStr: "high-priority-action"},
+		},
+	}
+
+	lowPriorityRule := &RuleDefinition{
+		AlertRuleUUID: "low-priority-rule",
+		Name:          "Low Priority Rule",
+		Priority:      100,
+		Enabled:       true,
+		MatchCriteriaEntries: map[string][]*RuleMatchCondition{
+			"criteria-1": {
+				{
+					AlertRuleUUID:     "low-priority-rule",
+					Priority:          100,
+					CriteriaUUID:      "low-crit",
+					PrimaryMatchValue: "test-fabric",
+					Condition: AstCondition{
+						All: []AstConditional{
+							{Identifier: "fabricName", Operator: "eq", Value: "test-fabric"},
+						},
+					},
+				},
+			},
+		},
+		Actions: []*RuleAction{
+			{ActionType: "ALERT", ActionValueStr: "low-priority-action"},
+		},
+	}
+
+	// Add rules in reverse order to test sorting
+	re.AddRuleDefinition(lowPriorityRule)
+	re.AddRuleDefinition(highPriorityRule)
+
+	// Test that high priority rule is evaluated first
+	data := Data{
+		"fabricName": "test-fabric",
+	}
+
+	result := re.EvaluateRules(data)
+	if !result.IsRuleHit {
+		t.Error("Expected rule hit")
+	}
+
+	// With descending sort, high priority (200) should be evaluated first
+	if result.RuleUUID != "high-priority-rule" {
+		t.Errorf("Expected high priority rule to be evaluated first, got '%s'", result.RuleUUID)
+	}
+
+	t.Log("Condition priority ordering test passed: higher priority conditions evaluated first")
+}

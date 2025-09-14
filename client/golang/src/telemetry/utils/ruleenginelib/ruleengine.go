@@ -21,7 +21,7 @@ var defaultOptions = &EvaluatorOptions{
 type RuleEngine struct {
 	EvaluatorOptions
 	RuleMap         map[string]*RuleDefinition
-	PrimaryKeyIndex map[string][]*RuleDefinition // Primary key -> sorted rules by priority
+	PrimaryKeyIndex map[string][]*RuleMatchCondition // Primary key -> sorted conditions by priority
 	Mutex           sync.Mutex
 	Logger          *Logger
 	RuleTypes       []string
@@ -86,7 +86,7 @@ func (re *RuleEngine) GetRule(ruleUUID string) (*RuleDefinition, bool) {
 	return rule, exists
 }
 
-// EvaluateRules evaluates rules against the provided data using primary key optimization
+// EvaluateRules evaluates rules against the provided data using primary key optimization at condition level
 func (re *RuleEngine) EvaluateRules(data Data) RuleLookupResult {
 	re.Mutex.Lock()
 	defer re.Mutex.Unlock()
@@ -94,32 +94,20 @@ func (re *RuleEngine) EvaluateRules(data Data) RuleLookupResult {
 	// Extract primary key from data
 	primaryKey := re.extractPrimaryKey(data)
 
-	// Look for rules specific to this primary key
-	if rules, exists := re.PrimaryKeyIndex[primaryKey]; exists && len(rules) > 0 {
-		for _, rule := range rules { // Already sorted by priority
-			if result := re.evaluateSingleRule(rule, data); result.IsRuleHit {
-				return result
-			}
-		}
-	}
-
-	// No fallback needed - if primary key mapping is correct, all rules should be findable
-	return RuleLookupResult{}
-}
-
-// evaluateSingleRule checks all match criteria entries for a rule and returns a RuleLookupResult if a match is found
-func (re *RuleEngine) evaluateSingleRule(rule *RuleDefinition, data Data) RuleLookupResult {
-	for _, matchCriteriaEntries := range rule.MatchCriteriaEntries {
-		for _, matchEntry := range matchCriteriaEntries {
-			if re.EvaluateMatchCondition(matchEntry.Condition, data) {
-				if defaultOptions.FirstMatch {
+	// Look for conditions specific to this primary key
+	if conditions, exists := re.PrimaryKeyIndex[primaryKey]; exists && len(conditions) > 0 {
+		for _, condition := range conditions { // Already sorted by priority
+			// Evaluate the condition against the data
+			if re.EvaluateMatchCondition(condition.Condition, data) {
+				// Get the parent rule information using AlertRuleUUID
+				rule := re.RuleMap[condition.AlertRuleUUID]
+				if rule != nil && rule.Enabled {
 					return RuleLookupResult{
 						IsRuleHit: true,
 						RuleUUID:  rule.AlertRuleUUID,
-						// Create a new RuleHitCriteria directly
 						CriteriaHit: RuleHitCriteria{
-							Any: append([]AstConditional{}, matchEntry.Condition.Any...),
-							All: append([]AstConditional{}, matchEntry.Condition.All...),
+							Any: append([]AstConditional{}, condition.Condition.Any...),
+							All: append([]AstConditional{}, condition.Condition.All...),
 						},
 						Actions: deepCopyActions(rule.Actions),
 					}
@@ -127,6 +115,8 @@ func (re *RuleEngine) evaluateSingleRule(rule *RuleDefinition, data Data) RuleLo
 			}
 		}
 	}
+
+	// No match found
 	return RuleLookupResult{}
 }
 
@@ -162,87 +152,72 @@ func (re *RuleEngine) extractPrimaryKey(data Data) string {
 	return PrimaryKeyDefault
 }
 
-// rebuildIndexes rebuilds primary key indexes
+// rebuildIndexes rebuilds primary key indexes at the condition level
 // This should be called after any rule modification (add/delete)
 func (re *RuleEngine) rebuildIndexes() {
 	// Clear existing indexes
-	re.PrimaryKeyIndex = make(map[string][]*RuleDefinition)
+	re.PrimaryKeyIndex = make(map[string][]*RuleMatchCondition)
 
-	// Build primary key specific indexes
+	// Build primary key specific indexes by iterating through all rule conditions
 	for _, rule := range re.RuleMap {
 		if !rule.Enabled {
 			continue
 		}
 
-		// Extract primary keys from rule's match criteria
-		primaryKeys := re.extractRulePrimaryKeys(rule)
+		// Iterate through all match criteria entries in the rule
+		for _, matchCriteriaEntries := range rule.MatchCriteriaEntries {
+			for _, matchCondition := range matchCriteriaEntries {
+				// Ensure AlertRuleUUID and Priority are set for lookup
+				// just in case not already set
+				matchCondition.AlertRuleUUID = rule.AlertRuleUUID
+				matchCondition.Priority = rule.Priority
 
-		// Add rule to each relevant primary key index
-		for _, primaryKey := range primaryKeys {
-			re.PrimaryKeyIndex[primaryKey] = append(re.PrimaryKeyIndex[primaryKey], rule)
-		}
-	}
+				// Get primary key for this condition
+				primaryKey := matchCondition.PrimaryMatchValue
+				if primaryKey == "" {
+					primaryKey = PrimaryKeyDefault
+				}
 
-	// Sort each primary key index by priority (order depends on SortAscending flag)
-	for primaryKey := range re.PrimaryKeyIndex {
-		re.sortRulesByPriority(re.PrimaryKeyIndex[primaryKey])
-	}
-}
-
-// extractRulePrimaryKeys extracts all primary keys that this rule should be indexed under
-func (re *RuleEngine) extractRulePrimaryKeys(rule *RuleDefinition) []string {
-	primaryKeys := make(map[string]bool)
-
-	// Look through all match criteria entries to find primary keys
-	for _, matchCriteriaEntries := range rule.MatchCriteriaEntries {
-		for _, matchCondition := range matchCriteriaEntries {
-			if matchCondition.PrimaryMatchValue != "" {
-				primaryKeys[matchCondition.PrimaryMatchValue] = true
+				// Add condition to the appropriate primary key index
+				re.PrimaryKeyIndex[primaryKey] = append(re.PrimaryKeyIndex[primaryKey], matchCondition)
 			}
 		}
 	}
 
-	// Convert map to slice
-	result := make([]string, 0, len(primaryKeys))
-	for key := range primaryKeys {
-		result = append(result, key)
+	// Sort each primary key index by condition priority (order depends on SortAscending flag)
+	for primaryKey := range re.PrimaryKeyIndex {
+		re.sortConditionsByPriority(re.PrimaryKeyIndex[primaryKey])
 	}
-
-	// If no specific primary keys found, use default
-	if len(result) == 0 {
-		result = append(result, PrimaryKeyDefault)
-	}
-
-	return result
 }
 
-// sortRulesByPriority sorts rules by priority based on SortAscending flag, then by UUID for deterministic ordering
-func (re *RuleEngine) sortRulesByPriority(rules []*RuleDefinition) {
-	for i := 0; i < len(rules)-1; i++ {
-		for j := i + 1; j < len(rules); j++ {
+// sortConditionsByPriority sorts conditions by their priority based on SortAscending flag, then by rule UUID for deterministic ordering
+func (re *RuleEngine) sortConditionsByPriority(conditions []*RuleMatchCondition) {
+	for i := 0; i < len(conditions)-1; i++ {
+		for j := i + 1; j < len(conditions); j++ {
 			var shouldSwap bool
 
 			if re.SortAscending {
 				// Ascending order: lower priority values come first
-				shouldSwap = rules[i].Priority > rules[j].Priority
+				shouldSwap = conditions[i].Priority > conditions[j].Priority
 			} else {
 				// Descending order: higher priority values come first
-				shouldSwap = rules[i].Priority < rules[j].Priority
+				shouldSwap = conditions[i].Priority < conditions[j].Priority
 			}
 
 			if shouldSwap {
-				rules[i], rules[j] = rules[j], rules[i]
-			} else if rules[i].Priority == rules[j].Priority {
-				// If priorities are equal, sort by UUID for deterministic ordering
-				if rules[i].AlertRuleUUID > rules[j].AlertRuleUUID {
-					rules[i], rules[j] = rules[j], rules[i]
+				conditions[i], conditions[j] = conditions[j], conditions[i]
+			} else if conditions[i].Priority == conditions[j].Priority {
+				// If priorities are equal, sort by rule UUID for deterministic ordering
+				if conditions[i].AlertRuleUUID > conditions[j].AlertRuleUUID {
+					conditions[i], conditions[j] = conditions[j], conditions[i]
 				}
 			}
 		}
 	}
 }
 
-// AddRuleDefinition adds a pre-built rule definition directly (useful for testing)
+// AddRuleDefinition adds a pre-built rule definition directly
+// (useful for testing and advanced use cases)
 func (re *RuleEngine) AddRuleDefinition(rule *RuleDefinition) {
 	re.Mutex.Lock()
 	defer re.Mutex.Unlock()
@@ -260,41 +235,42 @@ func NewRuleEngineInstance(options *EvaluatorOptions, logger *Logger) *RuleEngin
 	return &RuleEngine{
 		EvaluatorOptions: *opts,
 		RuleMap:          make(map[string]*RuleDefinition, 0),
-		PrimaryKeyIndex:  make(map[string][]*RuleDefinition),
+		PrimaryKeyIndex:  make(map[string][]*RuleMatchCondition),
 		Logger:           logger,
 	}
 }
 
-// GetPrimaryKeyStats returns statistics about rules indexed by primary key
+// GetPrimaryKeyStats returns statistics about conditions indexed by primary key
 func (re *RuleEngine) GetPrimaryKeyStats() map[string]int {
 	re.Mutex.Lock()
 	defer re.Mutex.Unlock()
 
 	stats := make(map[string]int)
-	for key, rules := range re.PrimaryKeyIndex {
-		stats[key] = len(rules)
+	for key, conditions := range re.PrimaryKeyIndex {
+		stats[key] = len(conditions)
 	}
 	return stats
 }
 
-// ValidateIndexIntegrity checks that all enabled rules are properly indexed
+// ValidateIndexIntegrity checks that all enabled rule conditions are properly indexed
 func (re *RuleEngine) ValidateIndexIntegrity() bool {
 	re.Mutex.Lock()
 	defer re.Mutex.Unlock()
 
-	totalIndexedRules := 0
-	for _, rules := range re.PrimaryKeyIndex {
-		totalIndexedRules += len(rules)
+	totalIndexedConditions := 0
+	for _, conditions := range re.PrimaryKeyIndex {
+		totalIndexedConditions += len(conditions)
 	}
 
-	enabledRules := 0
+	expectedConditions := 0
 	for _, rule := range re.RuleMap {
 		if rule.Enabled {
-			enabledRules++
+			for _, matchCriteriaEntries := range rule.MatchCriteriaEntries {
+				expectedConditions += len(matchCriteriaEntries)
+			}
 		}
 	}
 
-	// Note: totalIndexedRules might be >= enabledRules because rules can be indexed
-	// under multiple primary keys
-	return totalIndexedRules >= enabledRules
+	// Total indexed conditions should match expected conditions from enabled rules
+	return totalIndexedConditions == expectedConditions
 }

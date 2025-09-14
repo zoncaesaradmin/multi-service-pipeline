@@ -223,9 +223,37 @@ func evaluateAllRules(re *RuleEngine, data Data) RuleLookupResult {
 
 	// Simulate old behavior - iterate through all rules without indexing
 	for _, rule := range re.RuleMap {
-		if result := re.evaluateSingleRule(rule, data); result.IsRuleHit {
-			return result
+		if !rule.Enabled {
+			continue
+		}
+		// Evaluate all match criteria entries for this rule
+		for _, matchCriteriaEntries := range rule.MatchCriteriaEntries {
+			for _, matchCondition := range matchCriteriaEntries {
+				if re.EvaluateMatchCondition(matchCondition.Condition, data) {
+					return RuleLookupResult{
+						IsRuleHit: true,
+						RuleUUID:  rule.AlertRuleUUID,
+						CriteriaHit: RuleHitCriteria{
+							Any: append([]AstConditional{}, matchCondition.Condition.Any...),
+							All: append([]AstConditional{}, matchCondition.Condition.All...),
+						},
+						Actions: copyActionsForTest(rule.Actions),
+					}
+				}
+			}
 		}
 	}
 	return RuleLookupResult{}
+}
+
+// Helper function for test to copy actions
+func copyActionsForTest(actions []*RuleAction) []RuleHitAction {
+	actionsCopy := make([]RuleHitAction, len(actions))
+	for i, action := range actions {
+		actionsCopy[i] = RuleHitAction{
+			ActionType:     action.ActionType,
+			ActionValueStr: action.ActionValueStr,
+		}
+	}
+	return actionsCopy
 }

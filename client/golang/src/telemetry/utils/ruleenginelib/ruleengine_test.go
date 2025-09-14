@@ -38,6 +38,8 @@ func TestEvaluateRules(t *testing.T) {
 		MatchCriteriaEntries: map[string][]*RuleMatchCondition{
 			"default": {
 				{
+					AlertRuleUUID:     testRuleUUID,
+					Priority:          100,
 					CriteriaUUID:      "condition-1",
 					PrimaryMatchValue: "PRIMARY_KEY_DEFAULT", // Add primary key for indexing
 					Condition: AstCondition{

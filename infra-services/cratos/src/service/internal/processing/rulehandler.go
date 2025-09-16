@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	eapi "servicegomodule/external/api"
 	"servicegomodule/internal/models"
 	"sharedgomodule/logging"
 	"sharedgomodule/messagebus"
@@ -95,6 +96,8 @@ func (rh *RuleEngineHandler) Start() error {
 	if err := rh.setupRuleConsumer(); err != nil {
 		return err
 	}
+
+	_ = eapi.FetchAlertMappings()
 
 	return nil
 }

@@ -3,8 +3,10 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"time"
 
+	"servicegomodule/internal/metrics"
 	"servicegomodule/internal/models"
 	"sharedgomodule/logging"
 )
@@ -17,6 +19,14 @@ const (
 	ErrMethodNotAllowed    = "Method not allowed"
 	ErrNotImplemented      = "Not implemented"
 	ErrServiceNotAvailable = "User service not available"
+	ErrorMethodNotAllowed  = "Method not allowed"
+	ErrorFailedToEncode    = "Failed to encode response"
+)
+
+// Constants for headers
+const (
+	HeaderContentType = "Content-Type"
+	ContentTypeJSON   = "application/json"
 )
 
 // Success message constants
@@ -32,14 +42,16 @@ const (
 
 // Handler holds the dependencies for API handlers
 type Handler struct {
-	logger logging.Logger
+	logger    logging.Logger
+	collector *metrics.MetricsCollector
 	// Any implementation specific variables to be added
 }
 
 // NewHandler creates a new Handler instance
-func NewHandler(logger logging.Logger) *Handler {
+func NewHandler(logger logging.Logger, collector *metrics.MetricsCollector) *Handler {
 	return &Handler{
-		logger: logger,
+		logger:    logger,
+		collector: collector,
 	}
 }
 
@@ -50,6 +62,13 @@ func (h *Handler) SetupRoutes(mux *http.ServeMux) {
 
 	mux.HandleFunc("/api/v1/stats", h.GetStats)
 	mux.HandleFunc("/api/v1/config/", h.HandleConfigs)
+
+	// Add metrics routes if metrics collector is available
+	mux.HandleFunc("/metrics", h.handleMetrics)
+	mux.HandleFunc("/metrics/pipeline", h.handlePipelineMetrics)
+	mux.HandleFunc("/metrics/summaries", h.handleSummaries)
+	mux.HandleFunc("/metrics/events", h.handleEvents)
+	mux.HandleFunc("/metrics/health", h.handleHealth)
 }
 
 // Helper functions for JSON responses and middleware
@@ -132,5 +151,109 @@ func (h *Handler) HandleConfigs(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusMethodNotAllowed, models.ErrorResponse{
 			Error: ErrMethodNotAllowed,
 		})
+	}
+}
+
+// handleMetrics returns all metrics data
+func (api *Handler) handleMetrics(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, ErrorMethodNotAllowed, http.StatusMethodNotAllowed)
+		return
+	}
+
+	metricsData := api.collector.GetMetrics()
+	summaries := api.collector.GetSummaries()
+
+	response := map[string]interface{}{
+		"pipeline":  metricsData,
+		"summaries": summaries,
+		"timestamp": time.Now(),
+	}
+
+	w.Header().Set(HeaderContentType, ContentTypeJSON)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		http.Error(w, ErrorFailedToEncode, http.StatusInternalServerError)
+		return
+	}
+}
+
+// handlePipelineMetrics returns pipeline-specific metrics
+func (api *Handler) handlePipelineMetrics(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, ErrorMethodNotAllowed, http.StatusMethodNotAllowed)
+		return
+	}
+
+	metricsData := api.collector.GetMetrics()
+
+	w.Header().Set(HeaderContentType, ContentTypeJSON)
+	if err := json.NewEncoder(w).Encode(metricsData); err != nil {
+		http.Error(w, ErrorFailedToEncode, http.StatusInternalServerError)
+		return
+	}
+}
+
+// handleSummaries returns metric summaries
+func (api *Handler) handleSummaries(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, ErrorMethodNotAllowed, http.StatusMethodNotAllowed)
+		return
+	}
+
+	summaries := api.collector.GetSummaries()
+
+	w.Header().Set(HeaderContentType, ContentTypeJSON)
+	if err := json.NewEncoder(w).Encode(summaries); err != nil {
+		http.Error(w, ErrorFailedToEncode, http.StatusInternalServerError)
+		return
+	}
+}
+
+// handleEvents returns recent metric events
+func (api *Handler) handleEvents(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, ErrorMethodNotAllowed, http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Parse limit parameter
+	limit := 100 // default
+	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+		if parsedLimit, err := strconv.Atoi(limitStr); err == nil && parsedLimit > 0 {
+			limit = parsedLimit
+		}
+	}
+
+	events := api.collector.GetRecentEvents(limit)
+
+	w.Header().Set(HeaderContentType, ContentTypeJSON)
+	if err := json.NewEncoder(w).Encode(events); err != nil {
+		http.Error(w, ErrorFailedToEncode, http.StatusInternalServerError)
+		return
+	}
+}
+
+// handleHealth returns metrics system health
+func (api *Handler) handleHealth(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, ErrorMethodNotAllowed, http.StatusMethodNotAllowed)
+		return
+	}
+
+	summaries := api.collector.GetSummaries()
+	metricsData := api.collector.GetMetrics()
+
+	health := map[string]interface{}{
+		"status":    "healthy",
+		"timestamp": time.Now(),
+		"events":    len(api.collector.GetRecentEvents(1000)), // Get count via length
+		"summaries": len(summaries),
+		"pipeline":  metricsData,
+	}
+
+	w.Header().Set(HeaderContentType, ContentTypeJSON)
+	if err := json.NewEncoder(w).Encode(health); err != nil {
+		http.Error(w, ErrorFailedToEncode, http.StatusInternalServerError)
+		return
 	}
 }

@@ -63,7 +63,11 @@ func (m *mockLogger) Close() error          { return nil }
 
 func TestSetupRouter(t *testing.T) {
 	logger := &mockLogger{}
-	mux := setupRouter(logger)
+	cfg := sampleRawConfig()
+	application := app.NewApplication(cfg, logger)
+	defer application.Shutdown()
+
+	mux := setupRouter(logger, application)
 
 	if mux == nil {
 		t.Fatal("expected mux to not be nil")
@@ -100,7 +104,11 @@ func TestSetupRouterWithNilHandler(t *testing.T) {
 	// Test setupRouter function - it creates its own handler internally
 	// This test verifies that setupRouter works correctly
 	logger := &mockLogger{}
-	mux := setupRouter(logger)
+	cfg := sampleRawConfig()
+	application := app.NewApplication(cfg, logger)
+	defer application.Shutdown()
+
+	mux := setupRouter(logger, application)
 
 	// The function should always return a valid mux since it creates the handler internally
 	if mux == nil {
@@ -161,7 +169,9 @@ func TestServerConfiguration(t *testing.T) {
 			// Create test server configuration
 			logger := &mockLogger{}
 			application := app.NewApplication(tc.rawconfig, logger)
-			mux := setupRouter(logger)
+			defer application.Shutdown()
+
+			mux := setupRouter(logger, application)
 
 			// Create server with same configuration as startServer
 			srv := &http.Server{
@@ -241,7 +251,7 @@ func TestApplicationInitialization(t *testing.T) {
 
 func TestHandlerInitialization(t *testing.T) {
 	logger := &mockLogger{}
-	handler := api.NewHandler(logger)
+	handler := api.NewHandler(logger, nil)
 
 	if handler == nil {
 		t.Fatal("expected handler to not be nil")
@@ -305,7 +315,9 @@ func TestIntegrationComponents(t *testing.T) {
 
 	logger := &mockLogger{}
 	application := app.NewApplication(cfg, logger)
-	mux := setupRouter(logger)
+	defer application.Shutdown()
+
+	mux := setupRouter(logger, application)
 
 	// Test that we can make requests through the complete stack
 	req, err := http.NewRequest("GET", healthEndpoint, nil)
@@ -365,16 +377,24 @@ func TestServerShutdownGraceful(t *testing.T) {
 // Benchmark tests for performance
 func BenchmarkSetupRouter(b *testing.B) {
 	logger := &mockLogger{}
+	cfg := sampleRawConfig()
+	application := app.NewApplication(cfg, logger)
+	defer application.Shutdown()
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		mux := setupRouter(logger)
+		mux := setupRouter(logger, application)
 		_ = mux
 	}
 }
 
 func BenchmarkHealthCheckRequest(b *testing.B) {
 	logger := &mockLogger{}
-	mux := setupRouter(logger)
+	cfg := sampleRawConfig()
+	application := app.NewApplication(cfg, logger)
+	defer application.Shutdown()
+
+	mux := setupRouter(logger, application)
 
 	req, _ := http.NewRequest("GET", healthEndpoint, nil)
 

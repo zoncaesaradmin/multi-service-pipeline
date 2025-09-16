@@ -3,6 +3,7 @@ package processing
 import (
 	"context"
 	"fmt"
+	"servicegomodule/internal/metrics"
 	"servicegomodule/internal/models"
 	"sharedgomodule/logging"
 	"sharedgomodule/messagebus"
@@ -20,24 +21,26 @@ type InputConfig struct {
 
 // InputHandler handles input processing - reads from Kafka and writes to input channel
 type InputHandler struct {
-	consumer messagebus.Consumer
-	config   InputConfig
-	logger   logging.Logger
-	inputCh  chan *models.ChannelMessage
-	ctx      context.Context
-	cancel   context.CancelFunc
+	consumer      messagebus.Consumer
+	config        InputConfig
+	logger        logging.Logger
+	inputCh       chan *models.ChannelMessage
+	ctx           context.Context
+	cancel        context.CancelFunc
+	metricsHelper *metrics.MetricsHelper
 }
 
 // NewInputHandler creates a new input handler
-func NewInputHandler(config InputConfig, logger logging.Logger) *InputHandler {
+func NewInputHandler(config InputConfig, logger logging.Logger, metricsHelper *metrics.MetricsHelper) *InputHandler {
 	// Use simple filename - path resolution is handled by messagebus config loader
 	consumer := messagebus.NewConsumer(config.KafkaConfigMap, "recordConsGroup")
 
 	return &InputHandler{
-		consumer: consumer,
-		config:   config,
-		logger:   logger,
-		inputCh:  make(chan *models.ChannelMessage, config.ChannelBufferSize),
+		consumer:      consumer,
+		config:        config,
+		logger:        logger,
+		inputCh:       make(chan *models.ChannelMessage, config.ChannelBufferSize),
+		metricsHelper: metricsHelper,
 	}
 }
 
@@ -85,6 +88,11 @@ func (i *InputHandler) Start() error {
 			channelMsg.Origin = models.ChannelMessageOriginKafka
 			channelMsg.Context = traceCtx // Attach trace context to message
 
+			// Set timing information
+			channelMsg.EntryTimestamp = time.Now()
+			channelMsg.ProcessingStage = "input"
+			channelMsg.Size = int64(len(message.Value))
+
 			// Ensure trace ID is in message headers for downstream processing
 			if channelMsg.Meta == nil {
 				channelMsg.Meta = make(map[string]string)
@@ -94,8 +102,18 @@ func (i *InputHandler) Start() error {
 			}
 			channelMsg.Meta[utils.TraceIDHeader] = traceID // Ensure trace ID is propagated
 
+			// Record metrics if available
+			if i.metricsHelper != nil {
+				i.metricsHelper.RecordMessageReceived(channelMsg)
+			}
+
 			i.inputCh <- channelMsg
 			msgLogger.Debugw("Input message received", "key", message.Key, "headers", message.Headers)
+
+			// Record message processed at input stage
+			if i.metricsHelper != nil {
+				i.metricsHelper.RecordMessageProcessed(channelMsg)
+			}
 		}
 	})
 

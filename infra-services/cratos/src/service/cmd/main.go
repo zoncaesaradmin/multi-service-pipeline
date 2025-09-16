@@ -44,15 +44,17 @@ func main() {
 	}
 
 	// Initialize handlers and setup HTTP mux
-	mux := setupRouter(logger)
+	mux := setupRouter(logger, application)
 
 	// Start server
 	startServer(mux, cfg, application)
 }
 
-func setupRouter(logger logging.Logger) *http.ServeMux {
+func setupRouter(logger logging.Logger, application *app.Application) *http.ServeMux {
+	// Get metrics collector from application
+	metricsCollector := application.MetricsCollector()
 
-	handler := api.NewHandler(logger)
+	handler := api.NewHandler(logger, metricsCollector)
 	mux := http.NewServeMux()
 
 	// Setup routes

@@ -58,7 +58,7 @@ func (m *mockLogger) Close() error          { return nil }
 
 func TestNewHandler(t *testing.T) {
 	logger := &mockLogger{}
-	handler := NewHandler(logger)
+	handler := NewHandler(logger, nil)
 	if handler == nil {
 		t.Fatal("NewHandler() returned nil")
 	}
@@ -66,7 +66,7 @@ func TestNewHandler(t *testing.T) {
 
 func TestHealthCheck(t *testing.T) {
 	logger := &mockLogger{}
-	handler := NewHandler(logger)
+	handler := NewHandler(logger, nil)
 	req := httptest.NewRequest(http.MethodGet, testHealthPath, nil)
 	rr := httptest.NewRecorder()
 
@@ -99,7 +99,7 @@ func TestHealthCheck(t *testing.T) {
 
 func TestGetStats(t *testing.T) {
 	logger := &mockLogger{}
-	handler := NewHandler(logger)
+	handler := NewHandler(logger, nil)
 	req := httptest.NewRequest(http.MethodGet, testStatsPath, nil)
 	rr := httptest.NewRecorder()
 
@@ -151,7 +151,7 @@ func TestWriteJSON(t *testing.T) {
 
 func TestHealthCheckOPTIONS(t *testing.T) {
 	logger := &mockLogger{}
-	handler := NewHandler(logger)
+	handler := NewHandler(logger, nil)
 	req := httptest.NewRequest(http.MethodOptions, testHealthPath, nil)
 	rr := httptest.NewRecorder()
 
@@ -178,7 +178,7 @@ func TestHealthCheckOPTIONS(t *testing.T) {
 
 func TestSetupRoutes(t *testing.T) {
 	logger := &mockLogger{}
-	handler := NewHandler(logger)
+	handler := NewHandler(logger, nil)
 	mux := http.NewServeMux()
 
 	// Setup routes
@@ -208,7 +208,7 @@ func TestSetupRoutes(t *testing.T) {
 
 func TestGetStatsResponseData(t *testing.T) {
 	logger := &mockLogger{}
-	handler := NewHandler(logger)
+	handler := NewHandler(logger, nil)
 	req := httptest.NewRequest(http.MethodGet, testStatsPath, nil)
 	rr := httptest.NewRecorder()
 
@@ -236,7 +236,7 @@ func TestGetStatsResponseData(t *testing.T) {
 
 func TestHandleConfigs(t *testing.T) {
 	logger := &mockLogger{}
-	handler := NewHandler(logger)
+	handler := NewHandler(logger, nil)
 
 	t.Run("GET request", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, testConfigPath, nil)

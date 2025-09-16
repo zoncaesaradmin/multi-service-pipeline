@@ -75,7 +75,7 @@ func TestOutputHandlerGetOutputChannel(t *testing.T) {
 	}
 	logger := &mockLoggerForOutput{}
 
-	handler := NewOutputHandler(config, logger)
+	handler := NewOutputHandler(config, logger, nil)
 	channel := handler.GetOutputChannel()
 
 	if channel == nil {
@@ -101,7 +101,7 @@ func TestOutputHandlerStartSuccess(t *testing.T) {
 	}
 	logger := &mockLoggerForOutput{}
 
-	handler := NewOutputHandler(config, logger)
+	handler := NewOutputHandler(config, logger, nil)
 
 	err := handler.Start()
 	if err != nil {
@@ -127,7 +127,7 @@ func TestOutputHandlerStop(t *testing.T) {
 	}
 	logger := &mockLoggerForOutput{}
 
-	handler := NewOutputHandler(config, logger)
+	handler := NewOutputHandler(config, logger, nil)
 
 	// Start and then stop
 	err := handler.Start()
@@ -152,7 +152,7 @@ func TestOutputHandlerBatching(t *testing.T) {
 	}
 	logger := &mockLoggerForOutput{}
 
-	handler := NewOutputHandler(config, logger)
+	handler := NewOutputHandler(config, logger, nil)
 	err := handler.Start()
 	if err != nil {
 		t.Fatalf("Failed to start handler: %v", err)

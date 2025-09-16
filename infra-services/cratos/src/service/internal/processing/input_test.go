@@ -57,9 +57,7 @@ func (m *mockConsumer) Close() error {
 	return m.closeError
 }
 
-// mockLogger implements logging.Logger for testing; methods are intentionally left empty.
-// ...existing code...
-
+// Test constants
 const (
 	kafkaBootstrapServers = "bootstrap.servers"
 	kafkaLocalhost9092    = "localhost:9092"
@@ -101,7 +99,7 @@ func TestNewInputHandlerCreatesChannel(t *testing.T) {
 		KafkaConfigMap:    map[string]any{kafkaBootstrapServers: kafkaLocalhost9092},
 	}
 	logger := &mockLogger{}
-	handler := NewInputHandler(config, logger)
+	handler := NewInputHandler(config, logger, nil)
 	if handler == nil {
 		t.Fatal("Handler should not be nil")
 	}
@@ -118,7 +116,7 @@ func TestGetInputChannelReturnsChannel(t *testing.T) {
 		KafkaConfigMap:    map[string]any{kafkaBootstrapServers: kafkaLocalhost9092},
 	}
 	logger := &mockLogger{}
-	handler := NewInputHandler(config, logger)
+	handler := NewInputHandler(config, logger, nil)
 	ch := handler.GetInputChannel()
 	if ch == nil {
 		t.Error("Input channel should not be nil")
@@ -133,7 +131,7 @@ func TestStartSubscribesTopicsAndStartsLoop(t *testing.T) {
 		KafkaConfigMap:    map[string]any{kafkaBootstrapServers: kafkaLocalhost9092},
 	}
 	logger := &mockLogger{}
-	handler := NewInputHandler(config, logger)
+	handler := NewInputHandler(config, logger, nil)
 	mockCons := &mockConsumer{}
 	handler.consumer = mockCons
 	err := handler.Start()
@@ -154,7 +152,7 @@ func TestStartReturnsErrorOnSubscribeFail(t *testing.T) {
 		KafkaConfigMap:    map[string]any{kafkaBootstrapServers: kafkaLocalhost9092},
 	}
 	logger := &mockLogger{}
-	handler := NewInputHandler(config, logger)
+	handler := NewInputHandler(config, logger, nil)
 	mockCons := &mockConsumer{subscribeError: context.DeadlineExceeded}
 	handler.consumer = mockCons
 	err := handler.Start()
@@ -171,7 +169,7 @@ func TestStopClosesConsumerAndCancelsContext(t *testing.T) {
 		KafkaConfigMap:    map[string]any{kafkaBootstrapServers: kafkaLocalhost9092},
 	}
 	logger := &mockLogger{}
-	handler := NewInputHandler(config, logger)
+	handler := NewInputHandler(config, logger, nil)
 	mockCons := &mockConsumer{}
 	handler.consumer = mockCons
 	handler.Start()
@@ -192,7 +190,7 @@ func TestConsumeLoopForwardsMessageAndCommits(t *testing.T) {
 		KafkaConfigMap:    map[string]any{kafkaBootstrapServers: kafkaLocalhost9092},
 	}
 	logger := &mockLogger{}
-	handler := NewInputHandler(config, logger)
+	handler := NewInputHandler(config, logger, nil)
 	msg := &messagebus.Message{Value: []byte("payload")}
 	mockCons := &mockConsumer{lastMessage: msg}
 	handler.consumer = mockCons
@@ -216,7 +214,7 @@ func TestGetStatsReturnsCorrectValues(t *testing.T) {
 		KafkaConfigMap:    map[string]any{kafkaBootstrapServers: kafkaLocalhost9092},
 	}
 	logger := &mockLogger{}
-	handler := NewInputHandler(config, logger)
+	handler := NewInputHandler(config, logger, nil)
 	stats := handler.GetStats()
 	if stats["status"] != "running" {
 		t.Errorf("Expected status 'running', got %v", stats["status"])

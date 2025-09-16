@@ -28,26 +28,40 @@ type CommitCallback func(ctx context.Context) error
 
 // ChannelMessage represents a common message structure for channel communication
 type ChannelMessage struct {
-	Origin         ChannelMessageOrigin `json:"origin"` // e.g., "kafka" (from source service), DB read
-	Type           ChannelMessageType   `json:"type"`
-	Timestamp      time.Time            `json:"timestamp"`
-	Data           []byte               `json:"data"`
-	Meta           map[string]string    `json:"meta"`
-	Key            string               `json:"key"`
-	Partition      int32                `json:"partition"`
-	CommitCallback CommitCallback       `json:"-"` // Not serialized, used for offset management
-	Context        context.Context      `json:"-"` // Not serialized, used for trace propagation
+	Origin           ChannelMessageOrigin `json:"origin"` // e.g., "kafka" (from source service), DB read
+	Type             ChannelMessageType   `json:"type"`
+	Timestamp        time.Time            `json:"timestamp"`
+	EntryTimestamp   time.Time            `json:"entryTimestamp"`   // When message entered the service
+	ProcessStartTime time.Time            `json:"processStartTime"` // When processing started
+	ProcessEndTime   time.Time            `json:"processEndTime"`   // When processing ended
+	OutputTimestamp  time.Time            `json:"outputTimestamp"`  // When message was sent to output
+	Data             []byte               `json:"data"`
+	Meta             map[string]string    `json:"meta"`
+	Key              string               `json:"key"`
+	Partition        int32                `json:"partition"`
+	Size             int64                `json:"size"`            // Size of the message in bytes
+	ProcessingStage  string               `json:"processingStage"` // Current processing stage
+	ErrorCount       int                  `json:"errorCount"`      // Number of errors encountered
+	RetryCount       int                  `json:"retryCount"`      // Number of retries
+	CommitCallback   CommitCallback       `json:"-"`               // Not serialized, used for offset management
+	Context          context.Context      `json:"-"`               // Not serialized, used for trace propagation
 }
 
 // NewChannelMessage creates a new channel message with the given type and data
 func NewChannelMessage(msgType ChannelMessageType, data []byte, source string, partition int32) *ChannelMessage {
+	now := time.Now()
 	return &ChannelMessage{
-		Type:      msgType,
-		Timestamp: time.Now(),
-		Data:      data,
-		Meta:      make(map[string]string),
-		Key:       source,
-		Partition: partition,
+		Type:            msgType,
+		Timestamp:       now,
+		EntryTimestamp:  now,
+		Data:            data,
+		Meta:            make(map[string]string),
+		Key:             source,
+		Partition:       partition,
+		Size:            int64(len(data)),
+		ProcessingStage: "created",
+		ErrorCount:      0,
+		RetryCount:      0,
 	}
 }
 
@@ -82,6 +96,47 @@ func (m *ChannelMessage) Commit(ctx context.Context) error {
 // HasCommitCallback checks if this message has a commit callback
 func (m *ChannelMessage) HasCommitCallback() bool {
 	return m.CommitCallback != nil
+}
+
+// SetProcessingStage sets the current processing stage and updates timestamp
+func (m *ChannelMessage) SetProcessingStage(stage string) {
+	m.ProcessingStage = stage
+	now := time.Now()
+
+	switch stage {
+	case "processing":
+		m.ProcessStartTime = now
+	case "processed", "completed":
+		m.ProcessEndTime = now
+	case "output":
+		m.OutputTimestamp = now
+	}
+}
+
+// IncrementError increments the error count
+func (m *ChannelMessage) IncrementError() {
+	m.ErrorCount++
+}
+
+// IncrementRetry increments the retry count
+func (m *ChannelMessage) IncrementRetry() {
+	m.RetryCount++
+}
+
+// GetTotalProcessingTime returns the total time spent in the service
+func (m *ChannelMessage) GetTotalProcessingTime() time.Duration {
+	if m.OutputTimestamp.IsZero() {
+		return time.Since(m.EntryTimestamp)
+	}
+	return m.OutputTimestamp.Sub(m.EntryTimestamp)
+}
+
+// GetProcessingDuration returns the time spent in processing stage
+func (m *ChannelMessage) GetProcessingDuration() time.Duration {
+	if m.ProcessStartTime.IsZero() || m.ProcessEndTime.IsZero() {
+		return 0
+	}
+	return m.ProcessEndTime.Sub(m.ProcessStartTime)
 }
 
 // ErrorResponse represents an error response

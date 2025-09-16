@@ -152,7 +152,7 @@ func TestNewProcessor(t *testing.T) {
 	logger, _ := logging.NewLogger(&procConfig.LoggerConfig)
 	inputCh := make(chan *models.ChannelMessage, 10)
 	outputCh := make(chan *models.ChannelMessage, 10)
-	processor := NewProcessor(procConfig.Processor, logger, inputCh, outputCh)
+	processor := NewProcessor(procConfig.Processor, logger, inputCh, outputCh, nil)
 
 	if processor == nil {
 		t.Fatal("Expected processor to be created, got nil")
@@ -171,7 +171,7 @@ func TestNewOutputHandler(t *testing.T) {
 	}
 	logger := &mockLogger{}
 
-	handler := NewOutputHandler(config, logger)
+	handler := NewOutputHandler(config, logger, nil)
 
 	if handler == nil {
 		t.Fatal("Expected output handler to be created, got nil")
@@ -212,7 +212,7 @@ func TestProcessorGetStats(t *testing.T) {
 	inputCh := make(chan *models.ChannelMessage, 10)
 	outputCh := make(chan *models.ChannelMessage, 10)
 
-	processor := NewProcessor(config, logger, inputCh, outputCh)
+	processor := NewProcessor(config, logger, inputCh, outputCh, nil)
 
 	stats := processor.GetStats()
 	if stats == nil {
@@ -239,7 +239,7 @@ func TestOutputHandlerGetStats(t *testing.T) {
 	}
 	logger := &mockLogger{}
 
-	handler := NewOutputHandler(config, logger)
+	handler := NewOutputHandler(config, logger, nil)
 
 	stats := handler.GetStats()
 	if stats == nil {
@@ -276,7 +276,7 @@ func TestSimpleNewPipeline(t *testing.T) {
 	config.Processor.RuleEngine.RulesKafkaConfigMap = map[string]any{processingBootstrapKey: testKafkaHost}
 
 	logger := &mockLogger{}
-	pipeline := NewPipeline(config, logger)
+	pipeline := NewPipeline(config, logger, nil)
 
 	if pipeline == nil {
 		t.Fatal("Expected pipeline to be created with default config")

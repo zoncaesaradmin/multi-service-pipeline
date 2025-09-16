@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"servicegomodule/internal/config"
+	"servicegomodule/internal/metrics"
 	"servicegomodule/internal/models"
 	"sharedgomodule/logging"
 	"sharedgomodule/utils"
@@ -34,11 +35,18 @@ type Pipeline struct {
 	outputCh      chan<- *models.ChannelMessage
 }
 
-func NewPipeline(config ProcConfig, logger logging.Logger) *Pipeline {
+func NewPipeline(config ProcConfig, logger logging.Logger, metricsCollector *metrics.MetricsCollector) *Pipeline {
 	plogger := initPipelineLogger(config.LoggerConfig)
-	inputHandler := NewInputHandler(config.Input, plogger.WithField("component", "input"))
-	outputHandler := NewOutputHandler(config.Output, plogger.WithField("component", "output"))
-	processor := NewProcessor(config.Processor, plogger.WithField("component", "processor"), inputHandler.GetInputChannel(), outputHandler.GetOutputChannel())
+
+	// Create metrics helpers for each stage
+	inputMetricsHelper := metrics.NewMetricsHelper(metricsCollector, "input")
+	processorMetricsHelper := metrics.NewMetricsHelper(metricsCollector, "processor")
+	outputMetricsHelper := metrics.NewMetricsHelper(metricsCollector, "output")
+
+	// Create handlers with metrics helpers
+	inputHandler := NewInputHandler(config.Input, plogger.WithField("component", "input"), inputMetricsHelper)
+	outputHandler := NewOutputHandler(config.Output, plogger.WithField("component", "output"), outputMetricsHelper)
+	processor := NewProcessor(config.Processor, plogger.WithField("component", "processor"), inputHandler.GetInputChannel(), outputHandler.GetOutputChannel(), processorMetricsHelper)
 
 	return &Pipeline{
 		config:        config,

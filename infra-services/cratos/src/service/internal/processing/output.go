@@ -3,6 +3,7 @@ package processing
 import (
 	"context"
 	"fmt"
+	"servicegomodule/internal/metrics"
 	"servicegomodule/internal/models"
 	"sharedgomodule/logging"
 	"sharedgomodule/messagebus"
@@ -19,25 +20,27 @@ type OutputConfig struct {
 }
 
 type OutputHandler struct {
-	config   OutputConfig
-	producer messagebus.Producer
-	logger   logging.Logger
-	outputCh chan *models.ChannelMessage
-	ctx      context.Context
-	cancel   context.CancelFunc
+	config        OutputConfig
+	producer      messagebus.Producer
+	logger        logging.Logger
+	outputCh      chan *models.ChannelMessage
+	ctx           context.Context
+	cancel        context.CancelFunc
+	metricsHelper *metrics.MetricsHelper
 }
 
-func NewOutputHandler(config OutputConfig, logger logging.Logger) *OutputHandler {
+func NewOutputHandler(config OutputConfig, logger logging.Logger, metricsHelper *metrics.MetricsHelper) *OutputHandler {
 	ctx, cancel := context.WithCancel(context.Background())
 	producer := messagebus.NewProducer(config.KafkaConfigMap, "prealertsProducer"+utils.GetEnv("HOSTNAME", ""))
 
 	return &OutputHandler{
-		config:   config,
-		producer: producer,
-		logger:   logger,
-		outputCh: make(chan *models.ChannelMessage, config.ChannelBufferSize),
-		ctx:      ctx,
-		cancel:   cancel,
+		config:        config,
+		producer:      producer,
+		logger:        logger,
+		outputCh:      make(chan *models.ChannelMessage, config.ChannelBufferSize),
+		ctx:           ctx,
+		cancel:        cancel,
+		metricsHelper: metricsHelper,
 	}
 }
 
@@ -110,29 +113,75 @@ func (o *OutputHandler) flushBatch(batch []*models.ChannelMessage) {
 		return
 	}
 
+	batchStartTime := time.Now()
 	//o.logger.Debugw("Flushing batch to Kafka", "batch_size", len(batch), "topic", o.config.OutputTopic)
 
 	// Process each message individually
 	successCount := 0
 	for i, message := range batch {
+		sendStartTime := time.Now()
+
 		// Use trace-aware logger if available
 		msgLogger := o.logger
 		if message.Context != nil {
 			msgLogger = utils.WithTraceLogger(o.logger, message.Context)
 		}
 
+		// Set output timestamp
+		message.OutputTimestamp = sendStartTime
+
 		if err := o.sendMessage(message); err != nil {
 			msgLogger.Errorw("Failed to send message", "error", err, "batch_index", i, "key", message.Key)
+			// Record send failure
+			if o.metricsHelper != nil {
+				o.metricsHelper.RecordError(message, "send_failed")
+				o.metricsHelper.RecordStageLatency(time.Since(sendStartTime), "send_failed")
+			}
 			// Don't commit offset for failed messages
 		} else {
+			// Record successful send
+			if o.metricsHelper != nil {
+				o.metricsHelper.RecordStageLatency(time.Since(sendStartTime), "send_success")
+			}
+
 			// Commit offset immediately after successful send
 			if message.HasCommitCallback() {
+				commitStartTime := time.Now()
 				if err := message.Commit(context.Background()); err != nil {
 					msgLogger.Errorw("Failed to commit message after successful send", "error", err, "key", message.Key)
+					if o.metricsHelper != nil {
+						o.metricsHelper.RecordError(message, "commit_failed")
+						o.metricsHelper.RecordStageLatency(time.Since(commitStartTime), "commit_failed")
+					}
+				} else {
+					// Record successful commit and end-to-end timing
+					if o.metricsHelper != nil {
+						o.metricsHelper.RecordStageLatency(time.Since(commitStartTime), "commit_success")
+
+						// Calculate and record end-to-end latency
+						if !message.EntryTimestamp.IsZero() {
+							endToEndLatency := time.Since(message.EntryTimestamp)
+							o.metricsHelper.RecordStageLatency(endToEndLatency, "end_to_end")
+						}
+
+						// Record message as fully processed
+						o.metricsHelper.RecordMessageProcessed(message)
+					}
 				}
 			}
 			successCount++
 		}
+	}
+
+	// Record batch processing metrics
+	if o.metricsHelper != nil {
+		batchDuration := time.Since(batchStartTime)
+		o.metricsHelper.RecordStageLatency(batchDuration, "batch_flush")
+		o.metricsHelper.RecordCounter("batch.processed", 1, map[string]string{
+			"total_messages":      fmt.Sprintf("%d", len(batch)),
+			"successful_messages": fmt.Sprintf("%d", successCount),
+			"failed_messages":     fmt.Sprintf("%d", len(batch)-successCount),
+		})
 	}
 
 	o.logger.Debugw("Batch flushed successfully",
@@ -151,6 +200,9 @@ func (o *OutputHandler) sendMessage(channelMsg *models.ChannelMessage) error {
 	// Check if this is an empty message (no alerts generated)
 	if len(channelMsg.Data) == 0 && channelMsg.Meta["empty_result"] == "true" {
 		msgLogger.Debugw("Skipping empty message send to Kafka", "key", channelMsg.Key)
+		if o.metricsHelper != nil {
+			o.metricsHelper.RecordCounter("message.empty_skipped", 1, nil)
+		}
 		return nil // Success - we don't need to send empty messages
 	}
 
@@ -177,7 +229,18 @@ func (o *OutputHandler) sendMessage(channelMsg *models.ChannelMessage) error {
 
 	_, _, err := o.producer.Send(context.Background(), message)
 	if err != nil {
+		if o.metricsHelper != nil {
+			o.metricsHelper.RecordError(channelMsg, "kafka_send_failed")
+		}
 		return fmt.Errorf("failed to send message to topic %s: %w", o.config.OutputTopic, err)
+	}
+
+	// Record successful send
+	if o.metricsHelper != nil {
+		o.metricsHelper.RecordCounter("message.sent", 1, map[string]string{
+			"topic": o.config.OutputTopic,
+			"size":  fmt.Sprintf("%d", len(channelMsg.Data)),
+		})
 	}
 
 	msgLogger.Debugw("Message sent successfully", "topic", o.config.OutputTopic, "size", len(channelMsg.Data), "headers", headers)

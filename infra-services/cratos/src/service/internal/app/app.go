@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"servicegomodule/internal/config"
+	"servicegomodule/internal/metrics"
 	"servicegomodule/internal/processing"
 	"sharedgomodule/datastore"
 	"sharedgomodule/logging"
@@ -15,6 +16,7 @@ type Application struct {
 	rawconfig          *config.RawConfig
 	logger             logging.Logger
 	processingPipeline *processing.Pipeline
+	metricsCollector   *metrics.MetricsCollector
 	mutex              sync.RWMutex
 	ctx                context.Context
 	cancel             context.CancelFunc
@@ -30,14 +32,19 @@ func NewApplication(cfg *config.RawConfig, logger logging.Logger) *Application {
 	datastore.Init(ctx, logger.WithField("component", "datastore"), datastoreIndices)
 	logger.Info("Datastore initialized")
 
+	// Create metrics collector with default config
+	metricsConfig := metrics.DefaultMetricsConfig()
+	metricsCollector := metrics.NewMetricsCollector(logger.WithField("component", "metrics"), metricsConfig)
+
 	// Create processing pipeline with configuration from config file
 	processingConfig := processing.DefaultConfig(cfg)
-	processingPipeline := processing.NewPipeline(processingConfig, logger.WithField("module", "processing"))
+	processingPipeline := processing.NewPipeline(processingConfig, logger.WithField("module", "processing"), metricsCollector)
 
 	return &Application{
 		rawconfig:          cfg,
 		logger:             logger,
 		processingPipeline: processingPipeline,
+		metricsCollector:   metricsCollector,
 		ctx:                ctx,
 		cancel:             cancel,
 	}
@@ -69,13 +76,27 @@ func (app *Application) ProcessingPipeline() *processing.Pipeline {
 	return app.processingPipeline
 }
 
+// MetricsCollector returns the metrics collector instance
+func (app *Application) MetricsCollector() *metrics.MetricsCollector {
+	app.mutex.RLock()
+	defer app.mutex.RUnlock()
+	return app.metricsCollector
+}
+
 // Start starts the application and its processing pipeline
 func (app *Application) Start() error {
 	app.logger.Info("Starting application...")
 
+	// Start metrics collector first
+	if err := app.metricsCollector.Start(); err != nil {
+		app.logger.Errorw("Failed to start metrics collector", "error", err)
+		return err
+	}
+
 	// Start the processing pipeline
 	if err := app.processingPipeline.Start(); err != nil {
 		app.logger.Errorw("Failed to start processing pipeline", "error", err)
+		app.metricsCollector.Stop()
 		return err
 	}
 
@@ -91,6 +112,13 @@ func (app *Application) Shutdown() error {
 	if app.processingPipeline != nil {
 		if err := app.processingPipeline.Stop(); err != nil {
 			app.logger.Errorw("Error stopping processing pipeline", "error", err)
+		}
+	}
+
+	// Stop metrics collector
+	if app.metricsCollector != nil {
+		if err := app.metricsCollector.Stop(); err != nil {
+			app.logger.Errorw("Error stopping metrics collector", "error", err)
 		}
 	}
 

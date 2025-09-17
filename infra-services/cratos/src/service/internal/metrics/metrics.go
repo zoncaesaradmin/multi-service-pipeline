@@ -52,7 +52,7 @@ type PipelineMetrics struct {
 	ErrorCount            int64                    `json:"errorCount"`
 	RetryCount            int64                    `json:"retryCount"`
 	AverageProcessingTime time.Duration            `json:"averageProcessingTime"`
-	ThroughputPerSecond   float64                  `json:"throughputPerSecond"`
+	ThroughputPerSecond   float64                  `json:"msgCountThroughputPerSec"`
 	BytesProcessed        int64                    `json:"bytesProcessed"`
 	StageMetrics          map[string]*StageMetrics `json:"stageMetrics"`
 	LastUpdated           time.Time                `json:"lastUpdated"`
@@ -67,7 +67,8 @@ type StageMetrics struct {
 	MinLatency          time.Duration `json:"minLatency"`
 	MaxLatency          time.Duration `json:"maxLatency"`
 	TotalLatency        time.Duration `json:"totalLatency"`
-	ThroughputPerSecond float64       `json:"throughputPerSecond"`
+	ThroughputPerSecond float64       `json:"msgCountThroughputPerSec"`
+	FirstProcessed      time.Time     `json:"firstProcessed"`
 	LastProcessed       time.Time     `json:"lastProcessed"`
 }
 
@@ -302,6 +303,11 @@ func (mc *MetricsCollector) updateStageMetrics(stageName string, event *MetricEv
 		stageMetrics.MessagesProcessed++
 		stageMetrics.LastProcessed = event.Timestamp
 
+		// Set FirstProcessed timestamp on first message
+		if stageMetrics.FirstProcessed.IsZero() {
+			stageMetrics.FirstProcessed = event.Timestamp
+		}
+
 		if event.Duration > 0 {
 			stageMetrics.TotalLatency += event.Duration
 			stageMetrics.AverageLatency = time.Duration(int64(stageMetrics.TotalLatency) / stageMetrics.MessagesProcessed)
@@ -343,10 +349,11 @@ func (mc *MetricsCollector) calculateThroughput() {
 
 	// Calculate stage-specific throughput
 	for _, stageMetrics := range mc.pipelineMetrics.StageMetrics {
-		if !stageMetrics.LastProcessed.IsZero() && stageMetrics.MessagesProcessed > 0 {
-			stageElapsed := now.Sub(stageMetrics.LastProcessed)
-			if stageElapsed > time.Second { // Only calculate if we have meaningful elapsed time
-				stageMetrics.ThroughputPerSecond = float64(stageMetrics.MessagesProcessed) / stageElapsed.Seconds()
+		if !stageMetrics.FirstProcessed.IsZero() && stageMetrics.MessagesProcessed > 0 {
+			// Calculate throughput based on total elapsed time from first message to now
+			totalElapsed := now.Sub(stageMetrics.FirstProcessed)
+			if totalElapsed > 0 {
+				stageMetrics.ThroughputPerSecond = float64(stageMetrics.MessagesProcessed) / totalElapsed.Seconds()
 			}
 		}
 	}
@@ -399,16 +406,16 @@ func (mc *MetricsCollector) dumpMetrics() {
 	defer mc.mu.RUnlock()
 
 	mc.logger.WithFields(map[string]interface{}{
-		"totalMessages":         mc.pipelineMetrics.TotalMessages,
-		"processedMessages":     mc.pipelineMetrics.ProcessedMessages,
-		"failedMessages":        mc.pipelineMetrics.FailedMessages,
-		"errorCount":            mc.pipelineMetrics.ErrorCount,
-		"retryCount":            mc.pipelineMetrics.RetryCount,
-		"averageProcessingTime": mc.pipelineMetrics.AverageProcessingTime.String(),
-		"throughputPerSecond":   mc.pipelineMetrics.ThroughputPerSecond,
-		"bytesProcessed":        mc.pipelineMetrics.BytesProcessed,
-		"summaryCount":          len(mc.summaries),
-		"eventCount":            len(mc.events),
+		"totalMessages":            mc.pipelineMetrics.TotalMessages,
+		"processedMessages":        mc.pipelineMetrics.ProcessedMessages,
+		"failedMessages":           mc.pipelineMetrics.FailedMessages,
+		"errorCount":               mc.pipelineMetrics.ErrorCount,
+		"retryCount":               mc.pipelineMetrics.RetryCount,
+		"averageProcessingTime":    mc.pipelineMetrics.AverageProcessingTime.String(),
+		"msgCountThroughputPerSec": mc.pipelineMetrics.ThroughputPerSecond,
+		"bytesProcessed":           mc.pipelineMetrics.BytesProcessed,
+		"summaryCount":             len(mc.summaries),
+		"eventCount":               len(mc.events),
 	}).Info("Pipeline metrics summary")
 
 	// Log stage metrics
@@ -430,13 +437,13 @@ func (mc *MetricsCollector) dumpMetrics() {
 		}
 
 		mc.logger.WithFields(map[string]interface{}{
-			"stage":               stageName,
-			"messagesProcessed":   stageMetrics.MessagesProcessed,
-			"messagesFailed":      stageMetrics.MessagesFailed,
-			"averageLatency":      avgLatencyStr,
-			"minLatency":          minLatencyStr,
-			"maxLatency":          maxLatencyStr,
-			"throughputPerSecond": stageMetrics.ThroughputPerSecond,
+			"stage":                    stageName,
+			"messagesProcessed":        stageMetrics.MessagesProcessed,
+			"messagesFailed":           stageMetrics.MessagesFailed,
+			"averageLatency":           avgLatencyStr,
+			"minLatency":               minLatencyStr,
+			"maxLatency":               maxLatencyStr,
+			"msgCountThroughputPerSec": stageMetrics.ThroughputPerSecond,
 		}).Info("Stage metrics")
 	}
 }

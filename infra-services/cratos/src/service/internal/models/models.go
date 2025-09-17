@@ -34,7 +34,7 @@ type ChannelMessage struct {
 	EntryTimestamp   time.Time            `json:"entryTimestamp"`   // When message entered the service
 	ProcessStartTime time.Time            `json:"processStartTime"` // When processing started
 	ProcessEndTime   time.Time            `json:"processEndTime"`   // When processing ended
-	OutputTimestamp  time.Time            `json:"outputTimestamp"`  // When message was sent to output
+	OutputTimestamp  time.Time            `json:"outputTimestamp"`  // When message is out of output
 	Data             []byte               `json:"data"`
 	Meta             map[string]string    `json:"meta"`
 	Key              string               `json:"key"`

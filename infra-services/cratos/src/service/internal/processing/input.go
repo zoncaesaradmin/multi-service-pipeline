@@ -144,8 +144,6 @@ func (i *InputHandler) Stop() error {
 	return nil
 }
 
-// ...removed: consumeLoop, now handled by OnMessage callback...
-
 // GetStats returns statistics about the input handler
 func (i *InputHandler) GetStats() map[string]interface{} {
 	return map[string]interface{}{

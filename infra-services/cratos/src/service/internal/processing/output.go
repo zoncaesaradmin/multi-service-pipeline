@@ -127,9 +127,6 @@ func (o *OutputHandler) flushBatch(batch []*models.ChannelMessage) {
 			msgLogger = utils.WithTraceLogger(o.logger, message.Context)
 		}
 
-		// Set output timestamp
-		message.OutputTimestamp = sendStartTime
-
 		if err := o.sendMessage(message); err != nil {
 			msgLogger.Errorw("Failed to send message", "error", err, "batch_index", i, "key", message.Key)
 			// Record send failure
@@ -137,12 +134,18 @@ func (o *OutputHandler) flushBatch(batch []*models.ChannelMessage) {
 				o.metricsHelper.RecordError(message, "send_failed")
 				o.metricsHelper.RecordStageLatency(time.Since(sendStartTime), "send_failed")
 			}
+			// Set output timestamp
+			message.OutputTimestamp = time.Now()
+
 			// Don't commit offset for failed messages
 		} else {
 			// Record successful send
 			if o.metricsHelper != nil {
 				o.metricsHelper.RecordStageLatency(time.Since(sendStartTime), "send_success")
 			}
+
+			// Set output timestamp after message is sent out
+			message.OutputTimestamp = time.Now()
 
 			// Commit offset immediately after successful send
 			if message.HasCommitCallback() {
@@ -171,6 +174,7 @@ func (o *OutputHandler) flushBatch(batch []*models.ChannelMessage) {
 			}
 			successCount++
 		}
+
 	}
 
 	// Record batch processing metrics

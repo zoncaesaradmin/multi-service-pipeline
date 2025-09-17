@@ -171,7 +171,7 @@ func (o *OutputHandler) flushBatch(batch []*models.ChannelMessage) {
 						// Record message as fully processed at output stage
 						outputDuration := time.Since(sendStartTime)
 						o.metricsHelper.RecordStageCompleted(message, outputDuration)
-						o.metricsHelper.RecordMessageProcessed(message)
+						o.metricsHelper.RecordMessageCompleted(message)
 					}
 				}
 			}

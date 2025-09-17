@@ -32,8 +32,8 @@ func (mh *MetricsHelper) RecordMessageReceived(msg *models.ChannelMessage) {
 	mh.collector.SendMetric(event)
 }
 
-// RecordMessageProcessed records when a message is successfully processed
-func (mh *MetricsHelper) RecordMessageProcessed(msg *models.ChannelMessage) {
+// RecordMessageCompleted records when a message is successfully processed
+func (mh *MetricsHelper) RecordMessageCompleted(msg *models.ChannelMessage) {
 	duration := msg.GetTotalProcessingTime()
 
 	// Record processing completion

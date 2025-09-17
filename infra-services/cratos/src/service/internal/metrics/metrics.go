@@ -61,7 +61,7 @@ type PipelineMetrics struct {
 // StageMetrics holds metrics for individual pipeline stages
 type StageMetrics struct {
 	StageName           string        `json:"stageName"`
-	MessagesProcessed   int64         `json:"messagesProcessed"`
+	MessagesCompleted   int64         `json:"messagesCompleted"`
 	MessagesFailed      int64         `json:"messagesFailed"`
 	AverageLatency      time.Duration `json:"averageLatency"`
 	MinLatency          time.Duration `json:"minLatency"`
@@ -300,7 +300,7 @@ func (mc *MetricsCollector) updateStageMetrics(stageName string, event *MetricEv
 
 	switch event.Name {
 	case "stage.completed":
-		stageMetrics.MessagesProcessed++
+		stageMetrics.MessagesCompleted++
 		stageMetrics.LastProcessed = event.Timestamp
 
 		// Set FirstProcessed timestamp on first message
@@ -310,7 +310,7 @@ func (mc *MetricsCollector) updateStageMetrics(stageName string, event *MetricEv
 
 		if event.Duration > 0 {
 			stageMetrics.TotalLatency += event.Duration
-			stageMetrics.AverageLatency = time.Duration(int64(stageMetrics.TotalLatency) / stageMetrics.MessagesProcessed)
+			stageMetrics.AverageLatency = time.Duration(int64(stageMetrics.TotalLatency) / stageMetrics.MessagesCompleted)
 
 			// Initialize MinLatency on first measurement
 			if stageMetrics.MinLatency == 0 || event.Duration < stageMetrics.MinLatency {
@@ -349,11 +349,11 @@ func (mc *MetricsCollector) calculateThroughput() {
 
 	// Calculate stage-specific throughput
 	for _, stageMetrics := range mc.pipelineMetrics.StageMetrics {
-		if !stageMetrics.FirstProcessed.IsZero() && stageMetrics.MessagesProcessed > 0 {
+		if !stageMetrics.FirstProcessed.IsZero() && stageMetrics.MessagesCompleted > 0 {
 			// Calculate throughput based on total elapsed time from first message to now
 			totalElapsed := now.Sub(stageMetrics.FirstProcessed)
 			if totalElapsed > 0 {
-				stageMetrics.ThroughputPerSecond = float64(stageMetrics.MessagesProcessed) / totalElapsed.Seconds()
+				stageMetrics.ThroughputPerSecond = float64(stageMetrics.MessagesCompleted) / totalElapsed.Seconds()
 			}
 		}
 	}
@@ -438,7 +438,7 @@ func (mc *MetricsCollector) dumpMetrics() {
 
 		mc.logger.WithFields(map[string]interface{}{
 			"stage":                    stageName,
-			"messagesProcessed":        stageMetrics.MessagesProcessed,
+			"messagesCompleted":        stageMetrics.MessagesCompleted,
 			"messagesFailed":           stageMetrics.MessagesFailed,
 			"averageLatency":           avgLatencyStr,
 			"minLatency":               minLatencyStr,

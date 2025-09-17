@@ -40,13 +40,14 @@ func NewPipeline(config ProcConfig, logger logging.Logger, metricsCollector *met
 
 	// Create metrics helpers for each stage
 	inputMetricsHelper := metrics.NewMetricsHelper(metricsCollector, "input")
+	rulelookupMetricsHelper := metrics.NewMetricsHelper(metricsCollector, "rulelookup")
 	processorMetricsHelper := metrics.NewMetricsHelper(metricsCollector, "processor")
 	outputMetricsHelper := metrics.NewMetricsHelper(metricsCollector, "output")
 
 	// Create handlers with metrics helpers
 	inputHandler := NewInputHandler(config.Input, plogger.WithField("component", "input"), inputMetricsHelper)
 	outputHandler := NewOutputHandler(config.Output, plogger.WithField("component", "output"), outputMetricsHelper)
-	processor := NewProcessor(config.Processor, plogger.WithField("component", "processor"), inputHandler.GetInputChannel(), outputHandler.GetOutputChannel(), processorMetricsHelper)
+	processor := NewProcessor(config.Processor, plogger.WithField("component", "processor"), inputHandler.GetInputChannel(), outputHandler.GetOutputChannel(), processorMetricsHelper, rulelookupMetricsHelper)
 
 	return &Pipeline{
 		config:        config,

@@ -31,10 +31,10 @@ type Processor struct {
 	metricsHelper *metrics.MetricsHelper
 }
 
-func NewProcessor(config ProcessorConfig, logger logging.Logger, inputCh <-chan *models.ChannelMessage, outputCh chan<- *models.ChannelMessage, metricsHelper *metrics.MetricsHelper) *Processor {
+func NewProcessor(config ProcessorConfig, logger logging.Logger, inputCh <-chan *models.ChannelMessage, outputCh chan<- *models.ChannelMessage, metricsHelper *metrics.MetricsHelper, rhMetricsHelper *metrics.MetricsHelper) *Processor {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	reHandler := NewRuleHandler(config.RuleEngine, logger.WithField("module", "ruleengine"))
+	reHandler := NewRuleHandler(config.RuleEngine, logger.WithField("module", "ruleengine"), rhMetricsHelper)
 	return &Processor{
 		config:        config,
 		logger:        logger,

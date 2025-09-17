@@ -53,6 +53,7 @@ type RuleLookupResult struct {
 	RuleUUID    string          `json:"ruleUUID"`
 	CriteriaHit RuleHitCriteria `json:"criteria"`
 	Actions     []RuleHitAction `json:"actions"`
+	CritCount   int             `json:"criteriaCount"`
 }
 
 // external type for rule lookup result actions

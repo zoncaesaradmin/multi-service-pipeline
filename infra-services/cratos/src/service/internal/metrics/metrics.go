@@ -67,7 +67,7 @@ type StageMetrics struct {
 	MinLatency          time.Duration `json:"minLatency"`
 	MaxLatency          time.Duration `json:"maxLatency"`
 	TotalLatency        time.Duration `json:"totalLatency"`
-	ThroughputPerSecond float64       `json:"msgCountThroughputPerSec"`
+	ThroughputPerSecond float64       `json:"countThroughputPerSec"`
 	FirstProcessed      time.Time     `json:"firstProcessed"`
 	LastProcessed       time.Time     `json:"lastProcessed"`
 }
@@ -133,7 +133,7 @@ func DefaultMetricsConfig() MetricsConfig {
 		RetentionPeriod:   10 * time.Minute,
 		AggregationWindow: 1 * time.Minute,
 		MaxEvents:         10000,
-		DumpInterval:      30 * time.Second,
+		DumpInterval:      120 * time.Second,
 	}
 }
 
@@ -437,13 +437,13 @@ func (mc *MetricsCollector) dumpMetrics() {
 		}
 
 		mc.logger.WithFields(map[string]interface{}{
-			"stage":                    stageName,
-			"messagesCompleted":        stageMetrics.MessagesCompleted,
-			"messagesFailed":           stageMetrics.MessagesFailed,
-			"averageLatency":           avgLatencyStr,
-			"minLatency":               minLatencyStr,
-			"maxLatency":               maxLatencyStr,
-			"msgCountThroughputPerSec": stageMetrics.ThroughputPerSecond,
+			"stage":                 stageName,
+			"messagesCompleted":     stageMetrics.MessagesCompleted,
+			"messagesFailed":        stageMetrics.MessagesFailed,
+			"averageLatency":        avgLatencyStr,
+			"minLatency":            minLatencyStr,
+			"maxLatency":            maxLatencyStr,
+			"countThroughputPerSec": stageMetrics.ThroughputPerSecond,
 		}).Info("Stage metrics")
 	}
 

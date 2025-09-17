@@ -152,7 +152,7 @@ func TestNewProcessor(t *testing.T) {
 	logger, _ := logging.NewLogger(&procConfig.LoggerConfig)
 	inputCh := make(chan *models.ChannelMessage, 10)
 	outputCh := make(chan *models.ChannelMessage, 10)
-	processor := NewProcessor(procConfig.Processor, logger, inputCh, outputCh, nil)
+	processor := NewProcessor(procConfig.Processor, logger, inputCh, outputCh, nil, nil)
 
 	if processor == nil {
 		t.Fatal("Expected processor to be created, got nil")
@@ -212,7 +212,7 @@ func TestProcessorGetStats(t *testing.T) {
 	inputCh := make(chan *models.ChannelMessage, 10)
 	outputCh := make(chan *models.ChannelMessage, 10)
 
-	processor := NewProcessor(config, logger, inputCh, outputCh, nil)
+	processor := NewProcessor(config, logger, inputCh, outputCh, nil, nil)
 
 	stats := processor.GetStats()
 	if stats == nil {

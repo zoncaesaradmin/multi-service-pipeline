@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	eapi "servicegomodule/external/api"
+	"servicegomodule/internal/metrics"
 	"servicegomodule/internal/models"
 	"sharedgomodule/logging"
 	"sharedgomodule/messagebus"
@@ -33,12 +34,13 @@ type RuleEngineConfig struct {
 }
 
 type RuleEngineHandler struct {
-	ruleconsumer messagebus.Consumer
-	config       RuleEngineConfig
-	plogger      logging.Logger // handle to pipeline logger
-	reInst       relib.RuleEngineType
-	ctx          context.Context
-	cancel       context.CancelFunc
+	ruleconsumer  messagebus.Consumer
+	config        RuleEngineConfig
+	plogger       logging.Logger // handle to pipeline logger
+	reInst        relib.RuleEngineType
+	ctx           context.Context
+	cancel        context.CancelFunc
+	metricsHelper *metrics.MetricsHelper
 
 	// fields related to background task of applying rule changes to DB records
 	rlogger          logging.Logger // for both rules msg and rule tasks msg handling
@@ -50,7 +52,7 @@ type RuleEngineHandler struct {
 	leaderCtx        context.Context
 }
 
-func NewRuleHandler(config RuleEngineConfig, logger logging.Logger) *RuleEngineHandler {
+func NewRuleHandler(config RuleEngineConfig, logger logging.Logger, metricHelper *metrics.MetricsHelper) *RuleEngineHandler {
 	// use simple filename - path resolution is handled by messagebus config loader
 	consumer := messagebus.NewConsumer(config.RulesKafkaConfigMap, "ruleConsGroup"+utils.GetEnv("HOSTNAME", ""))
 
@@ -70,12 +72,13 @@ func NewRuleHandler(config RuleEngineConfig, logger logging.Logger) *RuleEngineH
 	}
 
 	h := &RuleEngineHandler{
-		ruleconsumer: consumer,
-		config:       config,
-		plogger:      logger,
-		isLeader:     false,
-		reInst:       reInst,
-		rlogger:      rlogger,
+		ruleconsumer:  consumer,
+		config:        config,
+		plogger:       logger,
+		isLeader:      false,
+		reInst:        reInst,
+		rlogger:       rlogger,
+		metricsHelper: metricHelper,
 	}
 
 	logger.Info("Initialized Rule Handler module")
@@ -286,10 +289,19 @@ func (rh *RuleEngineHandler) applyRuleToRecord(l logging.Logger, aObj *alert.Ale
 		return aObj, nil
 	}
 
+	convStartTime := time.Now()
 	convRecord := ConvertAlertObjectToRuleEngineInput(aObj)
-	l.WithField("recId", recordIdentifier(aObj)).Infof("RECORD PROC - converted data: %v", convRecord)
+	l.WithField("recId", recordIdentifier(aObj)).Debugw("RECORD PROC - after conversion", "convertedData", convRecord, "timeTaken", fmt.Sprintf("%v", time.Since(convStartTime)))
 
+	lookupStartTime := time.Now()
 	lookupResult := rh.reInst.EvaluateRules(relib.Data(convRecord))
+	rh.metricsHelper.RecordStageLatency(time.Since(lookupStartTime), "rule_lookup")
+	rh.metricsHelper.RecordCounter("criteria.count", float64(lookupResult.CritCount), map[string]string{
+		"hit": fmt.Sprintf("%v", lookupResult.IsRuleHit),
+	})
+	lookupTimeTaken := time.Since(lookupStartTime)
+	rh.metricsHelper.RecordStageCompleted(nil, lookupTimeTaken)
+	l.WithField("recId", recordIdentifier(aObj)).Debugw("RECORD PROC - post lookup", "lookupResult", lookupResult, "timeTaken", fmt.Sprintf("%v", lookupTimeTaken))
 
 	if lookupResult.IsRuleHit {
 		rh.handleRuleHit(l, aObj, lookupResult)

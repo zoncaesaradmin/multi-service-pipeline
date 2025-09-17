@@ -105,7 +105,7 @@ func TestProcessorCreation(t *testing.T) {
 	inputCh := make(chan *models.ChannelMessage, 10)
 	outputCh := make(chan *models.ChannelMessage, 10)
 
-	processor := NewProcessor(config, logger, inputCh, outputCh, nil)
+	processor := NewProcessor(config, logger, inputCh, outputCh, nil, nil)
 
 	if processor == nil {
 		t.Fatal("Expected processor to be created, got nil")
@@ -126,7 +126,7 @@ func TestProcessorStatsRetrieval(t *testing.T) {
 	inputCh := make(chan *models.ChannelMessage, 10)
 	outputCh := make(chan *models.ChannelMessage, 10)
 
-	processor := NewProcessor(config, logger, inputCh, outputCh, nil)
+	processor := NewProcessor(config, logger, inputCh, outputCh, nil, nil)
 
 	stats := processor.GetStats()
 	if stats == nil {
@@ -149,7 +149,7 @@ func TestProcessorMessageFlow(t *testing.T) {
 	inputCh := make(chan *models.ChannelMessage, 10)
 	outputCh := make(chan *models.ChannelMessage, 10)
 
-	processor := NewProcessor(config, logger, inputCh, outputCh, nil)
+	processor := NewProcessor(config, logger, inputCh, outputCh, nil, nil)
 	err := processor.Start()
 	if err != nil {
 		t.Fatalf(processorStartErrMsg, err)
@@ -197,7 +197,7 @@ func TestProcessorNonDataMessageForwarding(t *testing.T) {
 	inputCh := make(chan *models.ChannelMessage, 10)
 	outputCh := make(chan *models.ChannelMessage, 10)
 
-	processor := NewProcessor(config, logger, inputCh, outputCh, nil)
+	processor := NewProcessor(config, logger, inputCh, outputCh, nil, nil)
 	err := processor.Start()
 	if err != nil {
 		t.Fatalf(processorStartErrMsg, err)
@@ -232,7 +232,7 @@ func TestProcessorLifecycle(t *testing.T) {
 	inputCh := make(chan *models.ChannelMessage, 10)
 	outputCh := make(chan *models.ChannelMessage, 10)
 
-	processor := NewProcessor(config, logger, inputCh, outputCh, nil)
+	processor := NewProcessor(config, logger, inputCh, outputCh, nil, nil)
 
 	// Test start
 	err := processor.Start()

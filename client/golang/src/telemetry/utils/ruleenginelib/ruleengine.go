@@ -94,9 +94,11 @@ func (re *RuleEngine) EvaluateRules(data Data) RuleLookupResult {
 	// Extract primary key from data
 	primaryKey := re.extractPrimaryKey(data)
 
+	criteriaCount := 0
 	// Look for conditions specific to this primary key
 	if conditions, exists := re.PrimaryKeyIndex[primaryKey]; exists && len(conditions) > 0 {
 		for _, condition := range conditions { // Already sorted by priority
+			criteriaCount++
 			// Evaluate the condition against the data
 			if re.EvaluateMatchCondition(condition.Condition, data) {
 				// Get the parent rule information using AlertRuleUUID
@@ -109,7 +111,8 @@ func (re *RuleEngine) EvaluateRules(data Data) RuleLookupResult {
 							Any: append([]AstConditional{}, condition.Condition.Any...),
 							All: append([]AstConditional{}, condition.Condition.All...),
 						},
-						Actions: deepCopyActions(rule.Actions),
+						Actions:   deepCopyActions(rule.Actions),
+						CritCount: criteriaCount,
 					}
 				}
 			}
@@ -117,7 +120,9 @@ func (re *RuleEngine) EvaluateRules(data Data) RuleLookupResult {
 	}
 
 	// No match found
-	return RuleLookupResult{}
+	return RuleLookupResult{
+		CritCount: criteriaCount,
+	}
 }
 
 // Helper function to create a deep copy of actions

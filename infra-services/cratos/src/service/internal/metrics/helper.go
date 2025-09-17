@@ -191,36 +191,6 @@ func (mh *MetricsHelper) RecordHistogram(name string, value float64, labels map[
 	mh.collector.SendMetric(event)
 }
 
-// RecordThroughput records throughput metrics
-func (mh *MetricsHelper) RecordThroughput(messagesPerSecond float64, bytesPerSecond float64) {
-	// Record message throughput
-	mh.RecordGauge("throughput.messages_per_second", messagesPerSecond, nil)
-
-	// Record byte throughput
-	mh.RecordGauge("throughput.bytes_per_second", bytesPerSecond, nil)
-}
-
-// RecordQueueSize records queue/buffer size metrics
-func (mh *MetricsHelper) RecordQueueSize(queueName string, size int) {
-	event := &MetricEvent{
-		Type:      MetricTypeGauge,
-		Name:      "queue.size",
-		Value:     float64(size),
-		Labels:    map[string]string{"stage": mh.stage, "queue": queueName},
-		Timestamp: time.Now(),
-	}
-	mh.collector.SendMetric(event)
-}
-
-// StartTimer starts a timing operation and returns a function to stop it
-func (mh *MetricsHelper) StartTimer(operation string) func() {
-	start := time.Now()
-	return func() {
-		duration := time.Since(start)
-		mh.RecordStageLatency(duration, operation)
-	}
-}
-
 // GetCollector returns the underlying metrics collector
 func (mh *MetricsHelper) GetCollector() *MetricsCollector {
 	return mh.collector

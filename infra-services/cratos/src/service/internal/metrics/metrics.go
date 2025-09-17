@@ -292,7 +292,7 @@ func (mc *MetricsCollector) updateStageMetrics(stageName string, event *MetricEv
 	if !exists {
 		stageMetrics = &StageMetrics{
 			StageName:  stageName,
-			MinLatency: time.Hour, // Initialize with high value
+			MinLatency: 0, // Initialize to 0, will be set on first measurement
 		}
 		mc.pipelineMetrics.StageMetrics[stageName] = stageMetrics
 	}
@@ -306,7 +306,8 @@ func (mc *MetricsCollector) updateStageMetrics(stageName string, event *MetricEv
 			stageMetrics.TotalLatency += event.Duration
 			stageMetrics.AverageLatency = time.Duration(int64(stageMetrics.TotalLatency) / stageMetrics.MessagesProcessed)
 
-			if event.Duration < stageMetrics.MinLatency {
+			// Initialize MinLatency on first measurement
+			if stageMetrics.MinLatency == 0 || event.Duration < stageMetrics.MinLatency {
 				stageMetrics.MinLatency = event.Duration
 			}
 			if event.Duration > stageMetrics.MaxLatency {
@@ -332,8 +333,22 @@ func (mc *MetricsCollector) updateAverageProcessingTime(duration time.Duration) 
 func (mc *MetricsCollector) calculateThroughput() {
 	now := time.Now()
 	elapsed := now.Sub(mc.pipelineMetrics.LastUpdated)
-	if elapsed > 0 {
-		mc.pipelineMetrics.ThroughputPerSecond = float64(mc.pipelineMetrics.ProcessedMessages) / elapsed.Seconds()
+	if elapsed > 0 && mc.pipelineMetrics.ProcessedMessages > 0 {
+		// Calculate throughput based on total runtime
+		totalElapsed := now.Sub(time.Now().Add(-mc.aggregationWindow))
+		if totalElapsed > 0 {
+			mc.pipelineMetrics.ThroughputPerSecond = float64(mc.pipelineMetrics.ProcessedMessages) / totalElapsed.Seconds()
+		}
+	}
+
+	// Calculate stage-specific throughput
+	for _, stageMetrics := range mc.pipelineMetrics.StageMetrics {
+		if !stageMetrics.LastProcessed.IsZero() && stageMetrics.MessagesProcessed > 0 {
+			stageElapsed := now.Sub(stageMetrics.LastProcessed)
+			if stageElapsed > time.Second { // Only calculate if we have meaningful elapsed time
+				stageMetrics.ThroughputPerSecond = float64(stageMetrics.MessagesProcessed) / stageElapsed.Seconds()
+			}
+		}
 	}
 }
 
@@ -398,13 +413,29 @@ func (mc *MetricsCollector) dumpMetrics() {
 
 	// Log stage metrics
 	for stageName, stageMetrics := range mc.pipelineMetrics.StageMetrics {
+		// Format latencies for display
+		minLatencyStr := "N/A"
+		if stageMetrics.MinLatency > 0 {
+			minLatencyStr = stageMetrics.MinLatency.String()
+		}
+
+		maxLatencyStr := "N/A"
+		if stageMetrics.MaxLatency > 0 {
+			maxLatencyStr = stageMetrics.MaxLatency.String()
+		}
+
+		avgLatencyStr := "N/A"
+		if stageMetrics.AverageLatency > 0 {
+			avgLatencyStr = stageMetrics.AverageLatency.String()
+		}
+
 		mc.logger.WithFields(map[string]interface{}{
 			"stage":               stageName,
 			"messagesProcessed":   stageMetrics.MessagesProcessed,
 			"messagesFailed":      stageMetrics.MessagesFailed,
-			"averageLatency":      stageMetrics.AverageLatency.String(),
-			"minLatency":          stageMetrics.MinLatency.String(),
-			"maxLatency":          stageMetrics.MaxLatency.String(),
+			"averageLatency":      avgLatencyStr,
+			"minLatency":          minLatencyStr,
+			"maxLatency":          maxLatencyStr,
 			"throughputPerSecond": stageMetrics.ThroughputPerSecond,
 		}).Info("Stage metrics")
 	}
@@ -483,9 +514,4 @@ func (mc *MetricsCollector) GetRecentEvents(limit int) []*MetricEvent {
 	copy(events, mc.events[start:])
 
 	return events
-}
-
-// GetChannel returns the metrics channel for sending metrics
-func (mc *MetricsCollector) GetChannel() chan<- *MetricEvent {
-	return mc.metricsChan
 }

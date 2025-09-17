@@ -98,45 +98,12 @@ func (m *ChannelMessage) HasCommitCallback() bool {
 	return m.CommitCallback != nil
 }
 
-// SetProcessingStage sets the current processing stage and updates timestamp
-func (m *ChannelMessage) SetProcessingStage(stage string) {
-	m.ProcessingStage = stage
-	now := time.Now()
-
-	switch stage {
-	case "processing":
-		m.ProcessStartTime = now
-	case "processed", "completed":
-		m.ProcessEndTime = now
-	case "output":
-		m.OutputTimestamp = now
-	}
-}
-
-// IncrementError increments the error count
-func (m *ChannelMessage) IncrementError() {
-	m.ErrorCount++
-}
-
-// IncrementRetry increments the retry count
-func (m *ChannelMessage) IncrementRetry() {
-	m.RetryCount++
-}
-
 // GetTotalProcessingTime returns the total time spent in the service
 func (m *ChannelMessage) GetTotalProcessingTime() time.Duration {
 	if m.OutputTimestamp.IsZero() {
 		return time.Since(m.EntryTimestamp)
 	}
 	return m.OutputTimestamp.Sub(m.EntryTimestamp)
-}
-
-// GetProcessingDuration returns the time spent in processing stage
-func (m *ChannelMessage) GetProcessingDuration() time.Duration {
-	if m.ProcessStartTime.IsZero() || m.ProcessEndTime.IsZero() {
-		return 0
-	}
-	return m.ProcessEndTime.Sub(m.ProcessStartTime)
 }
 
 // ErrorResponse represents an error response

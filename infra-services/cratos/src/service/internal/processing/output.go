@@ -133,6 +133,7 @@ func (o *OutputHandler) flushBatch(batch []*models.ChannelMessage) {
 			if o.metricsHelper != nil {
 				o.metricsHelper.RecordError(message, "send_failed")
 				o.metricsHelper.RecordStageLatency(time.Since(sendStartTime), "send_failed")
+				o.metricsHelper.RecordStageFailed(message, "send_failed")
 			}
 			// Set output timestamp
 			message.OutputTimestamp = time.Now()
@@ -167,7 +168,9 @@ func (o *OutputHandler) flushBatch(batch []*models.ChannelMessage) {
 							o.metricsHelper.RecordStageLatency(endToEndLatency, "end_to_end")
 						}
 
-						// Record message as fully processed
+						// Record message as fully processed at output stage
+						outputDuration := time.Since(sendStartTime)
+						o.metricsHelper.RecordStageProcessed(message, outputDuration)
 						o.metricsHelper.RecordMessageProcessed(message)
 					}
 				}

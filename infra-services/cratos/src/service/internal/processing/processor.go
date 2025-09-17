@@ -79,6 +79,7 @@ func (p *Processor) processLoop() {
 				// Record processing failure
 				if p.metricsHelper != nil {
 					p.metricsHelper.RecordMessageFailed(message, "processing_error")
+					p.metricsHelper.RecordStageFailed(message, "processing_error")
 				}
 				// Note: We don't commit the offset for failed messages, so they will be reprocessed
 			}
@@ -115,7 +116,8 @@ func (p *Processor) processMessage(message *models.ChannelMessage) error {
 
 		// Record non-data message processing
 		if p.metricsHelper != nil {
-			p.metricsHelper.RecordMessageProcessed(message)
+			processingDuration := time.Since(startTime)
+			p.metricsHelper.RecordStageProcessed(outputMessage, processingDuration)
 		}
 
 		p.outputCh <- outputMessage
@@ -191,7 +193,7 @@ func (p *Processor) processMessage(message *models.ChannelMessage) error {
 		if p.metricsHelper != nil {
 			processingDuration := time.Since(startTime)
 			p.metricsHelper.RecordStageLatency(processingDuration, "process_message")
-			p.metricsHelper.RecordMessageProcessed(outputMessage)
+			p.metricsHelper.RecordStageProcessed(outputMessage, processingDuration)
 		}
 
 		p.outputCh <- outputMessage
@@ -215,6 +217,7 @@ func (p *Processor) processMessage(message *models.ChannelMessage) error {
 		if p.metricsHelper != nil {
 			processingDuration := time.Since(startTime)
 			p.metricsHelper.RecordStageLatency(processingDuration, "process_empty")
+			p.metricsHelper.RecordStageProcessed(outputMessage, processingDuration)
 			p.metricsHelper.RecordCounter("message.empty_result", 1, nil)
 		}
 

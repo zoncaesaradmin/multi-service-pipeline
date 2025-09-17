@@ -113,7 +113,7 @@ func (i *InputHandler) Start() error {
 			// Record message processed at input stage with timing
 			if i.metricsHelper != nil {
 				processingDuration := time.Since(channelMsg.EntryTimestamp)
-				i.metricsHelper.RecordStageProcessed(channelMsg, processingDuration)
+				i.metricsHelper.RecordStageCompleted(channelMsg, processingDuration)
 			}
 		}
 	})

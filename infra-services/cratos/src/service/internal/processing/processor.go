@@ -117,7 +117,7 @@ func (p *Processor) processMessage(message *models.ChannelMessage) error {
 		// Record non-data message processing
 		if p.metricsHelper != nil {
 			processingDuration := time.Since(startTime)
-			p.metricsHelper.RecordStageProcessed(outputMessage, processingDuration)
+			p.metricsHelper.RecordStageCompleted(outputMessage, processingDuration)
 		}
 
 		p.outputCh <- outputMessage
@@ -195,7 +195,7 @@ func (p *Processor) processMessage(message *models.ChannelMessage) error {
 		if p.metricsHelper != nil {
 			processingDuration := time.Since(startTime)
 			p.metricsHelper.RecordStageLatency(processingDuration, "process_message")
-			p.metricsHelper.RecordStageProcessed(outputMessage, processingDuration)
+			p.metricsHelper.RecordStageCompleted(outputMessage, processingDuration)
 		}
 
 		p.outputCh <- outputMessage
@@ -219,7 +219,7 @@ func (p *Processor) processMessage(message *models.ChannelMessage) error {
 		if p.metricsHelper != nil {
 			processingDuration := time.Since(startTime)
 			p.metricsHelper.RecordStageLatency(processingDuration, "process_empty")
-			p.metricsHelper.RecordStageProcessed(outputMessage, processingDuration)
+			p.metricsHelper.RecordStageCompleted(outputMessage, processingDuration)
 			p.metricsHelper.RecordCounter("message.empty_result", 1, nil)
 		}
 

@@ -113,11 +113,11 @@ func (mh *MetricsHelper) RecordStageLatency(duration time.Duration, operation st
 	mh.collector.SendMetric(event)
 }
 
-// RecordStageProcessed records when a stage completes processing
-func (mh *MetricsHelper) RecordStageProcessed(msg *models.ChannelMessage, duration time.Duration) {
+// RecordStageCompleted records when a stage completes processing
+func (mh *MetricsHelper) RecordStageCompleted(msg *models.ChannelMessage, duration time.Duration) {
 	event := &MetricEvent{
 		Type:      MetricTypeCounter,
-		Name:      "stage.processed",
+		Name:      "stage.completed",
 		Value:     1,
 		Labels:    map[string]string{"stage": mh.stage},
 		Timestamp: time.Now(),

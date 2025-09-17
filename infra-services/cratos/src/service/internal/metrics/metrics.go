@@ -299,7 +299,7 @@ func (mc *MetricsCollector) updateStageMetrics(stageName string, event *MetricEv
 	}
 
 	switch event.Name {
-	case "stage.processed":
+	case "stage.completed":
 		stageMetrics.MessagesProcessed++
 		stageMetrics.LastProcessed = event.Timestamp
 

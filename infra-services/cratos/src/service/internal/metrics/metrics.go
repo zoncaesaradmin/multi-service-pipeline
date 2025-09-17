@@ -414,8 +414,8 @@ func (mc *MetricsCollector) dumpMetrics() {
 		"averageProcessingTime":    mc.pipelineMetrics.AverageProcessingTime.String(),
 		"msgCountThroughputPerSec": mc.pipelineMetrics.ThroughputPerSecond,
 		"bytesProcessed":           mc.pipelineMetrics.BytesProcessed,
-		"summaryCount":             len(mc.summaries),
-		"eventCount":               len(mc.events),
+		//"summaryCount":             len(mc.summaries),
+		//"eventCount":               len(mc.events),
 	}).Info("Pipeline metrics summary")
 
 	// Log stage metrics
@@ -445,6 +445,26 @@ func (mc *MetricsCollector) dumpMetrics() {
 			"maxLatency":               maxLatencyStr,
 			"msgCountThroughputPerSec": stageMetrics.ThroughputPerSecond,
 		}).Info("Stage metrics")
+	}
+
+	// Collect counter metrics for consolidated logging
+	counterFields := map[string]interface{}{}
+	for _, summary := range mc.summaries {
+		if summary.Type == MetricTypeCounter {
+			// Create a key that includes stage info if available
+			var counterKey string
+			if stage, hasStage := summary.Labels["stage"]; hasStage {
+				counterKey = fmt.Sprintf("%s.%s", stage, summary.Name)
+			} else {
+				counterKey = summary.Name
+			}
+			counterFields[counterKey] = summary.Sum
+		}
+	}
+
+	// Log all counters in a single log entry if any exist
+	if len(counterFields) > 0 {
+		mc.logger.WithFields(counterFields).Info("Counter metrics")
 	}
 }
 

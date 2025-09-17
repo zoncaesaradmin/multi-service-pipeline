@@ -136,15 +136,17 @@ func (p *Processor) processMessage(message *models.ChannelMessage) error {
 	}
 
 	var outAlerts []*alert.Alert
-	ruleProcessingErrors := 0
+	ruleApplyErrors := 0
+	recordCountInMsg := 0
 
 	for _, aObj := range aStream.AlertObject {
+		recordCountInMsg++
 		processedRecord, err := p.reHandler.applyRuleToRecord(msgLogger, aObj, message.Origin)
 		if err != nil {
 			msgLogger.Errorw("Failed to apply rule processing", "error", err)
-			ruleProcessingErrors++
+			ruleApplyErrors++
 			if p.metricsHelper != nil {
-				p.metricsHelper.RecordError(message, "rule_processing_failed")
+				p.metricsHelper.RecordError(message, "rule_apply_failed")
 			}
 			// keep the record unchanged if processing fails
 			outAlerts = append(outAlerts, aObj)
@@ -154,13 +156,13 @@ func (p *Processor) processMessage(message *models.ChannelMessage) error {
 		outAlerts = append(outAlerts, processedRecord)
 	}
 
-	// Record rule processing metrics
+	// Record rule applying metrics
 	if p.metricsHelper != nil {
-		if ruleProcessingErrors > 0 {
-			p.metricsHelper.RecordCounter("rule.errors", float64(ruleProcessingErrors), map[string]string{"type": "processing_failed"})
+		if ruleApplyErrors > 0 {
+			p.metricsHelper.RecordCounter("rule.apply.erroredrecords", float64(ruleApplyErrors), map[string]string{"type": "applying_failed"})
 		}
-		p.metricsHelper.RecordCounter("rule.processed", float64(len(aStream.AlertObject)), nil)
-		p.metricsHelper.RecordCounter("rule.output", float64(len(outAlerts)), nil)
+		p.metricsHelper.RecordCounter("rule.msg.records", float64(recordCountInMsg), nil)
+		p.metricsHelper.RecordCounter("rule.appliedrecords", float64(recordCountInMsg-ruleApplyErrors), nil)
 	}
 
 	if len(outAlerts) > 0 {

@@ -38,7 +38,7 @@ func NewApplication(cfg *config.RawConfig, logger logging.Logger) *Application {
 
 	// Create processing pipeline with configuration from config file
 	processingConfig := processing.DefaultConfig(cfg)
-	processingPipeline := processing.NewPipeline(processingConfig, logger.WithField("module", "processing"), metricsCollector)
+	processingPipeline := processing.NewPipeline(processingConfig, logger.WithField("component", "processing"), metricsCollector)
 
 	return &Application{
 		rawconfig:          cfg,

@@ -133,7 +133,7 @@ func DefaultMetricsConfig() MetricsConfig {
 		RetentionPeriod:   10 * time.Minute,
 		AggregationWindow: 1 * time.Minute,
 		MaxEvents:         10000,
-		DumpInterval:      120 * time.Second,
+		DumpInterval:      30 * time.Second,
 	}
 }
 

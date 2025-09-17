@@ -295,12 +295,16 @@ func (rh *RuleEngineHandler) applyRuleToRecord(l logging.Logger, aObj *alert.Ale
 
 	lookupStartTime := time.Now()
 	lookupResult := rh.reInst.EvaluateRules(relib.Data(convRecord))
-	rh.metricsHelper.RecordStageLatency(time.Since(lookupStartTime), "rule_lookup")
-	rh.metricsHelper.RecordCounter("criteria.count", float64(lookupResult.CritCount), map[string]string{
-		"hit": fmt.Sprintf("%v", lookupResult.IsRuleHit),
-	})
+	if rh.metricsHelper != nil {
+		rh.metricsHelper.RecordStageLatency(time.Since(lookupStartTime), "rule_lookup")
+		rh.metricsHelper.RecordCounter("criteria.count", float64(lookupResult.CritCount), map[string]string{
+			"hit": fmt.Sprintf("%v", lookupResult.IsRuleHit),
+		})
+	}
 	lookupTimeTaken := time.Since(lookupStartTime)
-	rh.metricsHelper.RecordStageCompleted(nil, lookupTimeTaken)
+	if rh.metricsHelper != nil {
+		rh.metricsHelper.RecordStageCompleted(nil, lookupTimeTaken)
+	}
 	l.WithField("recId", recordIdentifier(aObj)).Debugw("RECORD PROC - post lookup", "lookupResult", lookupResult, "timeTaken", fmt.Sprintf("%v", lookupTimeTaken))
 
 	if lookupResult.IsRuleHit {

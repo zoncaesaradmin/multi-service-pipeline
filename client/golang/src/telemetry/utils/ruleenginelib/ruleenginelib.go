@@ -42,6 +42,15 @@ const (
 	RuleActionCustomizeRecommendation = "CUSTOMIZE_RECOMMENDATION"
 )
 
+// severity types supported
+const (
+	SeverityCritical = "critical"
+	SeverityMajor    = "major"
+	SeverityMinor    = "minor"
+	SeverityWarning  = "warning"
+	SeverityDefault  = "none"
+)
+
 type ActionSeverity struct {
 	SeverityValue string `json:"severityValue,omitempty"`
 }

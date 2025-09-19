@@ -101,6 +101,7 @@ type RuleMatchCriteriaConfig struct {
 	CategoryMatchCriteria       []MatchCriteria `json:"categoryMatchCriteria,omitempty"`
 	EventNameMatchCriteria      []MatchCriteria `json:"eventNameMatchCriteria,omitempty"`
 	AffectedObjectMatchCriteria []MatchCriteria `json:"affectedObjectMatchCriteria,omitempty"`
+	SeverityMatchCriteria       []MatchCriteria `json:"severityMatchCriteria,omitempty"`
 	UUID                        string          `json:"uuid"`
 	AlertRuleId                 string          `json:"alertRuleId"`
 	SiteId                      string          `json:"siteId,omitempty"`

@@ -119,6 +119,7 @@ func main() {
 	// Run tests using unified approach (automatically handles parallel vs non-parallel)
 	runTestSuites(logDir)
 
+	time.Sleep(40*time.Second)
 	testStatus = "complete"
 
 	handleServerShutdown(server)

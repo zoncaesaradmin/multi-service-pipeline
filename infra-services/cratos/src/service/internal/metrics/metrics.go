@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"servicegomodule/internal/models"
 	"sharedgomodule/logging"
+	"sort"
 	"sync"
 	"time"
 )
@@ -362,8 +363,16 @@ func (mc *MetricsCollector) calculateThroughput() {
 // getSummaryKey generates a unique key for metric summaries
 func (mc *MetricsCollector) getSummaryKey(event *MetricEvent) string {
 	key := fmt.Sprintf("%s:%s", event.Type, event.Name)
-	for k, v := range event.Labels {
-		key += fmt.Sprintf(":%s=%s", k, v)
+
+	// Sort labels to ensure deterministic key generation
+	var keys []string
+	for k := range event.Labels {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	for _, k := range keys {
+		key += fmt.Sprintf(":%s=%s", k, event.Labels[k])
 	}
 	return key
 }

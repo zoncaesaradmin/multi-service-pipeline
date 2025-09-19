@@ -29,16 +29,16 @@ func ConvertAlertObjectToRuleEngineInput(aObj *alert.Alert) map[string]any {
 	// also, it helps to change the field key mapping if needed
 
 	reInput[relib.MatchKeyFabricName] = aObj.FabricName
-	reInput[relib.MatchKeyCategory] = aObj.Category
+	reInput[relib.MatchKeyCategory] = strings.ToUpper(aObj.Category)
 	reInput[relib.MatchKeyTitle] = aObj.MnemonicTitle
-	reInput[relib.MatchKeySeverity] = aObj.Severity
+	reInput[relib.MatchKeySeverity] = strings.ToLower(aObj.Severity)
 
 	for _, objField := range aObj.AffectedObjects {
 		switch strings.ToLower(objField.Type) {
 		case "switch", "leaf":
 			reInput[relib.MatchKeySwitch] = objField.Name
 		case "interface":
-			reInput[relib.MatchKeyInterface] = objField.Name
+			reInput[relib.MatchKeyInterface] = relib.NormalizeInterfaceName(objField.Name)
 		case "ip":
 			reInput[relib.MatchKeyIp] = objField.Name
 		case "vni":

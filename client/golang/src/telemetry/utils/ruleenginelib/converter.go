@@ -3,7 +3,14 @@ package ruleenginelib
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
+)
+
+const (
+	ethPattern = "(?:e|et|eth|ether|ethernet)(\\d+/\\d+(\\.\\d+|/\\d+)*)"
+	pcPattern  = "(?:p|po|por|port|pc|port-channel)(\\d+(\\.\\d+)*)"
+	loPattern  = "(?:l|lo|loo|loop|loopb|loopba|loopbac|loopback)(\\d+)"
 )
 
 // Root struct to hold the entire JSON payload of rule message
@@ -47,6 +54,7 @@ type RuleMatchCriteriaConfig struct {
 	CategoryMatchCriteria       []MatchCriteria `json:"categoryMatchCriteria,omitempty"`
 	EventNameMatchCriteria      []MatchCriteria `json:"eventNameMatchCriteria,omitempty"`
 	AffectedObjectMatchCriteria []MatchCriteria `json:"affectedObjectMatchCriteria,omitempty"`
+	SeverityMatchCriteria       []MatchCriteria `json:"severityMatchCriteria,omitempty"`
 	UUID                        string          `json:"uuid"`
 	AlertRuleId                 string          `json:"alertRuleId"`
 	SiteId                      string          `json:"siteId,omitempty"`
@@ -76,7 +84,7 @@ func processRuleMatchCriteria(rule AlertRuleConfig) map[string][]*RuleMatchCondi
 
 		// fabricName
 		conditionals = append(conditionals, AstConditional{
-			Identifier: "fabricName",
+			Identifier: MatchKeyFabricName,
 			Operator:   "anyof",
 			Value:      []string{criteria.SiteId},
 		})
@@ -84,31 +92,50 @@ func processRuleMatchCriteria(rule AlertRuleConfig) map[string][]*RuleMatchCondi
 		// Category
 		categories := make([]string, 0)
 		for _, cat := range criteria.CategoryMatchCriteria {
-			categories = append(categories, cat.ValueEquals)
+			categories = append(categories, strings.ToUpper(cat.ValueEquals))
 		}
-		conditionals = append(conditionals, AstConditional{
-			Identifier: "category",
-			Operator:   "anyof",
-			Value:      categories,
-		})
+		if len(categories) > 0 {
+			conditionals = append(conditionals, AstConditional{
+				Identifier: MatchKeyCategory,
+				Operator:   "anyof",
+				Value:      categories,
+			})
+		}
 
 		// EventName / title
 		titles := make([]string, 0)
 		for _, evt := range criteria.EventNameMatchCriteria {
 			titles = append(titles, evt.ValueEquals)
 		}
-		conditionals = append(conditionals, AstConditional{
-			Identifier: "title",
-			Operator:   "anyof",
-			Value:      titles,
-		})
+		if len(titles) > 0 {
+			conditionals = append(conditionals, AstConditional{
+				Identifier: "title",
+				Operator:   "anyof",
+				Value:      titles,
+			})
+		}
+
+		// Severity Match
+		sevMatches := make([]string, 0)
+		for _, sev := range criteria.SeverityMatchCriteria {
+			convSeverity := strings.ToLower(NormalizeSeverity(sev.ValueEquals))
+			sevMatches = append(sevMatches, convSeverity)
+		}
+		if len(sevMatches) > 0 {
+			conditionals = append(conditionals, AstConditional{
+				Identifier: MatchKeySeverity,
+				Operator:   "anyof",
+				Value:      sevMatches,
+			})
+		}
 
 		// object match conditions
 		for _, objMatch := range criteria.AffectedObjectMatchCriteria {
+			id := convertObjIdentifier(objMatch.ObjectType)
 			conditionals = append(conditionals, AstConditional{
-				Identifier: objMatch.ObjectType,
+				Identifier: id,
 				Operator:   "eq",
-				Value:      objMatch.ValueEquals,
+				Value:      convertObjIdentifierValue(id, objMatch.ValueEquals),
 			})
 		}
 
@@ -153,7 +180,7 @@ func ConvertToRuleEngineFormat(rules []AlertRuleConfig) ([]byte, error) {
 			case RuleActionCustomizeRecommendation:
 				reActionValue = rule.CustomizeAnomaly.CustomMessage
 			case RuleActionSeverityOverride:
-				reActionValue = rule.SeverityOverride
+				reActionValue = NormalizeSeverity(rule.SeverityOverride)
 			}
 			ruleAction := &RuleAction{
 				ActionType:     reActionType,
@@ -185,6 +212,70 @@ func convertToActionType(action string) string {
 	default:
 		return "unknown"
 	}
+}
+
+func NormalizeSeverity(severity string) string {
+	switch strings.ToUpper(severity) {
+	case "EVENT_SEVERITY_CRITICAL", "CRITICAL":
+		return SeverityCritical
+	case "EVENT_SEVERITY_MAJOR", "MAJOR":
+		return SeverityMajor
+	case "EVENT_SEVERITY_MINOR", "MINOR":
+		return SeverityMinor
+	case "EVENT_SEVERITY_WARNING", "WARNING":
+		return SeverityWarning
+	}
+	return SeverityDefault
+}
+
+func convertObjIdentifier(objectType string) string {
+	switch strings.ToLower(objectType) {
+	case "interface":
+		return MatchKeyInterface
+	case "switch", "node", "leaf":
+		return MatchKeySwitch
+	case "ip", "ipv4", "ipv6", "address":
+		return MatchKeyIp
+	case "vni":
+		return MatchKeyVni
+	case "vrf":
+		return MatchKeyVrf
+	case "subnet", "network":
+		return MatchKeySubnet
+	}
+	return objectType
+}
+
+func convertObjIdentifierValue(objectType string, value string) string {
+	switch strings.ToLower(objectType) {
+	case "interface":
+		return NormalizeInterfaceName(value)
+	}
+	return value
+}
+
+func NormalizeInterfaceName(intfName string) string {
+	convertedStr := strings.ToLower(strings.TrimSpace(intfName))
+	if strings.HasPrefix(convertedStr, "e") {
+		r, _ := regexp.Compile(ethPattern)
+		matched := r.FindStringSubmatch(convertedStr)
+		if len(matched) > 1 {
+			return "Ethernet" + matched[1]
+		}
+	} else if strings.HasPrefix(convertedStr, "p") {
+		r, _ := regexp.Compile(pcPattern)
+		matched := r.FindStringSubmatch(convertedStr)
+		if len(matched) > 1 {
+			return "Port-channel" + matched[1]
+		}
+	} else if strings.HasPrefix(convertedStr, "l") {
+		r, _ := regexp.Compile(loPattern)
+		matched := r.FindStringSubmatch(convertedStr)
+		if len(matched) > 1 {
+			return "Loopback" + matched[1]
+		}
+	}
+	return intfName
 }
 
 func GetAllConfiguredAlertRules() [][]byte {

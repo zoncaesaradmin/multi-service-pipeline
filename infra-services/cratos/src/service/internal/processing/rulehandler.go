@@ -2,11 +2,13 @@ package processing
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	eapi "servicegomodule/external/api"
+	"net/http"
 	"servicegomodule/internal/metrics"
 	"servicegomodule/internal/models"
+	eapi "sharedgomodule/extapi"
 	"sharedgomodule/logging"
 	"sharedgomodule/messagebus"
 	"sharedgomodule/utils"
@@ -43,7 +45,11 @@ type RuleEngineHandler struct {
 	metricsHelper *metrics.MetricsHelper
 
 	// fields related to background task of applying rule changes to DB records
-	rlogger          logging.Logger // for both rules msg and rule tasks msg handling
+	rlogger logging.Logger // for both rules msg and rule tasks msg handling
+
+	// severity cache for mappping event titles to severity levels
+	severityCache map[string]string
+
 	ruleTaskProducer messagebus.Producer
 	ruleTaskConsumer messagebus.Consumer
 	isLeader         bool
@@ -100,7 +106,16 @@ func (rh *RuleEngineHandler) Start() error {
 		return err
 	}
 
-	_ = eapi.FetchAlertMappings()
+	client := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+	}
+	for _, siteType := range strings.Split(eapi.AllSiteTypeStr, ",") {
+		if err := eapi.FetchSeverityMappings(eapi.EventSvcBaseURL, siteType, rh.severityCache, client); err != nil {
+			return fmt.Errorf("Failed to initialize severity cache for %s: %w", siteType, err)
+		}
+	}
 
 	return nil
 }
@@ -284,14 +299,14 @@ func (rh *RuleEngineHandler) GetStats() map[string]interface{} {
 }
 
 func (rh *RuleEngineHandler) applyRuleToRecord(l logging.Logger, aObj *alert.Alert, origin models.ChannelMessageOrigin) (*alert.Alert, error) {
-	if !needsRuleProcessing(aObj) {
-		l.WithField("recId", recordIdentifier(aObj)).Infof("RECORD PROC - skipped rule lookup")
+	if !eapi.NeedsRuleProcessing(aObj) {
+		l.WithField("recId", eapi.RecordIdentifier(aObj)).Infof("RECORD PROC - skipped rule lookup")
 		return aObj, nil
 	}
 
 	convStartTime := time.Now()
-	convRecord := ConvertAlertObjectToRuleEngineInput(aObj)
-	l.WithField("recId", recordIdentifier(aObj)).Debugw("RECORD PROC - after conversion", "convertedData", convRecord, "timeTaken", fmt.Sprintf("%v", time.Since(convStartTime)))
+	convRecord := eapi.ConvertAlertObjectToRuleEngineInput(aObj)
+	l.WithField("recId", eapi.RecordIdentifier(aObj)).Debugw("RECORD PROC - after conversion", "convertedData", convRecord, "timeTaken", fmt.Sprintf("%v", time.Since(convStartTime)))
 
 	lookupStartTime := time.Now()
 	lookupResult := rh.reInst.EvaluateRules(relib.Data(convRecord))
@@ -305,7 +320,7 @@ func (rh *RuleEngineHandler) applyRuleToRecord(l logging.Logger, aObj *alert.Ale
 	if rh.metricsHelper != nil {
 		rh.metricsHelper.RecordStageCompleted(nil, lookupTimeTaken)
 	}
-	l.WithField("recId", recordIdentifier(aObj)).Debugw("RECORD PROC - post lookup", "lookupResult", lookupResult, "timeTaken", fmt.Sprintf("%v", lookupTimeTaken))
+	l.WithField("recId", eapi.RecordIdentifier(aObj)).Debugw("RECORD PROC - post lookup", "lookupResult", lookupResult, "timeTaken", fmt.Sprintf("%v", lookupTimeTaken))
 
 	if lookupResult.IsRuleHit {
 		rh.handleRuleHit(l, aObj, lookupResult)
@@ -335,7 +350,7 @@ func (rh *RuleEngineHandler) handleRuleMiss(l logging.Logger, aObj *alert.Alert,
 		rh.revertToDefaultActions(aObj, lookupResult)
 	}
 
-	l.WithField("recId", recordIdentifier(aObj)).Infow("RECORD PROC - no rule hit", "actionsApplied", toPrintActionMap)
+	l.WithField("recId", eapi.RecordIdentifier(aObj)).Infow("RECORD PROC - no rule hit", "actionsApplied", toPrintActionMap)
 }
 
 func (rh *RuleEngineHandler) revertToDefaultActions(aObj *alert.Alert, lookupResult relib.RuleLookupResult) {

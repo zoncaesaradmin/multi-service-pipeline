@@ -1,4 +1,4 @@
-package processing
+package extapi
 
 import (
 	"strings"
@@ -6,14 +6,23 @@ import (
 	relib "telemetry/utils/ruleenginelib"
 )
 
-func needsRuleProcessing(aObj *alert.Alert) bool {
+var severityMap = map[int]string{
+	0: "event",
+	1: "debug",
+	2: "warning",
+	3: "minor",
+	4: "major",
+	5: "critical",
+}
+
+func NeedsRuleProcessing(aObj *alert.Alert) bool {
 	// Placeholder for actual logic to determine if a record needs rule processing
 	// This function should return true if the record requires rule processing,
 	// and false otherwise.
 	return true
 }
 
-func recordIdentifier(aObj *alert.Alert) string {
+func RecordIdentifier(aObj *alert.Alert) string {
 	// Placeholder for actual logic to determine the record identifier
 	// especially for tracking the path
 	// This function should return a string that uniquely identifies the record.

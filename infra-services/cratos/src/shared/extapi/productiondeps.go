@@ -1,9 +1,11 @@
 //go:build !local
 // +build !local
 
-package api
+package extapi
 
-func fetchAlertMappingInfo() []byte {
-	// have production implementation here
-	return []byte{}
+import "net/http"
+
+func fetchSeverityMappingInfo(baseURL, siteType string, severityCache map[string]string, client *http.Client) error {
+	// have local implementation here
+	return nil
 }

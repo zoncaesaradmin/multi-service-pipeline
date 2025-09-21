@@ -1,11 +1,19 @@
-package api
+package extapi
 
-func FetchAlertMappings() map[string]string {
+import "net/http"
+
+const (
+	EventSvcBaseURL       = "https://nae-eventservice-svc.cisco-nir.svc:8443"
+	AlertMappingUrlPrefix = "/api/telemetry/v2/events/mappings"
+	AllSiteTypeStr        = "CISCO_ACI,CISCO_NX-OS"
+)
+
+func FetchSeverityMappings(baseURL, siteType string, severityCache map[string]string, client *http.Client) error {
 
 	// call local or production implementation to get actual data
-	_ = fetchAlertMappingInfo()
+	err := fetchSeverityMappingInfo(baseURL, siteType, severityCache, client)
 
 	// do the common data handling here
 
-	return map[string]string{}
+	return err
 }

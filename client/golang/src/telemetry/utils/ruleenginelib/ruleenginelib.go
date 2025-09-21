@@ -59,10 +59,11 @@ type ActionSeverity struct {
 type RuleLookupResult struct {
 	IsRuleHit bool `json:"isRuleHit"`
 	// below are relevant only if IsRuleHit is true
-	RuleUUID    string          `json:"ruleUUID"`
-	CriteriaHit RuleHitCriteria `json:"criteria"`
-	Actions     []RuleHitAction `json:"actions"`
-	CritCount   int             `json:"criteriaCount"`
+	RuleUUID           string          `json:"ruleUUID"`
+	CriteriaHit        RuleHitCriteria `json:"criteria"`
+	Actions            []RuleHitAction `json:"actions"`
+	CritCount          int             `json:"criteriaCount"`
+	ApplyToAllExisting bool            `json:"applyToAllExisting"`
 }
 
 // external type for rule lookup result actions
@@ -204,10 +205,71 @@ func (re *RuleEngine) initAlertRules() {
 	}
 }
 
+// ParseRuleDefinitions parses the rule JSON into structured RuleDefinition types
+func ParseRuleDefinitions(ruleBytes []byte) ([]*RuleDefinition, error) {
+	var rules []*RuleDefinition
+	if err := json.Unmarshal(ruleBytes, &rules); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal rules into structured format: %w", err)
+	}
+	return rules, nil
+}
+
+// CheckApplyToExistingFlag parses the rule JSON to check if any action has applyToExisting=true
+func CheckApplyToExistingFlag(ruleJSON []byte) (bool, error) {
+	var rules []map[string]interface{}
+	if err := json.Unmarshal(ruleJSON, &rules); err != nil {
+		return false, fmt.Errorf("failed to unmarshal rule JSON: %w", err)
+	}
+
+	for _, rule := range rules {
+		// Check actions array for applyToExisting flag
+		if actions, exists := rule["actions"]; exists {
+			if actionArray, ok := actions.([]interface{}); ok {
+				for _, actionItem := range actionArray {
+					if actionMap, ok := actionItem.(map[string]interface{}); ok {
+						if applyVal, hasApply := actionMap["applyToExisting"]; hasApply {
+							if applyBool, ok := applyVal.(bool); ok && applyBool {
+								return true, nil // Found at least one action with applyToExisting true
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return false, nil // No applyToExisting=true found
+}
+
+// ExtractConditions extracts the conditions from MatchCriteriaEntries
+func ExtractConditions(rule *RuleDefinition) []map[string]interface{} {
+	var conditions []map[string]interface{}
+	if rule == nil || rule.MatchCriteriaEntries == nil {
+		return conditions
+	}
+
+	for _, criteriaList := range rule.MatchCriteriaEntries {
+		for _, criteria := range criteriaList {
+			if criteria.Condition.All != nil || criteria.Condition.Any != nil {
+				// Convert AstCondition to map[string]interface{}
+				conditionMap := make(map[string]interface{})
+				if len(criteria.Condition.All) > 0 {
+					conditionMap["all"] = criteria.Condition.All
+				}
+				if len(criteria.Condition.Any) > 0 {
+					conditionMap["any"] = criteria.Condition.Any
+				}
+				conditions = append(conditions, conditionMap)
+			}
+		}
+	}
+	return conditions
+}
+
 type RuleEngineType interface {
 	HandleRuleEvent([]byte, UserMetaData) (*RuleMsgResult, error)
 	EvaluateRules(Data) RuleLookupResult
-	GetRule(string) (*RuleDefinition, bool)
+	GetRule(string) (RuleDefinition, bool)
 	AddRule(string) error
 	DeleteRule(string)
 }

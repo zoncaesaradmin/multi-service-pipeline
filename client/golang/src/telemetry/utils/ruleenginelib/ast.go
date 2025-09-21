@@ -20,8 +20,8 @@ type AstCondition struct {
 
 // Fired when a identifier matches a rule
 type RuleAction struct {
-	ActionType     string
-	ActionValueStr string
+	ActionType     string `json:"actionType"`
+	ActionValueStr string `json:"actionValueStr"`
 }
 
 // parse JSON string as Rule

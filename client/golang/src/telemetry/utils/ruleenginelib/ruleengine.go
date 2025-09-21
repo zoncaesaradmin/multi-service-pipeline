@@ -36,6 +36,7 @@ type RuleDefinition struct {
 	LastModifiedTime     int64                            `json:"lastModifiedTime,omitempty"`
 	MatchCriteriaEntries map[string][]*RuleMatchCondition `json:"matchCriteriaEntries,omitempty"`
 	Actions              []*RuleAction                    `json:"actions,omitempty"`
+	ApplyActionsToAll    bool                             `json:"applyActionsToAll,omitempty"`
 }
 
 type RuleMatchCondition struct {
@@ -78,12 +79,17 @@ func (re *RuleEngine) DeleteRule(rule string) {
 	re.rebuildIndexes() // Rebuild indexes after deleting rules
 }
 
-// GetRule retrieves a rule from the engine by its UUID
-func (re *RuleEngine) GetRule(ruleUUID string) (*RuleDefinition, bool) {
+// GetRule retrieves a copy of a rule from the engine by its UUID
+func (re *RuleEngine) GetRule(ruleUUID string) (RuleDefinition, bool) {
 	re.Mutex.Lock()
 	defer re.Mutex.Unlock()
 	rule, exists := re.RuleMap[ruleUUID]
-	return rule, exists
+	if !exists {
+		return RuleDefinition{}, false
+	}
+
+	// Return a deep copy of the rule to prevent external modification
+	return re.deepCopyRuleDefinition(rule), true
 }
 
 // EvaluateRules evaluates rules against the provided data using primary key optimization at condition level
@@ -111,8 +117,9 @@ func (re *RuleEngine) EvaluateRules(data Data) RuleLookupResult {
 							Any: append([]AstConditional{}, condition.Condition.Any...),
 							All: append([]AstConditional{}, condition.Condition.All...),
 						},
-						Actions:   deepCopyActions(rule.Actions),
-						CritCount: criteriaCount,
+						Actions:            deepCopyActions(rule.Actions),
+						CritCount:          criteriaCount,
+						ApplyToAllExisting: rule.ApplyActionsToAll,
 					}
 				}
 			}
@@ -135,6 +142,53 @@ func deepCopyActions(actions []*RuleAction) []RuleHitAction {
 		}
 	}
 	return actionsCopy
+}
+
+// deepCopyRuleDefinition creates a deep copy of a RuleDefinition to prevent external modification
+func (re *RuleEngine) deepCopyRuleDefinition(original *RuleDefinition) RuleDefinition {
+	copy := RuleDefinition{
+		AlertRuleUUID:     original.AlertRuleUUID,
+		Name:              original.Name,
+		Priority:          original.Priority,
+		Description:       original.Description,
+		Enabled:           original.Enabled,
+		LastModifiedTime:  original.LastModifiedTime,
+		ApplyActionsToAll: original.ApplyActionsToAll,
+	}
+
+	// Deep copy MatchCriteriaEntries
+	if original.MatchCriteriaEntries != nil {
+		copy.MatchCriteriaEntries = make(map[string][]*RuleMatchCondition)
+		for key, conditions := range original.MatchCriteriaEntries {
+			copiedConditions := make([]*RuleMatchCondition, len(conditions))
+			for i, condition := range conditions {
+				copiedConditions[i] = &RuleMatchCondition{
+					CriteriaUUID:      condition.CriteriaUUID,
+					AlertRuleUUID:     condition.AlertRuleUUID,
+					PrimaryMatchValue: condition.PrimaryMatchValue,
+					Condition: AstCondition{
+						Any: append([]AstConditional{}, condition.Condition.Any...),
+						All: append([]AstConditional{}, condition.Condition.All...),
+					},
+				}
+			}
+			copy.MatchCriteriaEntries[key] = copiedConditions
+		}
+	}
+
+	// Deep copy Actions
+	copy.Actions = make([]*RuleAction, len(original.Actions))
+	if original.Actions != nil {
+		copy.Actions = make([]*RuleAction, len(original.Actions))
+		for i, action := range original.Actions {
+			copy.Actions[i] = &RuleAction{
+				ActionType:     action.ActionType,
+				ActionValueStr: action.ActionValueStr,
+			}
+		}
+	}
+
+	return copy
 }
 
 // extractPrimaryKey extracts primary key from incoming data for rule lookup optimization

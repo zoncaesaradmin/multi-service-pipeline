@@ -38,7 +38,7 @@ type AlertRuleConfig struct {
 	AlertRuleMatchCriteria      []RuleMatchCriteriaConfig `json:"alertRuleMatchCriteria,omitempty"`
 	LastModifiedTime            int64                     `json:"lastModifiedTime"`
 	Links                       []interface{}             `json:"links,omitempty"`
-	ApplyToExistingAnomalies    bool                      `json:"applyToExistingActiveAnomalies,omitempty"`
+	ApplyActionsToAll           bool                      `json:"applyToExistingActiveAnomalies,omitempty"`
 }
 
 type CustomizeAnomalyConfig struct {
@@ -46,8 +46,7 @@ type CustomizeAnomalyConfig struct {
 }
 
 type RuleActionConfig struct {
-	Action               string `json:"action"`
-	ApplyToActiveAnomaly string `json:"applyToActiveAnomaly,omitempty"`
+	Action string `json:"action"`
 }
 
 type RuleMatchCriteriaConfig struct {
@@ -109,13 +108,13 @@ func processRuleMatchCriteria(rule AlertRuleConfig) map[string][]*RuleMatchCondi
 		}
 		if len(titles) > 0 {
 			conditionals = append(conditionals, AstConditional{
-				Identifier: "title",
+				Identifier: MatchKeyTitle,
 				Operator:   "anyof",
 				Value:      titles,
 			})
 		}
 
-		// Severity Match
+		// Severity match
 		sevMatches := make([]string, 0)
 		for _, sev := range criteria.SeverityMatchCriteria {
 			convSeverity := strings.ToLower(NormalizeSeverity(sev.ValueEquals))
@@ -170,6 +169,7 @@ func ConvertToRuleEngineFormat(rules []AlertRuleConfig) ([]byte, error) {
 			LastModifiedTime:     rule.LastModifiedTime,
 			MatchCriteriaEntries: processRuleMatchCriteria(rule),
 			Actions:              make([]*RuleAction, 0, len(rule.AlertRuleActions)),
+			ApplyActionsToAll:    rule.ApplyActionsToAll,
 		}
 
 		// Process actions
@@ -182,6 +182,7 @@ func ConvertToRuleEngineFormat(rules []AlertRuleConfig) ([]byte, error) {
 			case RuleActionSeverityOverride:
 				reActionValue = NormalizeSeverity(rule.SeverityOverride)
 			}
+
 			ruleAction := &RuleAction{
 				ActionType:     reActionType,
 				ActionValueStr: reActionValue,

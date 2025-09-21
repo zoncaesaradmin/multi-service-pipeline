@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"sharedgomodule/logging"
-	"strings"
 )
 
 // ErrStopScroll is returned by the scroll callback to stop scrolling
@@ -33,11 +32,10 @@ func GetDatabaseClient() DatabaseClient { return dbClient }
 // SetDatabaseClient allows injection from initialization code
 func SetDatabaseClient(c DatabaseClient) { dbClient = c }
 
-func Init(ctx context.Context, logger logging.Logger, indexList string) {
+func Init(ctx context.Context, logger logging.Logger, indices []string) {
 	// Initialize the consolidated client - using unified implementation
 	dbClient = newDatabaseClient(logger)
 
-	indices := strings.Split(indexList, ",")
 	for _, ind := range indices {
 		if len(ind) == 0 {
 			continue

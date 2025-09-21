@@ -87,8 +87,7 @@ func (re *RuleEngine) GetRule(ruleUUID string) (RuleDefinition, bool) {
 	if !exists {
 		return RuleDefinition{}, false
 	}
-
-	// Return a deep copy of the rule to prevent external modification
+	// Return a deep copy of the rule to prevent external modifications
 	return re.deepCopyRuleDefinition(rule), true
 }
 
@@ -144,7 +143,7 @@ func deepCopyActions(actions []*RuleAction) []RuleHitAction {
 	return actionsCopy
 }
 
-// deepCopyRuleDefinition creates a deep copy of a RuleDefinition to prevent external modification
+// deepCopyRuleDefinition creates a deep copy of a RuleDefinition to prevent external modifications
 func (re *RuleEngine) deepCopyRuleDefinition(original *RuleDefinition) RuleDefinition {
 	copy := RuleDefinition{
 		AlertRuleUUID:     original.AlertRuleUUID,
@@ -177,7 +176,6 @@ func (re *RuleEngine) deepCopyRuleDefinition(original *RuleDefinition) RuleDefin
 	}
 
 	// Deep copy Actions
-	copy.Actions = make([]*RuleAction, len(original.Actions))
 	if original.Actions != nil {
 		copy.Actions = make([]*RuleAction, len(original.Actions))
 		for i, action := range original.Actions {

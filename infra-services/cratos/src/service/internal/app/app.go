@@ -28,7 +28,7 @@ func NewApplication(cfg *config.RawConfig, logger logging.Logger) *Application {
 
 	// Initialize datastore before processing pipeline
 	logger.Info("Initializing datastore...")
-	datastoreIndices := "activeanomalydb" // Default indices, could be from config
+	datastoreIndices := []string{"activeanomalydb", "alertruletask"} // Default indices, could be from config
 	datastore.Init(ctx, logger.WithField("component", "datastore"), datastoreIndices)
 	logger.Info("Datastore initialized")
 

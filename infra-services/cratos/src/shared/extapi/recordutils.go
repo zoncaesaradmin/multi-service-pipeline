@@ -8,7 +8,8 @@ import (
 
 var severityMap = map[int]string{
 	0: "event",
-	1: "debug",
+	6: "debug",
+	1: "info",
 	2: "warning",
 	3: "minor",
 	4: "major",

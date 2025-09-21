@@ -229,7 +229,7 @@ func CheckApplyToExistingFlag(ruleJSON []byte) (bool, error) {
 					if actionMap, ok := actionItem.(map[string]interface{}); ok {
 						if applyVal, hasApply := actionMap["applyToExisting"]; hasApply {
 							if applyBool, ok := applyVal.(bool); ok && applyBool {
-								return true, nil // Found at least one action with applyToExisting true
+								return true, nil // Found at least one action with applyToExisting=true
 							}
 						}
 					}
@@ -241,7 +241,7 @@ func CheckApplyToExistingFlag(ruleJSON []byte) (bool, error) {
 	return false, nil // No applyToExisting=true found
 }
 
-// ExtractConditions extracts the conditions from MatchCriteriaEntries
+// ExtractConditions extracts conditions from matchCriteriaEntries
 func ExtractConditions(rule *RuleDefinition) []map[string]interface{} {
 	var conditions []map[string]interface{}
 	if rule == nil || rule.MatchCriteriaEntries == nil {

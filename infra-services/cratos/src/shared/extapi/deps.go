@@ -3,9 +3,9 @@ package extapi
 import "net/http"
 
 const (
-	EventSvcBaseURL       = "https://nae-eventservice-svc.cisco-nir.svc:8443"
-	AlertMappingUrlPrefix = "/api/telemetry/v2/events/mappings"
-	AllSiteTypeStr        = "CISCO_ACI,CISCO_NX-OS"
+	EventSvcBaseURL        = "https://nae-eventservice-svc.cisco-nir.svc:8443"
+	AlertMappingsUrlPrefix = "/api/telemetry/v2/events/mappings"
+	AllSiteTypesStr        = "CISCO_ACI,CISCO_NX-OS"
 )
 
 func FetchSeverityMappings(baseURL, siteType string, severityCache map[string]string, client *http.Client) error {

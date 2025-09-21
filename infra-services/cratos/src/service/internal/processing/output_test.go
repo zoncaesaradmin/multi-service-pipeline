@@ -1,48 +1,20 @@
 package processing
 
 import (
-	"context"
 	"servicegomodule/internal/models"
 	"sharedgomodule/logging"
 	"testing"
 	"time"
 )
 
-// Mock logger for output tests - matches logging.Logger interface exactly
-type mockLoggerForOutput struct{}
+const testComponentName = "output-handler"
 
-func (m *mockLoggerForOutput) SetLevel(level logging.Level)                           { /* mock */ }
-func (m *mockLoggerForOutput) GetLevel() logging.Level                                { return logging.InfoLevel }
-func (m *mockLoggerForOutput) IsLevelEnabled(level logging.Level) bool                { return true }
-func (m *mockLoggerForOutput) Debug(msg string)                                       { /* mock */ }
-func (m *mockLoggerForOutput) Info(msg string)                                        { /* mock */ }
-func (m *mockLoggerForOutput) Warn(msg string)                                        { /* mock */ }
-func (m *mockLoggerForOutput) Error(msg string)                                       { /* mock */ }
-func (m *mockLoggerForOutput) Fatal(msg string)                                       { /* mock */ }
-func (m *mockLoggerForOutput) Panic(msg string)                                       { /* mock */ }
-func (m *mockLoggerForOutput) Debugf(format string, args ...interface{})              { /* mock */ }
-func (m *mockLoggerForOutput) Infof(format string, args ...interface{})               { /* mock */ }
-func (m *mockLoggerForOutput) Warnf(format string, args ...interface{})               { /* mock */ }
-func (m *mockLoggerForOutput) Errorf(format string, args ...interface{})              { /* mock */ }
-func (m *mockLoggerForOutput) Fatalf(format string, args ...interface{})              { /* mock */ }
-func (m *mockLoggerForOutput) Panicf(format string, args ...interface{})              { /* mock */ }
-func (m *mockLoggerForOutput) Debugw(msg string, fields ...interface{})               { /* mock */ }
-func (m *mockLoggerForOutput) Infow(msg string, fields ...interface{})                { /* mock */ }
-func (m *mockLoggerForOutput) Warnw(msg string, fields ...interface{})                { /* mock */ }
-func (m *mockLoggerForOutput) Errorw(msg string, fields ...interface{})               { /* mock */ }
-func (m *mockLoggerForOutput) Fatalw(msg string, fields ...interface{})               { /* mock */ }
-func (m *mockLoggerForOutput) Panicw(msg string, fields ...interface{})               { /* mock */ }
-func (m *mockLoggerForOutput) WithFields(fields logging.Fields) logging.Logger        { return m }
-func (m *mockLoggerForOutput) WithField(key string, value interface{}) logging.Logger { return m }
-func (m *mockLoggerForOutput) WithError(err error) logging.Logger                     { return m }
-func (m *mockLoggerForOutput) WithContext(ctx context.Context) logging.Logger         { return m }
-func (m *mockLoggerForOutput) Log(level logging.Level, msg string)                    { /* mock */ }
-func (m *mockLoggerForOutput) Logf(level logging.Level, format string, args ...interface{}) { /* mock */
+// createTestLogger creates a mock logger for testing
+func createTestLogger() *logging.MockLogger {
+	mockLogger := logging.NewMockLogger()
+	mockLogger.SetComponentName(testComponentName)
+	return mockLogger
 }
-func (m *mockLoggerForOutput) Logw(level logging.Level, msg string, keysAndValues ...interface{}) { /* mock */
-}
-func (m *mockLoggerForOutput) Clone() logging.Logger { return &mockLoggerForOutput{} }
-func (m *mockLoggerForOutput) Close() error          { return nil }
 
 func TestOutputConfig(t *testing.T) {
 	config := OutputConfig{
@@ -73,9 +45,9 @@ func TestOutputHandlerGetOutputChannel(t *testing.T) {
 		FlushTimeout:      1 * time.Second,
 		ChannelBufferSize: 50,
 	}
-	logger := &mockLoggerForOutput{}
+	mockLogger := createTestLogger()
 
-	handler := NewOutputHandler(config, logger, nil)
+	handler := NewOutputHandler(config, mockLogger, nil)
 	channel := handler.GetOutputChannel()
 
 	if channel == nil {
@@ -99,9 +71,9 @@ func TestOutputHandlerStartSuccess(t *testing.T) {
 		FlushTimeout:      100 * time.Millisecond,
 		ChannelBufferSize: 10,
 	}
-	logger := &mockLoggerForOutput{}
+	mockLogger := createTestLogger()
 
-	handler := NewOutputHandler(config, logger, nil)
+	handler := NewOutputHandler(config, mockLogger, nil)
 
 	err := handler.Start()
 	if err != nil {
@@ -112,6 +84,16 @@ func TestOutputHandlerStartSuccess(t *testing.T) {
 	stats := handler.GetStats()
 	if stats["status"] != "running" {
 		t.Errorf("Expected handler status to be 'running', got %v", stats["status"])
+	}
+
+	// Verify that the mock logger captured some log entries
+	if mockLogger.GetLogCount() == 0 {
+		t.Error("Expected some log entries to be captured by mock logger")
+	}
+
+	// Verify component name is included in log entries
+	if !mockLogger.HasLogEntryWithField(logging.InfoLevel, "component", testComponentName) {
+		t.Error("Expected component field in log entries")
 	}
 
 	// Clean up
@@ -125,9 +107,9 @@ func TestOutputHandlerStop(t *testing.T) {
 		FlushTimeout:      100 * time.Millisecond,
 		ChannelBufferSize: 10,
 	}
-	logger := &mockLoggerForOutput{}
+	mockLogger := createTestLogger()
 
-	handler := NewOutputHandler(config, logger, nil)
+	handler := NewOutputHandler(config, mockLogger, nil)
 
 	// Start and then stop
 	err := handler.Start()
@@ -150,9 +132,9 @@ func TestOutputHandlerBatching(t *testing.T) {
 		FlushTimeout:      100 * time.Millisecond,
 		ChannelBufferSize: 10,
 	}
-	logger := &mockLoggerForOutput{}
+	mockLogger := createTestLogger()
 
-	handler := NewOutputHandler(config, logger, nil)
+	handler := NewOutputHandler(config, mockLogger, nil)
 	err := handler.Start()
 	if err != nil {
 		t.Fatalf("Failed to start handler: %v", err)

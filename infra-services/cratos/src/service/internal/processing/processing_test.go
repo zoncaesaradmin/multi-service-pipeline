@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"servicegomodule/internal/models"
+	"servicegomodule/internal/rules"
 	"sharedgomodule/logging"
 	"testing"
 	"time"
@@ -62,7 +63,7 @@ func sampleRawConfig() ProcConfig {
 		Processor: ProcessorConfig{
 			ProcessingDelay: 10 * time.Millisecond,
 			BatchSize:       100,
-			RuleEngine: RuleEngineConfig{
+			RuleEngine: rules.RuleEngineConfig{
 				RulesTopic:  testTopic,
 				PollTimeout: 10 * time.Millisecond,
 				RuleEngLibLogging: logging.LoggerConfig{
@@ -119,7 +120,7 @@ func TestNewProcessor(t *testing.T) {
 		Processor: ProcessorConfig{
 			ProcessingDelay: 10 * time.Millisecond,
 			BatchSize:       100,
-			RuleEngine: RuleEngineConfig{
+			RuleEngine: rules.RuleEngineConfig{
 				RulesTopic:  testTopic,
 				PollTimeout: 10 * time.Millisecond,
 				RuleEngLibLogging: logging.LoggerConfig{
@@ -152,7 +153,7 @@ func TestNewProcessor(t *testing.T) {
 	logger, _ := logging.NewLogger(&procConfig.LoggerConfig)
 	inputCh := make(chan *models.ChannelMessage, 10)
 	outputCh := make(chan *models.ChannelMessage, 10)
-	processor := NewProcessor(procConfig.Processor, logger, inputCh, outputCh, nil, nil)
+	processor := NewProcessor(procConfig.Processor, logger, inputCh, outputCh, inputCh, nil, nil)
 
 	if processor == nil {
 		t.Fatal("Expected processor to be created, got nil")
@@ -186,7 +187,7 @@ func TestProcessorGetStats(t *testing.T) {
 	config := ProcessorConfig{
 		ProcessingDelay: 10 * time.Millisecond,
 		BatchSize:       100,
-		RuleEngine: RuleEngineConfig{
+		RuleEngine: rules.RuleEngineConfig{
 			RulesTopic:  "test-topic",
 			PollTimeout: 10 * time.Millisecond,
 			RuleEngLibLogging: logging.LoggerConfig{
@@ -212,7 +213,7 @@ func TestProcessorGetStats(t *testing.T) {
 	inputCh := make(chan *models.ChannelMessage, 10)
 	outputCh := make(chan *models.ChannelMessage, 10)
 
-	processor := NewProcessor(config, logger, inputCh, outputCh, nil, nil)
+	processor := NewProcessor(config, logger, inputCh, outputCh, inputCh, nil, nil)
 
 	stats := processor.GetStats()
 	if stats == nil {

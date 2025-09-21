@@ -1,19 +1,18 @@
-package processing
+package rules
 
 import (
 	"context"
 	"crypto/tls"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"servicegomodule/internal/metrics"
 	"servicegomodule/internal/models"
+	"servicegomodule/internal/tasks"
 	eapi "sharedgomodule/extapi"
 	"sharedgomodule/logging"
 	"sharedgomodule/messagebus"
 	"sharedgomodule/utils"
 	"strings"
-	"sync"
 	"telemetry/utils/alert"
 	relib "telemetry/utils/ruleenginelib"
 	"time"
@@ -50,15 +49,11 @@ type RuleEngineHandler struct {
 	// severity cache for mappping event titles to severity levels
 	severityCache map[string]string
 
-	ruleTaskProducer messagebus.Producer
-	ruleTaskConsumer messagebus.Consumer
-	isLeader         bool
-	leaderMutex      sync.RWMutex
-	leaderCancel     context.CancelFunc
-	leaderCtx        context.Context
+	// link to rule task handler
+	ruleTaskHandler *tasks.RuleTasksHandler
 }
 
-func NewRuleHandler(config RuleEngineConfig, logger logging.Logger, metricHelper *metrics.MetricsHelper) *RuleEngineHandler {
+func NewRuleHandler(config RuleEngineConfig, logger logging.Logger, inputSink chan<- *models.ChannelMessage, metricHelper *metrics.MetricsHelper) *RuleEngineHandler {
 	// use simple filename - path resolution is handled by messagebus config loader
 	consumer := messagebus.NewConsumer(config.RulesKafkaConfigMap, "ruleConsGroup"+utils.GetEnv("HOSTNAME", ""))
 
@@ -77,18 +72,20 @@ func NewRuleHandler(config RuleEngineConfig, logger logging.Logger, metricHelper
 		rlogger = logger
 	}
 
+	rth := tasks.NewRuleTasksHandler(rlogger, config.RuleTasksTopic, config.RuleTasksProdKafkaConfigMap, config.RuleTasksConsKafkaConfigMap, inputSink, metricHelper)
 	h := &RuleEngineHandler{
-		ruleconsumer:  consumer,
-		config:        config,
-		plogger:       logger,
-		isLeader:      false,
-		reInst:        reInst,
-		rlogger:       rlogger,
-		metricsHelper: metricHelper,
+		ruleTaskHandler: rth,
+		ruleconsumer:    consumer,
+		config:          config,
+		plogger:         logger,
+		reInst:          reInst,
+		rlogger:         rlogger,
+		metricsHelper:   metricHelper,
+		severityCache:   make(map[string]string),
 	}
 
 	logger.Info("Initialized Rule Handler module")
-	rlogger.Infow("Initialized Rule Handler", "ruleTopic", config.RulesTopic, "ruleTasksTopic", h.config.RuleTasksTopic)
+	rlogger.Infow("Initialized Rule Handler", "ruleTopic", config.RulesTopic)
 	return h
 }
 
@@ -98,9 +95,7 @@ func (rh *RuleEngineHandler) Start() error {
 	// Create context for cancellation
 	rh.ctx, rh.cancel = context.WithCancel(context.Background())
 
-	if err := rh.initializeRuleTaskHandling(); err != nil {
-		return err
-	}
+	rh.ruleTaskHandler.Start()
 
 	if err := rh.setupRuleConsumer(); err != nil {
 		return err
@@ -120,81 +115,24 @@ func (rh *RuleEngineHandler) Start() error {
 	return nil
 }
 
-// initializeRuleTaskHandling sets up rule task producer and consumer
-func (rh *RuleEngineHandler) initializeRuleTaskHandling() error {
-	// Initialize producer for distributing rule tasks
-	rh.ruleTaskProducer = messagebus.NewProducer(rh.config.RuleTasksProdKafkaConfigMap, "ruleTaskProducer"+utils.GetEnv("HOSTNAME", ""))
+func (rh *RuleEngineHandler) Stop() error {
+	rh.rlogger.Info("Stopping Rule Engine Handler...")
 
-	// Initialize rule task consumer with shared group for task distribution
-	ruleTaskGroup := "ruleTaskConsGroup-shared"
-	rh.ruleTaskConsumer = messagebus.NewConsumer(rh.config.RuleTasksConsKafkaConfigMap, ruleTaskGroup)
-
-	rh.setupRuleTaskConsumerCallbacks()
-
-	if err := rh.ruleTaskConsumer.Subscribe([]string{rh.config.RuleTasksTopic}); err != nil {
-		rh.rlogger.Errorw("RULE TASK HANDLER - Failed to subscribe to rule tasks topic", "error", err)
-		return fmt.Errorf("failed to subscribe to rule tasks topic: %w", err)
+	if rh.cancel != nil {
+		rh.cancel()
 	}
 
+	// Close all consumers and producer
+
+	if rh.ruleconsumer != nil {
+		if err := rh.ruleconsumer.Close(); err != nil {
+			rh.rlogger.Errorw("Failed to close consumer", "error", err)
+			return err
+		}
+	}
+
+	rh.plogger.Info("Stopped Rule Engine Handler")
 	return nil
-}
-
-// setupRuleTaskConsumerCallbacks configures callbacks for rule task consumer
-func (rh *RuleEngineHandler) setupRuleTaskConsumerCallbacks() {
-	rh.ruleTaskConsumer.OnMessage(func(message *messagebus.Message) {
-		rh.handleRuleTaskMessage(message)
-	})
-
-	rh.ruleTaskConsumer.OnAssign(func(assignments []messagebus.PartitionAssignment) {
-		rh.handlePartitionAssignment(assignments)
-	})
-
-	rh.ruleTaskConsumer.OnRevoke(func(revoked []messagebus.PartitionAssignment) {
-		rh.handlePartitionRevocation(revoked)
-	})
-}
-
-// handleRuleTaskMessage processes incoming rule task messages
-func (rh *RuleEngineHandler) handleRuleTaskMessage(message *messagebus.Message) {
-	if message == nil {
-		return
-	}
-
-	// Extract or generate trace ID from message headers
-	traceID := utils.ExtractTraceID(message.Headers)
-	// Use trace-aware logger for this message
-	msgLogger := utils.WithTraceLoggerFromID(rh.rlogger, traceID)
-
-	msgLogger.Debugw("RULE TASK HANDLER - Received task", "size", len(message.Value))
-
-	// Process rule task with structured data unmarshaling
-	sendToDBBatchProcessor(rh.ctx, msgLogger, message.Value, rh.reInst)
-
-	if err := rh.ruleTaskConsumer.Commit(context.Background(), message); err != nil {
-		msgLogger.Errorw("RULE TASK HANDLER - Failed to commit message", "error", err)
-	}
-}
-
-// handlePartitionAssignment manages partition assignment and leadership
-func (rh *RuleEngineHandler) handlePartitionAssignment(assignments []messagebus.PartitionAssignment) {
-	rh.rlogger.Infow("RULE TASK HANDLER - Assigned partitions", "partitions", assignments)
-	for _, assignment := range assignments {
-		if assignment.Partition == 0 {
-			rh.SetLeader(true)
-			break
-		}
-	}
-}
-
-// handlePartitionRevocation manages partition revocation and leadership transfer
-func (rh *RuleEngineHandler) handlePartitionRevocation(revoked []messagebus.PartitionAssignment) {
-	rh.rlogger.Infow("RULE TASK HANDLER - Revoked partitions", "partitions", revoked)
-	for _, r := range revoked {
-		if r.Partition == 0 {
-			rh.SetLeader(false)
-			break
-		}
-	}
 }
 
 // setupRuleConsumer configures the main rules topic consumer
@@ -241,7 +179,7 @@ func (rh *RuleEngineHandler) handleRuleMessage(message *messagebus.Message) {
 func (rh *RuleEngineHandler) processRuleEvent(l logging.Logger, traceID string, res *relib.RuleMsgResult) {
 	l.Debugw("RULE HANDLER - Converted rule JSON", "action", res.Action, "convertedRule", string(res.RuleJSON))
 
-	if rh.Leader() {
+	if rh.ruleTaskHandler.Leader() {
 		if rh.distributeRuleTask(l, traceID, res) {
 			l.Debugw("RULE HANDLER - Successfully distributed rule task", "action", res.Action)
 		}
@@ -250,55 +188,15 @@ func (rh *RuleEngineHandler) processRuleEvent(l logging.Logger, traceID string, 
 	}
 }
 
-func (rh *RuleEngineHandler) Stop() error {
-	rh.rlogger.Info("Stopping Rule Engine Handler...")
-
-	if rh.cancel != nil {
-		rh.cancel()
-	}
-
-	// Close all consumers and producer
-
-	if rh.ruleconsumer != nil {
-		if err := rh.ruleconsumer.Close(); err != nil {
-			rh.rlogger.Errorw("Failed to close consumer", "error", err)
-			return err
-		}
-	}
-
-	if rh.ruleTaskConsumer != nil {
-		if err := rh.ruleTaskConsumer.Close(); err != nil {
-			rh.rlogger.Errorw("Failed to close rule task consumer", "error", err)
-			return err
-		}
-	}
-
-	if rh.ruleTaskProducer != nil {
-		if err := rh.ruleTaskProducer.Close(); err != nil {
-			rh.rlogger.Errorw("Failed to close rule task producer", "error", err)
-			return err
-		}
-	}
-
-	rh.plogger.Info("Stopped Rule Engine Handler")
-	return nil
-}
-
-func sendToDBBatchProcessor(ctx context.Context, logger logging.Logger, taskBytes []byte, reInst relib.RuleEngineType) {
-	logger.Info("RULE TASK HANDLER - sending rule to DB batch processor")
-}
-
 func (rh *RuleEngineHandler) GetStats() map[string]interface{} {
 	return map[string]interface{}{
-		"status":         "running",
-		"rulesTopic":     rh.config.RulesTopic,
-		"ruleTasksTopic": rh.config.RuleTasksTopic,
-		"isLeader":       rh.Leader(),
-		"poll_timeout":   rh.config.PollTimeout.String(),
+		"status":       "running",
+		"rulesTopic":   rh.config.RulesTopic,
+		"poll_timeout": rh.config.PollTimeout.String(),
 	}
 }
 
-func (rh *RuleEngineHandler) applyRuleToRecord(l logging.Logger, aObj *alert.Alert, origin models.ChannelMessageOrigin) (*alert.Alert, error) {
+func (rh *RuleEngineHandler) ApplyRuleToRecord(l logging.Logger, aObj *alert.Alert, origin models.ChannelMessageOrigin) (*alert.Alert, error) {
 	if !eapi.NeedsRuleProcessing(aObj) {
 		l.WithField("recId", eapi.RecordIdentifier(aObj)).Infof("RECORD PROC - skipped rule lookup")
 		return aObj, nil
@@ -400,51 +298,7 @@ func applyDefaultAction(aObj *alert.Alert, actionType string) {
 	}
 }
 
-// return current leadership state
-func (rh *RuleEngineHandler) Leader() bool {
-	rh.leaderMutex.RLock()
-	defer rh.leaderMutex.RUnlock()
-	return rh.isLeader
-}
-
-// set leadership state
-func (rh *RuleEngineHandler) SetLeader(isLeader bool) {
-	rh.leaderMutex.Lock()
-	defer rh.leaderMutex.Unlock()
-	rh.isLeader = isLeader
-	if isLeader {
-		rh.leaderCtx, rh.leaderCancel = context.WithCancel(rh.ctx)
-		go periodicRuleTaskChecker(rh.rlogger, rh.leaderCtx)
-	} else if rh.leaderCancel != nil {
-		rh.leaderCancel()
-		rh.leaderCancel = nil
-		rh.leaderCtx = nil
-	}
-}
-
 func (rh *RuleEngineHandler) distributeRuleTask(l logging.Logger, traceID string, res *relib.RuleMsgResult) bool {
-	// Marshal the RuleMsgResult directly since it already has Action and RuleJSON
-	taskBytes, err := json.Marshal(res)
-	if err != nil {
-		l.Errorw("RULE HANDLER - Failed to marshal task data", "error", err)
-		return false
-	}
-	out := &messagebus.Message{
-		Topic: rh.config.RuleTasksTopic,
-		Value: taskBytes,
-		Headers: map[string]string{
-			utils.TraceIDHeader: traceID,
-		},
-	}
-
-	ctx, cancel := context.WithTimeout(rh.ctx, 5*time.Second)
-	defer cancel()
-
-	if _, _, err := rh.ruleTaskProducer.Send(ctx, out); err != nil {
-		l.Errorw("RULE HANDLER - Failed to send rule task message", "error", err)
-		return false
-	}
-
 	return true
 }
 
@@ -455,31 +309,4 @@ func containsActionType(actions []relib.RuleHitAction, actionType string) (bool,
 		}
 	}
 	return false, ""
-}
-
-func periodicRuleTaskChecker(l logging.Logger, ctx context.Context) {
-
-	select {
-	case <-time.After(TaskCheckerInitInterval):
-		processPendingTasks()
-	case <-ctx.Done():
-		l.Info("periodic rule task checker is cancelled before work started")
-	}
-
-	ticker := time.NewTicker(TaskCheckerInterval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			l.Info("periodic rule task checker is cancelled")
-			return
-		case <-ticker.C:
-			processPendingTasks()
-		}
-	}
-}
-
-func processPendingTasks() {
-	// add handling to fetch rule tasks from DB and generate tasks into rule tasks topic
 }

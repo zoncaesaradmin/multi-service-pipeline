@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"servicegomodule/internal/metrics"
 	"servicegomodule/internal/models"
+	"servicegomodule/internal/rules"
 	"sharedgomodule/logging"
 	"sharedgomodule/utils"
 	"time"
@@ -17,7 +18,7 @@ import (
 type ProcessorConfig struct {
 	ProcessingDelay time.Duration
 	BatchSize       int
-	RuleEngine      RuleEngineConfig
+	RuleEngine      rules.RuleEngineConfig
 }
 
 type Processor struct {
@@ -25,16 +26,16 @@ type Processor struct {
 	logger        logging.Logger
 	inputCh       <-chan *models.ChannelMessage
 	outputCh      chan<- *models.ChannelMessage
-	reHandler     *RuleEngineHandler
+	reHandler     *rules.RuleEngineHandler
 	ctx           context.Context
 	cancel        context.CancelFunc
 	metricsHelper *metrics.MetricsHelper
 }
 
-func NewProcessor(config ProcessorConfig, logger logging.Logger, inputCh <-chan *models.ChannelMessage, outputCh chan<- *models.ChannelMessage, metricsHelper *metrics.MetricsHelper, rhMetricsHelper *metrics.MetricsHelper) *Processor {
+func NewProcessor(config ProcessorConfig, logger logging.Logger, inputCh <-chan *models.ChannelMessage, outputCh chan<- *models.ChannelMessage, inputSink chan<- *models.ChannelMessage, metricsHelper *metrics.MetricsHelper, rhMetricsHelper *metrics.MetricsHelper) *Processor {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	reHandler := NewRuleHandler(config.RuleEngine, logger.WithField("module", "ruleengine"), rhMetricsHelper)
+	reHandler := rules.NewRuleHandler(config.RuleEngine, logger.WithField("module", "ruleengine"), inputSink, rhMetricsHelper)
 	return &Processor{
 		config:        config,
 		logger:        logger,
@@ -141,7 +142,7 @@ func (p *Processor) processMessage(message *models.ChannelMessage) error {
 
 	for _, aObj := range aStream.AlertObject {
 		recordCountInMsg++
-		processedRecord, err := p.reHandler.applyRuleToRecord(msgLogger, aObj, message.Origin)
+		processedRecord, err := p.reHandler.ApplyRuleToRecord(msgLogger, aObj, message.Origin)
 		if err != nil {
 			msgLogger.Errorw("Failed to apply rule processing", "error", err)
 			ruleApplyErrors++

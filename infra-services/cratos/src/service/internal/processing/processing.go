@@ -6,6 +6,7 @@ import (
 	"servicegomodule/internal/config"
 	"servicegomodule/internal/metrics"
 	"servicegomodule/internal/models"
+	"servicegomodule/internal/rules"
 	"sharedgomodule/logging"
 	"sharedgomodule/utils"
 )
@@ -46,7 +47,7 @@ func NewPipeline(config ProcConfig, logger logging.Logger, metricsCollector *met
 	// Create handlers with metrics helpers
 	inputHandler := NewInputHandler(config.Input, plogger.WithField("component", "input"), inputMetricsHelper)
 	outputHandler := NewOutputHandler(config.Output, plogger.WithField("component", "output"), outputMetricsHelper)
-	processor := NewProcessor(config.Processor, plogger.WithField("component", "processor"), inputHandler.GetInputChannel(), outputHandler.GetOutputChannel(), processorMetricsHelper, rulelookupMetricsHelper)
+	processor := NewProcessor(config.Processor, plogger.WithField("component", "processor"), inputHandler.GetInputChannel(), outputHandler.GetOutputChannel(), inputHandler.GetInputSink(), processorMetricsHelper, rulelookupMetricsHelper)
 
 	return &Pipeline{
 		config:        config,
@@ -134,7 +135,7 @@ func DefaultConfig(cfg *config.RawConfig) ProcConfig {
 		Processor: ProcessorConfig{
 			ProcessingDelay: processing.Processor.ProcessingDelay,
 			BatchSize:       processing.Processor.BatchSize,
-			RuleEngine: RuleEngineConfig{
+			RuleEngine: rules.RuleEngineConfig{
 				RulesTopic:                  processing.Processor.RuleProcConfig.RulesTopic,
 				RuleEngLibLogging:           processing.Processor.RuleProcConfig.RelibLogging.ConvertToLoggerConfig(),
 				RulesKafkaConfigMap:         utils.LoadConfigMap(processing.Processor.RuleProcConfig.RulesKafkaConfFile),

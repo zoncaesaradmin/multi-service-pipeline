@@ -216,7 +216,7 @@ func (rh *RuleTasksHandler) SetLeader(isLeader bool) {
 	}
 }
 
-func (rh *RuleTasksHandler) DistributeRuleTask(l logging.Logger, traceID string, res *relib.RuleMsgResult) bool {
+func (rh *RuleTasksHandler) DistributeRuleTask(l logging.Logger, traceID string, res *relib.RuleMsgResult, oldRules map[string]*relib.RuleDefinition) bool {
 	// Marshal the RuleMsgResult directly since it already has Action and RuleJSON
 	taskBytes, err := json.Marshal(res)
 	if err != nil {

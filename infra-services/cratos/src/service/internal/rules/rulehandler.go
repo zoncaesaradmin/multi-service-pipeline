@@ -186,11 +186,11 @@ func (rh *RuleEngineHandler) handleRuleMessage(message *messagebus.Message) {
 		// Continue processing even if we can't get old rules
 	}
 
-	userMeta := relib.TransactionMetaData{TraceId: traceID}
+	userMeta := relib.TransactionMetadata{TraceId: traceID}
 	res, err := rh.reInst.HandleRuleEvent(message.Value, userMeta)
 	if err != nil {
 		msgLogger.Errorw("RULE HANDLER - Failed to handle rule event", "error", err)
-	} else if res != nil && len(res.RuleJSON) > 0 {
+	} else if res != nil && len(res.Rules) > 0 {
 		rh.processRuleEvent(msgLogger, traceID, res, oldRuleDefinitions)
 	}
 
@@ -216,11 +216,11 @@ func (rh *RuleEngineHandler) getOldRuleDefinitions(msgBytes []byte) (map[string]
 
 // processRuleEvent handles rule event processing results and task distribution
 func (rh *RuleEngineHandler) processRuleEvent(l logging.Logger, traceID string, res *relib.RuleMsgResult, oldRules map[string]*relib.RuleDefinition) {
-	l.Debugw("RULE HANDLER - Converted rule JSON", "action", res.Action, "convertedRule", string(res.RuleJSON))
+	l.Debugw("RULE HANDLER - Converted rule JSON", "action", res.RuleEvent, "rul")
 
 	if rh.ruleTaskHandler.Leader() {
 		if rh.distributeRuleTask(l, traceID, res, oldRules) {
-			l.Debugw("RULE HANDLER - Successfully distributed rule task", "action", res.Action)
+			l.Debugw("RULE HANDLER - Successfully distributed rule task", "action", res.RuleEvent)
 		}
 	} else {
 		l.Debug("RULE HANDLER - Not leader, skipping rule task distribution")
@@ -347,8 +347,8 @@ func (rh *RuleEngineHandler) distributeRuleTask(l logging.Logger, traceID string
 
 func (rh *RuleEngineHandler) shouldDistributeTask(l logging.Logger, res *relib.RuleMsgResult) bool {
 	// Always distribute DELETE operations, check if any rule has applyToExisting=true
-	if res.Action == relib.RuleEventDelete {
-		l.Debugw("RULE HANDLER - Distributing DELETE operation", "action", res.Action)
+	if res.RuleEvent == relib.RuleEventDelete {
+		l.Debugw("RULE HANDLER - Distributing DELETE operation", "action", res.RuleEvent)
 		return true
 	}
 

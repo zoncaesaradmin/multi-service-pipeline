@@ -2,6 +2,7 @@ package ruleenginelib
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 )
 
@@ -81,11 +82,11 @@ type RuleHitCriteria struct {
 // payload). It is nil for delete operations (rule UUID is still carried in
 // the payload) or when the action is invalid / irrelevant
 type RuleMsgResult struct {
-	Action   string
-	RuleJSON []byte
+	RuleEvent string
+	Rules     []RuleDefinition
 }
 
-type TransactionMetaData struct {
+type TransactionMetadata struct {
 	TraceId string
 }
 
@@ -134,7 +135,7 @@ func isRelevantRule(meta AlertRuleMetadata, validTypes []string) bool {
 	return true
 }
 
-func (re *RuleEngine) HandleRuleEvent(msgBytes []byte, userMeta TransactionMetaData) (*RuleMsgResult, error) {
+func (re *RuleEngine) HandleRuleEvent(msgBytes []byte, userMeta TransactionMetadata) (*RuleMsgResult, error) {
 	var rInput AlertRuleMsg
 	trLogger := re.Logger.WithField("traceId", userMeta.TraceId)
 	if err := json.Unmarshal(msgBytes, &rInput); err != nil {
@@ -146,7 +147,7 @@ func (re *RuleEngine) HandleRuleEvent(msgBytes []byte, userMeta TransactionMetaD
 	trLogger.Debugf("RELIB - received msg unmarshalled: %+v", rInput)
 
 	msgType := rInput.Metadata.RuleEventType
-	result := &RuleMsgResult{Action: msgType}
+	result := &RuleMsgResult{RuleEvent: msgType}
 
 	if !isRelevantRule(rInput.Metadata, re.RuleTypes) {
 		trLogger.Debug("RELIB - ignore invalid/non-relevant rule")
@@ -166,31 +167,33 @@ func (re *RuleEngine) HandleRuleEvent(msgBytes []byte, userMeta TransactionMetaD
 	}
 
 	trLogger.Infof("RELIB - converted rule: %s", string(ruleJsonBytes))
-	re.handleRuleMsgEvents(trLogger, ruleJsonBytes, msgType)
+	rules, err := re.handleRuleMsgEvents(trLogger, ruleJsonBytes, msgType)
+	if err != nil {
+		return result, err
+	}
 
-	result.RuleJSON = ruleJsonBytes
+	result.Rules = rules
 	return result, nil
 }
 
-func (re *RuleEngine) handleRuleMsgEvents(l *Logger, rmsg []byte, msgType string) {
+func (re *RuleEngine) handleRuleMsgEvents(l *Logger, rmsg []byte, msgType string) ([]RuleDefinition, error) {
 	l.Debugf("RELIB - handleRuleMsgEvents called with msgType: %s, ruleData: %s", msgType, string(rmsg))
 	switch msgType {
 	case RuleEventCreate:
 		// Handle create rule event
 		l.Debugf("RELIB - handling create rule msg event")
-		re.AddRule(string(rmsg))
+		return re.AddRule(string(rmsg))
 	case RuleEventUpdate:
 		// Handle update rule event
 		l.Debugf("RELIB - handling update rule msg event")
-		re.AddRule(string(rmsg))
+		return re.AddRule(string(rmsg))
 	case RuleEventDelete:
 		// Handle delete rule event
 		l.Debugf("RELIB - handling delete rule msg event")
-		re.DeleteRule(string(rmsg))
-	default:
-		l.Infof("RELIB - unknown rule msg event type: %s", msgType)
+		return re.DeleteRule(string(rmsg))
 	}
-	l.Debugf("RELIB - handleRuleMsgEvents completed for msgType: %s", msgType)
+	l.Infof("RELIB - unknown rule msg event type: %s", msgType)
+	return []RuleDefinition{}, errors.New("unknown rule msg event type")
 }
 
 // initAlertRules initializes the rules from already existing rules configured
@@ -236,7 +239,7 @@ func ExtractConditions(rule *RuleDefinition) []map[string]interface{} {
 }
 
 type RuleEngineType interface {
-	HandleRuleEvent([]byte, TransactionMetaData) (*RuleMsgResult, error)
+	HandleRuleEvent([]byte, TransactionMetadata) (*RuleMsgResult, error)
 	EvaluateRules(Data) RuleLookupResult
 	GetRule(string) (RuleDefinition, bool)
 	AddRule(string) ([]RuleDefinition, error)

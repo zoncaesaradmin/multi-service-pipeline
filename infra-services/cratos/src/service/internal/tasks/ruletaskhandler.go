@@ -2,7 +2,6 @@ package tasks
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"servicegomodule/internal/metrics"
 	"servicegomodule/internal/models"
@@ -216,29 +215,29 @@ func (rh *RuleTasksHandler) SetLeader(isLeader bool) {
 	}
 }
 
-func (rh *RuleTasksHandler) DistributeRuleTask(l logging.Logger, traceID string, res *relib.RuleMsgResult, oldRules map[string]*relib.RuleDefinition) bool {
-	// Marshal the RuleMsgResult directly since it already has Action and RuleJSON
-	taskBytes, err := json.Marshal(res)
-	if err != nil {
-		l.Errorw("RULE HANDLER - Failed to marshal task data", "error", err)
-		return false
-	}
-	out := &messagebus.Message{
-		Topic: rh.ruleTasksTopic,
-		Value: taskBytes,
-		Headers: map[string]string{
-			utils.TraceIDHeader: traceID,
-		},
-	}
+func (rh *RuleTasksHandler) DistributeRuleTask(l logging.Logger, traceID string, eventType string, rule *relib.RuleDefinition, oldRule *relib.RuleDefinition) bool {
+	/*
+		taskBytes, err := json.Marshal(res)
+		if err != nil {
+			l.Errorw("RULE HANDLER - Failed to marshal task data", "error", err)
+			return false
+		}
+		out := &messagebus.Message{
+			Topic: rh.ruleTasksTopic,
+			Value: taskBytes,
+			Headers: map[string]string{
+				utils.TraceIDHeader: traceID,
+			},
+		}
 
-	ctx, cancel := context.WithTimeout(rh.ctx, 5*time.Second)
-	defer cancel()
+		ctx, cancel := context.WithTimeout(rh.ctx, 5*time.Second)
+		defer cancel()
 
-	if _, _, err := rh.ruleTaskProducer.Send(ctx, out); err != nil {
-		l.Errorw("RULE HANDLER - Failed to send rule task message", "error", err)
-		return false
-	}
-
+		if _, _, err := rh.ruleTaskProducer.Send(ctx, out); err != nil {
+			l.Errorw("RULE HANDLER - Failed to send rule task message", "error", err)
+			return false
+		}
+	*/
 	return true
 }
 

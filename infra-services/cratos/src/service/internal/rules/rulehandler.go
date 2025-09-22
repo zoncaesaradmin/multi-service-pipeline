@@ -14,7 +14,6 @@ import (
 	"sharedgomodule/messagebus"
 	"sharedgomodule/utils"
 	"strings"
-	"sync"
 	"telemetry/utils/alert"
 	relib "telemetry/utils/ruleenginelib"
 	"time"
@@ -46,11 +45,6 @@ type RuleEngineHandler struct {
 	// severity cache for mapping event titles to severity levels
 	severityCache map[string]string
 
-	// Metrics tracking
-	totalProcessed int64
-	totalFailed    int64
-	metricsMutex   sync.RWMutex
-
 	// link to rule task handler
 	ruleTaskHandler *tasks.RuleTasksHandler
 }
@@ -73,14 +67,6 @@ func NewRuleHandler(config RuleEngineConfig, logger logging.Logger, inputSink ch
 		logger.Errorw("RULE HANDLER - Failed to create rule tasks logger, using ruleengine logger", "error", err)
 		rlogger = logger
 	}
-
-	// Validate and optimize configuration
-	maxWorkers := 10    // Default max concurrent workers
-	taskChanSize := 100 // Default task queue size
-
-	rlogger.Infow("Initializing worker pool",
-		"maxworkers", maxWorkers,
-		"taskChannelSize", taskChanSize)
 
 	rth := tasks.NewRuleTasksHandler(rlogger, config.RuleTasksTopic, config.RuleTasksProdKafkaConfigMap, config.RuleTasksConsKafkaConfigMap, inputSink, metricHelper)
 	h := &RuleEngineHandler{
@@ -106,6 +92,11 @@ func (rh *RuleEngineHandler) Start() error {
 	rh.ctx, rh.cancel = context.WithCancel(context.Background())
 
 	rh.ruleTaskHandler.Start()
+
+	// read all rules already configured from config store
+	if err := rh.ReadExistingRules(); err != nil {
+		rh.rlogger.Errorw("Failed to load existing rules", "error", err)
+	}
 
 	if err := rh.setupRuleConsumer(); err != nil {
 		return err
@@ -180,17 +171,17 @@ func (rh *RuleEngineHandler) handleRuleMessage(message *messagebus.Message) {
 
 	msgLogger.Debugw("RULE HANDLER - Received message", "size", len(message.Value))
 
-	oldRuleDefinitions, err := rh.getOldRuleDefinitions(message.Value)
-	if err != nil {
-		msgLogger.Errorw("Failed to get old rule definitions", "error", err.Error())
-		// Continue processing even if we can't get old rules
-	}
-
 	userMeta := relib.TransactionMetadata{TraceId: traceID}
 	res, err := rh.reInst.HandleRuleEvent(message.Value, userMeta)
 	if err != nil {
 		msgLogger.Errorw("RULE HANDLER - Failed to handle rule event", "error", err)
 	} else if res != nil && len(res.Rules) > 0 {
+		// For UPDATE/DELETE operations, capture old rule definitions before rule engine update
+		oldRuleDefinitions, err := rh.getOldRuleDefinitions(message.Value)
+		if err != nil {
+			msgLogger.Errorw("Failed to get old rule definitions", "error", err.Error())
+			// Continue processing even if we can't get old rules
+		}
 		rh.processRuleEvent(msgLogger, traceID, res, oldRuleDefinitions)
 	}
 
@@ -199,6 +190,7 @@ func (rh *RuleEngineHandler) handleRuleMessage(message *messagebus.Message) {
 	}
 }
 
+// getOldRuleDefinitions extracts rule UUIDs from incoming message and fetches old rule definitions
 func (rh *RuleEngineHandler) getOldRuleDefinitions(msgBytes []byte) (map[string]*relib.RuleDefinition, error) {
 	var rInput relib.AlertRuleMsg
 	if err := json.Unmarshal(msgBytes, &rInput); err != nil {
@@ -214,13 +206,22 @@ func (rh *RuleEngineHandler) getOldRuleDefinitions(msgBytes []byte) (map[string]
 	return oldRules, nil
 }
 
-// processRuleEvent handles rule event processing results and task distribution
+// processRuleEvent handles rule event processing with old rule definitions
 func (rh *RuleEngineHandler) processRuleEvent(l logging.Logger, traceID string, res *relib.RuleMsgResult, oldRules map[string]*relib.RuleDefinition) {
-	l.Debugw("RULE HANDLER - Converted rule JSON", "action", res.RuleEvent, "rul")
+	l.Debugw("RULE HANDLER - Converted rule JSON with old rules",
+		"ruleEvent", res.RuleEvent,
+		"convertedRules", res.Rules,
+		"oldRulesCount", len(oldRules))
 
 	if rh.ruleTaskHandler.Leader() {
-		if rh.distributeRuleTask(l, traceID, res, oldRules) {
-			l.Debugw("RULE HANDLER - Successfully distributed rule task", "action", res.RuleEvent)
+		for _, rule := range res.Rules {
+			// rule event can have multiple rules, treat each rule as one task
+			if _, exists := oldRules[rule.AlertRuleUUID]; !exists {
+				continue
+			}
+			if rh.distributeRuleTask(l, traceID, res.RuleEvent, &rule, oldRules[rule.AlertRuleUUID]) {
+				l.Debugw("RULE HANDLER - Successfully distributed rule task with old rules", "ruleEvent", res.RuleEvent)
+			}
 		}
 	} else {
 		l.Debug("RULE HANDLER - Not leader, skipping rule task distribution")
@@ -337,22 +338,23 @@ func applyDefaultAction(aObj *alert.Alert, actionType string) {
 	}
 }
 
-func (rh *RuleEngineHandler) distributeRuleTask(l logging.Logger, traceID string, res *relib.RuleMsgResult, oldRules map[string]*relib.RuleDefinition) bool {
-
-	if !rh.shouldDistributeTask(l, res) {
+func (rh *RuleEngineHandler) distributeRuleTask(l logging.Logger, traceID string, eventType string, rule *relib.RuleDefinition, oldRule *relib.RuleDefinition) bool {
+	if !rh.shouldDistributeTask(eventType, rule) {
 		return true // Return true since skipping is successful
 	}
-	return rh.ruleTaskHandler.DistributeRuleTask(l, traceID, res, oldRules)
+	return rh.ruleTaskHandler.DistributeRuleTask(l, traceID, eventType, rule, oldRule)
 }
 
-func (rh *RuleEngineHandler) shouldDistributeTask(l logging.Logger, res *relib.RuleMsgResult) bool {
+func (rh *RuleEngineHandler) shouldDistributeTask(eventType string, rule *relib.RuleDefinition) bool {
 	// Always distribute DELETE operations, check if any rule has applyToExisting=true
-	if res.RuleEvent == relib.RuleEventDelete {
-		l.Debugw("RULE HANDLER - Distributing DELETE operation", "action", res.RuleEvent)
+	if eventType == relib.RuleEventDelete {
+		rh.rlogger.Debugw("RULE HANDLER - Distributing DELETE operation", "ruleEvent", eventType)
 		return true
 	}
 
-	return false
+	// Unknown action type - distribute to be safe
+	rh.rlogger.Warnw("RULE HANDLER - Unknown event type, distributing anyway", "ruleEvent", eventType)
+	return true
 }
 
 func containsActionType(actions []relib.RuleHitAction, actionType string) (bool, string) {

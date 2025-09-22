@@ -79,11 +79,6 @@ func (p *Pipeline) Start() error {
 		return fmt.Errorf("failed to start input handler: %w", err)
 	}
 
-	// Now that input channel is initialized, start DB processing with the input sink
-	p.logger.Info("About to call InitDBProcessing")
-	inputSink := p.inputHandler.GetInputSink()
-	p.logger.Infow("InitDBProcessing parameters", "inputSink_nil", inputSink == nil)
-
 	p.logger.Info("Processing pipeline started successfully")
 	return nil
 }

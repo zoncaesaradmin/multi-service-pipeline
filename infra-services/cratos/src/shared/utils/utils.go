@@ -9,6 +9,10 @@ import (
 	"github.com/stretchr/testify/assert/yaml"
 )
 
+const (
+	TaskIDHeader = "X-Task-Id"
+)
+
 // GetEnv gets an environment variable with a default value
 func GetEnv(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {

@@ -65,7 +65,7 @@ func (re *RuleEngine) AddRule(rules string) ([]RuleDefinition, error) {
 		re.RuleMap[rule.AlertRuleUUID] = rule
 		re.rebuildIndexes() // Rebuild indexes after adding rules
 	}
-	resRules := make([]RuleDefinition, len(parsedRules))
+	resRules := make([]RuleDefinition, 0, len(parsedRules))
 	for _, rule := range parsedRules {
 		resRules = append(resRules, re.deepCopyRuleDefinition(rule))
 	}
@@ -81,7 +81,7 @@ func (re *RuleEngine) DeleteRule(rule string) ([]RuleDefinition, error) {
 		delete(re.RuleMap, rule.AlertRuleUUID)
 	}
 	re.rebuildIndexes() // Rebuild indexes after deleting rules
-	resRules := make([]RuleDefinition, len(parsedRules))
+	resRules := make([]RuleDefinition, 0, len(parsedRules))
 	for _, rule := range parsedRules {
 		resRules = append(resRules, re.deepCopyRuleDefinition(rule))
 	}

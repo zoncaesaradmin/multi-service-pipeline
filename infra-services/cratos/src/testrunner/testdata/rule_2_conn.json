@@ -18,7 +18,7 @@
         "group-456",
         "group-789"
       ],
-      "applyToExistingActiveAnomalies": true,
+      "applyActionsToActiveAnomalies": true,
       "severityOverride": "critical",
       "alertRuleActions": [
         {

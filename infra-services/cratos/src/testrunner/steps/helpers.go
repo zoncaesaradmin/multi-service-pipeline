@@ -73,19 +73,19 @@ type AlertRuleMetadata struct {
 }
 
 type AlertRuleConfig struct {
-	UUID                        string                    `json:"uuid"`
-	Name                        string                    `json:"name"`
-	Priority                    int64                     `json:"priority,omitempty"`
-	Description                 string                    `json:"description,omitempty"`
-	State                       string                    `json:"state,omitempty"`
-	CustomizeAnomaly            CustomizeAnomalyConfig    `json:"customizeAnomaly,omitempty"`
-	SeverityOverride            string                    `json:"severityOverride,omitempty"`
-	AssociatedInsightGroupUuids []string                  `json:"associatedInsightGroupUuids,omitempty"`
-	AlertRuleActions            []RuleActionConfig        `json:"alertRuleActions,omitempty"`
-	AlertRuleMatchCriteria      []RuleMatchCriteriaConfig `json:"alertRuleMatchCriteria,omitempty"`
-	LastModifiedTime            int64                     `json:"lastModifiedTime"`
-	Links                       []interface{}             `json:"links,omitempty"`
-	ApplyToExistingAnomalies    bool                      `json:"applyToExistingActiveAnomalies,omitempty"`
+	UUID                          string                    `json:"uuid"`
+	Name                          string                    `json:"name"`
+	Priority                      int64                     `json:"priority,omitempty"`
+	Description                   string                    `json:"description,omitempty"`
+	State                         string                    `json:"state,omitempty"`
+	CustomizeAnomaly              CustomizeAnomalyConfig    `json:"customizeAnomaly,omitempty"`
+	SeverityOverride              string                    `json:"severityOverride,omitempty"`
+	AssociatedInsightGroupUuids   []string                  `json:"associatedInsightGroupUuids,omitempty"`
+	AlertRuleActions              []RuleActionConfig        `json:"alertRuleActions,omitempty"`
+	AlertRuleMatchCriteria        []RuleMatchCriteriaConfig `json:"alertRuleMatchCriteria,omitempty"`
+	LastModifiedTime              int64                     `json:"lastModifiedTime"`
+	Links                         []interface{}             `json:"links,omitempty"`
+	ApplyActionsToActiveAnomalies bool                      `json:"applyActionsToActiveAnomalies,omitempty"`
 }
 
 type CustomizeAnomalyConfig struct {

@@ -117,7 +117,7 @@ func processRuleMatchCriteria(rule AlertRuleConfig) map[string][]*RuleMatchCondi
 		// Severity match
 		sevMatches := make([]string, 0)
 		for _, sev := range criteria.SeverityMatchCriteria {
-			convSeverity := strings.ToLower(NormalizeSeverity(sev.ValueEquals))
+			convSeverity := NormalizeSeverity(sev.ValueEquals)
 			sevMatches = append(sevMatches, convSeverity)
 		}
 		if len(sevMatches) > 0 {

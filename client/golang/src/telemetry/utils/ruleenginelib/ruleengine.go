@@ -57,7 +57,7 @@ func (re *RuleEngine) EvaluateMatchCondition(aCond AstCondition, dataMap Data) b
 }
 
 // AddRule adds a new rule to the engine and updates all indexes
-func (re *RuleEngine) AddRule(rules string) error {
+func (re *RuleEngine) AddRule(rules string) ([]RuleDefinition, error) {
 	parsedRules := ParseJSON(rules)
 	re.Mutex.Lock()
 	defer re.Mutex.Unlock()
@@ -65,11 +65,15 @@ func (re *RuleEngine) AddRule(rules string) error {
 		re.RuleMap[rule.AlertRuleUUID] = rule
 		re.rebuildIndexes() // Rebuild indexes after adding rules
 	}
-	return nil
+	resRules := make([]RuleDefinition, 0)
+	for _, rule := range parsedRules {
+		resRules = append(resRules, re.deepCopyRuleDefinition(rule))
+	}
+	return resRules, nil
 }
 
 // DeleteRule removes a rule from the engine by its UUID and updates all indexes
-func (re *RuleEngine) DeleteRule(rule string) {
+func (re *RuleEngine) DeleteRule(rule string) ([]RuleDefinition, error) {
 	parsedRules := ParseJSON(rule)
 	re.Mutex.Lock()
 	defer re.Mutex.Unlock()
@@ -77,6 +81,11 @@ func (re *RuleEngine) DeleteRule(rule string) {
 		delete(re.RuleMap, rule.AlertRuleUUID)
 	}
 	re.rebuildIndexes() // Rebuild indexes after deleting rules
+	resRules := make([]RuleDefinition, 0)
+	for _, rule := range parsedRules {
+		resRules = append(resRules, re.deepCopyRuleDefinition(rule))
+	}
+	return resRules, nil
 }
 
 // GetRule retrieves a copy of a rule from the engine by its UUID

@@ -30,9 +30,9 @@ const (
 
 // Constants for CRUD operations on rule
 const (
-	RuleOpCreate = "CREATE_ALERT_RULE"
-	RuleOpUpdate = "UPDATE_ALERT_RULE"
-	RuleOpDelete = "DELETE_ALERT_RULE"
+	RuleEventCreate = "CREATE_ALERT_RULE"
+	RuleEventUpdate = "UPDATE_ALERT_RULE"
+	RuleEventDelete = "DELETE_ALERT_RULE"
 )
 
 // action types supported and used in RuleAction.ActionType
@@ -50,10 +50,6 @@ const (
 	SeverityWarning  = "warning"
 	SeverityDefault  = "none"
 )
-
-type ActionSeverity struct {
-	SeverityValue string `json:"severityValue,omitempty"`
-}
 
 // external type for rule lookup result
 type RuleLookupResult struct {
@@ -89,7 +85,7 @@ type RuleMsgResult struct {
 	RuleJSON []byte
 }
 
-type UserMetaData struct {
+type TransactionMetaData struct {
 	TraceId string
 }
 
@@ -112,7 +108,7 @@ func CreateRuleEngineInstance(lInfo LoggerInfo, ruleTypes []string) *RuleEngine 
 
 func isValidEventType(msgType string) bool {
 	switch msgType {
-	case RuleOpCreate, RuleOpUpdate, RuleOpDelete:
+	case RuleEventCreate, RuleEventUpdate, RuleEventDelete:
 		return true
 	default:
 		return false
@@ -138,7 +134,7 @@ func isRelevantRule(meta AlertRuleMetadata, validTypes []string) bool {
 	return true
 }
 
-func (re *RuleEngine) HandleRuleEvent(msgBytes []byte, userMeta UserMetaData) (*RuleMsgResult, error) {
+func (re *RuleEngine) HandleRuleEvent(msgBytes []byte, userMeta TransactionMetaData) (*RuleMsgResult, error) {
 	var rInput AlertRuleMsg
 	trLogger := re.Logger.WithField("traceId", userMeta.TraceId)
 	if err := json.Unmarshal(msgBytes, &rInput); err != nil {
@@ -179,15 +175,15 @@ func (re *RuleEngine) HandleRuleEvent(msgBytes []byte, userMeta UserMetaData) (*
 func (re *RuleEngine) handleRuleMsgEvents(l *Logger, rmsg []byte, msgType string) {
 	l.Debugf("RELIB - handleRuleMsgEvents called with msgType: %s, ruleData: %s", msgType, string(rmsg))
 	switch msgType {
-	case RuleOpCreate:
+	case RuleEventCreate:
 		// Handle create rule event
 		l.Debugf("RELIB - handling create rule msg event")
 		re.AddRule(string(rmsg))
-	case RuleOpUpdate:
+	case RuleEventUpdate:
 		// Handle update rule event
 		l.Debugf("RELIB - handling update rule msg event")
 		re.AddRule(string(rmsg))
-	case RuleOpDelete:
+	case RuleEventDelete:
 		// Handle delete rule event
 		l.Debugf("RELIB - handling delete rule msg event")
 		re.DeleteRule(string(rmsg))
@@ -212,33 +208,6 @@ func ParseRuleDefinitions(ruleBytes []byte) ([]*RuleDefinition, error) {
 		return nil, fmt.Errorf("failed to unmarshal rules into structured format: %w", err)
 	}
 	return rules, nil
-}
-
-// CheckApplyToExistingFlag parses the rule JSON to check if any action has applyToExisting=true
-func CheckApplyToExistingFlag(ruleJSON []byte) (bool, error) {
-	var rules []map[string]interface{}
-	if err := json.Unmarshal(ruleJSON, &rules); err != nil {
-		return false, fmt.Errorf("failed to unmarshal rule JSON: %w", err)
-	}
-
-	for _, rule := range rules {
-		// Check actions array for applyToExisting flag
-		if actions, exists := rule["actions"]; exists {
-			if actionArray, ok := actions.([]interface{}); ok {
-				for _, actionItem := range actionArray {
-					if actionMap, ok := actionItem.(map[string]interface{}); ok {
-						if applyVal, hasApply := actionMap["applyToExisting"]; hasApply {
-							if applyBool, ok := applyVal.(bool); ok && applyBool {
-								return true, nil // Found at least one action with applyToExisting=true
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-
-	return false, nil // No applyToExisting=true found
 }
 
 // ExtractConditions extracts conditions from matchCriteriaEntries
@@ -267,9 +236,9 @@ func ExtractConditions(rule *RuleDefinition) []map[string]interface{} {
 }
 
 type RuleEngineType interface {
-	HandleRuleEvent([]byte, UserMetaData) (*RuleMsgResult, error)
+	HandleRuleEvent([]byte, TransactionMetaData) (*RuleMsgResult, error)
 	EvaluateRules(Data) RuleLookupResult
 	GetRule(string) (RuleDefinition, bool)
-	AddRule(string) error
-	DeleteRule(string)
+	AddRule(string) ([]RuleDefinition, error)
+	DeleteRule(string) ([]RuleDefinition, error)
 }

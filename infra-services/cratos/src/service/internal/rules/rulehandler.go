@@ -186,7 +186,7 @@ func (rh *RuleEngineHandler) handleRuleMessage(message *messagebus.Message) {
 		// Continue processing even if we can't get old rules
 	}
 
-	userMeta := relib.UserMetaData{TraceId: traceID}
+	userMeta := relib.TransactionMetaData{TraceId: traceID}
 	res, err := rh.reInst.HandleRuleEvent(message.Value, userMeta)
 	if err != nil {
 		msgLogger.Errorw("RULE HANDLER - Failed to handle rule event", "error", err)
@@ -347,7 +347,7 @@ func (rh *RuleEngineHandler) distributeRuleTask(l logging.Logger, traceID string
 
 func (rh *RuleEngineHandler) shouldDistributeTask(l logging.Logger, res *relib.RuleMsgResult) bool {
 	// Always distribute DELETE operations, check if any rule has applyToExisting=true
-	if res.Action == relib.RuleOpDelete {
+	if res.Action == relib.RuleEventDelete {
 		l.Debugw("RULE HANDLER - Distributing DELETE operation", "action", res.Action)
 		return true
 	}

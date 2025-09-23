@@ -38,7 +38,7 @@ type AlertRuleConfig struct {
 	AlertRuleMatchCriteria      []RuleMatchCriteriaConfig `json:"alertRuleMatchCriteria,omitempty"`
 	LastModifiedTime            int64                     `json:"lastModifiedTime"`
 	Links                       []interface{}             `json:"links,omitempty"`
-	ApplyActionsToAll           bool                      `json:"applyToExistingActiveAnomalies,omitempty"`
+	ApplyActionsToAllStr        string                    `json:"applyToExistingActiveAnomalies,omitempty"`
 }
 
 type CustomizeAnomalyConfig struct {
@@ -159,6 +159,10 @@ func ConvertToRuleEngineFormat(rules []AlertRuleConfig) ([]byte, error) {
 	ruleDefinitions := make([]RuleDefinition, 0, len(rules))
 
 	for _, rule := range rules {
+		applyToAll := false
+		if strings.EqualFold(rule.ApplyActionsToAllStr, "true") {
+			applyToAll = true
+		}
 		// Create a new RuleDefinition for each AlertRuleConfig
 		ruleDef := RuleDefinition{
 			AlertRuleUUID:        rule.UUID,
@@ -169,7 +173,7 @@ func ConvertToRuleEngineFormat(rules []AlertRuleConfig) ([]byte, error) {
 			LastModifiedTime:     rule.LastModifiedTime,
 			MatchCriteriaEntries: processRuleMatchCriteria(rule),
 			Actions:              make([]*RuleAction, 0, len(rule.AlertRuleActions)),
-			ApplyActionsToAll:    rule.ApplyActionsToAll,
+			ApplyActionsToAll:    applyToAll,
 		}
 
 		// Process actions

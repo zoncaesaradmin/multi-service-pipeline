@@ -85,7 +85,7 @@ type AlertRuleConfig struct {
 	AlertRuleMatchCriteria      []RuleMatchCriteriaConfig `json:"alertRuleMatchCriteria,omitempty"`
 	LastModifiedTime            int64                     `json:"lastModifiedTime"`
 	Links                       []interface{}             `json:"links,omitempty"`
-	ApplyActionsToAll           bool                      `json:"applyToExistingActiveAnomalies,omitempty"`
+	ApplyActionsToAll           string                    `json:"applyToExistingActiveAnomalies,omitempty"`
 }
 
 type CustomizeAnomalyConfig struct {

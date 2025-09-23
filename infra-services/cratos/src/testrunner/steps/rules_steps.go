@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/cucumber/godog"
+	"google.golang.org/protobuf/proto"
 )
 
 type StepBindings struct {
@@ -56,7 +57,7 @@ func (b *StepBindings) SendInputData(dataFile string) error {
 }
 
 func (b *StepBindings) SendInputDataToTopic(dataFile string, topic string) error {
-	aBytes, dataMeta, err := LoadAlertFromJSON(dataFile)
+	aBytes, dataMeta, _, err := LoadAlertFromJSON(dataFile)
 	if err != nil {
 		b.Cctx.L.Infof("Failed to load from data file %s\n", dataFile)
 		return err
@@ -97,6 +98,7 @@ func (b *StepBindings) SendScaleInputConfigWithFabric(configFile string, prefix 
 	if b.Cctx.ExampleData == nil {
 		b.Cctx.ExampleData = make(map[string]string)
 	}
+	topic := b.Cctx.InConfigTopic
 
 	_, configMeta, rconfig, err := LoadRulesFromJSON(configFile)
 	if err != nil {
@@ -129,14 +131,62 @@ func (b *StepBindings) SendScaleInputConfigWithFabric(configFile string, prefix 
 			}
 		}
 		rBytes, _ := json.Marshal(rconfig)
-		traceLogger.Infof("SREEK - %s\n", string(rBytes))
 
-		topic := b.Cctx.InConfigTopic
 		b.Cctx.SentConfigMeta = configMeta
 		b.Cctx.ProducerHandler.Send(topic, rBytes, nil)
 		traceLogger.Infof("Sent config %s over Kafka topic %s with fabric %s\n", configFile, topic, fabricName)
 	}
-	time.Sleep(5 * time.Second) // slight delay to ensure config is processed first
+	return nil
+
+}
+
+func (b *StepBindings) SendScaleInputDataWithFabric(dataFile string, prefix string, dcount int) error {
+	topic := b.Cctx.InDataTopic
+	expMetaDataMap := map[string]string{
+		"testData": "true",
+	}
+	b.Cctx.ConsHandler.SetExpectedCount(dcount)
+	b.Cctx.ConsHandler.SetExpectedHeaders(expMetaDataMap)
+
+	// Capture data file as example data for trace ID generation
+	if b.Cctx.ExampleData == nil {
+		b.Cctx.ExampleData = make(map[string]string)
+	}
+
+	_, dataMeta, aStream, err := LoadAlertFromJSON(dataFile)
+	if err != nil {
+		b.Cctx.L.Infof("Failed to load from data file %s\n", dataFile)
+		return err
+	}
+
+	for i := 1; i <= dcount; i++ {
+		suffix := fmt.Sprintf("%v", i)
+		b.Cctx.ExampleData["X"] = dataFile + suffix
+		fabricName := prefix + "-fabric-" + suffix
+
+		// Create trace ID from current scenario name and example data
+		traceID := utils.CreateContextualTraceID(b.Cctx.CurrentScenario, b.Cctx.ExampleData)
+		if traceID == "" {
+			traceID = "testrunner-default-trace"
+		}
+		// Use trace-aware logging
+		traceLogger := utils.WithTraceLoggerFromID(b.Cctx.L, traceID)
+		metaDataMap := map[string]string{
+			"testData":   "true",
+			"X-Trace-Id": traceID,
+		}
+
+		for _, aObj := range aStream.AlertObject {
+			aObj.FabricName = fabricName
+		}
+		aBytes, _ := proto.Marshal(aStream)
+
+		b.Cctx.SentDataSize += len(aBytes)
+		b.Cctx.SentDataCount++
+		b.Cctx.SentDataMeta = dataMeta
+		b.Cctx.ProducerHandler.Send(topic, aBytes, metaDataMap)
+		traceLogger.Infof("Sent data %s over Kafka topic %s for fabric %s\n", dataFile, topic, fabricName)
+	}
 	return nil
 
 }
@@ -238,6 +288,7 @@ func InitializeRulesSteps(ctx *godog.ScenarioContext, suiteMetadataCtx *impl.Cus
 	ctx.Step(`^send_input_data "([^"]*)"$`, bindings.SendInputData)
 	ctx.Step(`^wait_till_data_received_with_timeout_sec (\d+)$`, bindings.WaitTillDataReceivedWithTimeoutSec)
 
-	ctx.Step(`^replicate_and_send_input_config_with_fabricname "([^"]*)" "([^"]*)" (\d+)$`, bindings.SendScaleInputConfigWithFabric)
 	ctx.Step(`^wait_for_seconds (\d+)$`, bindings.WaitForSeconds)
+	ctx.Step(`^replicate_and_send_input_config_with_fabricname "([^"]*)" "([^"]*)" (\d+)$`, bindings.SendScaleInputConfigWithFabric)
+	ctx.Step(`^replicate_and_send_input_data_with_fabricname "([^"]*)" "([^"]*)" (\d+)$`, bindings.SendScaleInputDataWithFabric)
 }

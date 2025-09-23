@@ -10,25 +10,25 @@ import (
 )
 
 // Reads JSON data from a file and converts it to an Alert protobuf message
-func LoadAlertFromJSON(filename string) ([]byte, types.SentDataMeta, error) {
+func LoadAlertFromJSON(filename string) ([]byte, types.SentDataMeta, *alert.AlertStream, error) {
 	inputDataFile := testFilePath(filename)
 	data, err := ioutil.ReadFile(inputDataFile)
 	meta := types.SentDataMeta{}
 	if err != nil {
-		return nil, meta, err
+		return nil, meta, nil, err
 	}
-	var AlertStream alert.AlertStream
-	if err := json.Unmarshal(data, &AlertStream); err != nil {
-		return nil, meta, err
+	var alertStream alert.AlertStream
+	if err := json.Unmarshal(data, &alertStream); err != nil {
+		return nil, meta, nil, err
 	}
-	aBytes, err := proto.Marshal(&AlertStream)
+	aBytes, err := proto.Marshal(&alertStream)
 	if err != nil {
-		return nil, meta, err
+		return nil, meta, nil, err
 	}
-	for _, aObj := range AlertStream.AlertObject {
+	for _, aObj := range alertStream.AlertObject {
 		meta.FabricName = aObj.FabricName
 	}
-	return aBytes, meta, nil
+	return aBytes, meta, &alertStream, err
 }
 
 // Reads JSON rule config from a file and converts it to an Alert protobuf message

@@ -14,7 +14,7 @@ type EvaluatorOptions struct {
 var defaultOptions = &EvaluatorOptions{
 	AllowUndefinedVars: true,
 	FirstMatch:         true,
-	SortAscending:      true,
+	SortAscending:      false,
 }
 
 // RuleEngine represents the main rule engine with its configuration and state

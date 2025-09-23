@@ -1,7 +1,9 @@
 package steps
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	"sharedgomodule/utils"
 	"strconv"
 	"testgomodule/impl"
@@ -29,7 +31,7 @@ func (b *StepBindings) SendInputConfigToTopic(configFile string, topic string) e
 	traceID := utils.CreateContextualTraceID(b.Cctx.CurrentScenario, b.Cctx.ExampleData)
 	traceLogger := utils.WithTraceLoggerFromID(b.Cctx.L, traceID)
 
-	rBytes, configMeta, err := LoadRulesFromJSON(configFile)
+	rBytes, configMeta, _, err := LoadRulesFromJSON(configFile)
 	if err != nil {
 		// Use trace-aware logging if scenario is available
 		traceLogger.Infof("Failed to load from rules config file %s\n", configFile)
@@ -83,6 +85,60 @@ func (b *StepBindings) SendInputDataToTopic(dataFile string, topic string) error
 
 	traceLogger.Infof("Sent data %s over Kafka topic %s and trace ID in headers\n", dataFile, topic)
 	return nil
+}
+
+func (b *StepBindings) WaitForSeconds(seconds int) error {
+	time.Sleep(time.Duration(seconds) * time.Second)
+	return nil
+}
+
+func (b *StepBindings) SendScaleInputConfigWithFabric(configFile string, prefix string, fcount int) error {
+	// Capture config file as example data for trace ID generation
+	if b.Cctx.ExampleData == nil {
+		b.Cctx.ExampleData = make(map[string]string)
+	}
+
+	_, configMeta, rconfig, err := LoadRulesFromJSON(configFile)
+	if err != nil {
+		// Use trace-aware logging if scenario is available
+		b.Cctx.L.Infof("Failed to load from rules config file %s\n", configFile)
+		return err
+	}
+
+	for i := 1; i <= fcount; i++ {
+
+		suffix := fmt.Sprintf("%v", i)
+		b.Cctx.ExampleData["X"] = configFile + suffix
+		fabricName := prefix + "-fabric-" + suffix
+		ruleUUID := prefix + "-uuid-" + suffix
+		ruleName := prefix + "-name-" + suffix
+
+		//return b.SendInputConfigToTopic(configFile, b.Cctx.InConfigTopic)
+		// Create trace ID for config messages too (for consistency)
+		traceID := utils.CreateContextualTraceID(b.Cctx.CurrentScenario, b.Cctx.ExampleData)
+		traceLogger := utils.WithTraceLoggerFromID(b.Cctx.L, traceID)
+
+		for m, arule := range rconfig.AlertRules {
+			rconfig.AlertRules[m].UUID = ruleUUID
+			rconfig.AlertRules[m].Name = ruleName
+			rconfig.AlertRules[m].Priority = arule.Priority + int64(i)
+			for n := range arule.AlertRuleMatchCriteria {
+				rconfig.AlertRules[m].AlertRuleMatchCriteria[n].SiteId = fabricName
+				rconfig.AlertRules[m].AlertRuleMatchCriteria[n].UUID = ruleUUID + "criteria" + fmt.Sprintf("%v", n)
+				rconfig.AlertRules[m].AlertRuleMatchCriteria[n].AlertRuleId = ruleUUID
+			}
+		}
+		rBytes, _ := json.Marshal(rconfig)
+		traceLogger.Infof("SREEK - %s\n", string(rBytes))
+
+		topic := b.Cctx.InConfigTopic
+		b.Cctx.SentConfigMeta = configMeta
+		b.Cctx.ProducerHandler.Send(topic, rBytes, nil)
+		traceLogger.Infof("Sent config %s over Kafka topic %s with fabric %s\n", configFile, topic, fabricName)
+	}
+	time.Sleep(5 * time.Second) // slight delay to ensure config is processed first
+	return nil
+
 }
 
 func (b *StepBindings) WaitTillDataReceivedWithTimeoutSec(timeoutSec int) error {
@@ -181,4 +237,7 @@ func InitializeRulesSteps(ctx *godog.ScenarioContext, suiteMetadataCtx *impl.Cus
 	ctx.Step(`^send_input_config "([^"]*)"$`, bindings.SendInputConfig)
 	ctx.Step(`^send_input_data "([^"]*)"$`, bindings.SendInputData)
 	ctx.Step(`^wait_till_data_received_with_timeout_sec (\d+)$`, bindings.WaitTillDataReceivedWithTimeoutSec)
+
+	ctx.Step(`^replicate_and_send_input_config_with_fabricname "([^"]*)" "([^"]*)" (\d+)$`, bindings.SendScaleInputConfigWithFabric)
+	ctx.Step(`^wait_for_seconds (\d+)$`, bindings.WaitForSeconds)
 }

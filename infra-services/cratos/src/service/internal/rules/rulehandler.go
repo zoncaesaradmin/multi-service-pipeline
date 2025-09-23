@@ -353,7 +353,7 @@ func (rh *RuleEngineHandler) shouldDistributeTask(eventType string, rule *relib.
 	}
 
 	// Unknown action type - distribute to be safe
-	rh.rlogger.Warnw("RULE HANDLER - Unknown event type, distributing anyway", "ruleEvent", eventType)
+	rh.rlogger.Warnw("RULE HANDLER - distributing", "ruleEvent", eventType)
 	return true
 }
 

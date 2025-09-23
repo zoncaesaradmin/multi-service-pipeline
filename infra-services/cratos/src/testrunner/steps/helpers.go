@@ -32,15 +32,15 @@ func LoadAlertFromJSON(filename string) ([]byte, types.SentDataMeta, error) {
 }
 
 // Reads JSON rule config from a file and converts it to an Alert protobuf message
-func LoadRulesFromJSON(filename string) ([]byte, types.SentConfigMeta, error) {
+func LoadRulesFromJSON(filename string) ([]byte, types.SentConfigMeta, *AlertRuleMsg, error) {
 	var sentConfigMeta types.SentConfigMeta
 	ruleBytes, err := ioutil.ReadFile(testFilePath(filename))
 	if err != nil {
-		return nil, sentConfigMeta, err
+		return nil, sentConfigMeta, nil, err
 	}
 	ruleConfig := AlertRuleMsg{}
 	if err := json.Unmarshal(ruleBytes, &ruleConfig); err != nil {
-		return nil, sentConfigMeta, err
+		return nil, sentConfigMeta, nil, err
 	}
 	for _, rule := range ruleConfig.AlertRules {
 		for _, action := range rule.AlertRuleActions {
@@ -54,7 +54,7 @@ func LoadRulesFromJSON(filename string) ([]byte, types.SentConfigMeta, error) {
 			}
 		}
 	}
-	return ruleBytes, sentConfigMeta, nil
+	return ruleBytes, sentConfigMeta, &ruleConfig, nil
 }
 
 func testFilePath(file string) string {
@@ -73,19 +73,19 @@ type AlertRuleMetadata struct {
 }
 
 type AlertRuleConfig struct {
-	UUID                          string                    `json:"uuid"`
-	Name                          string                    `json:"name"`
-	Priority                      int64                     `json:"priority,omitempty"`
-	Description                   string                    `json:"description,omitempty"`
-	State                         string                    `json:"state,omitempty"`
-	CustomizeAnomaly              CustomizeAnomalyConfig    `json:"customizeAnomaly,omitempty"`
-	SeverityOverride              string                    `json:"severityOverride,omitempty"`
-	AssociatedInsightGroupUuids   []string                  `json:"associatedInsightGroupUuids,omitempty"`
-	AlertRuleActions              []RuleActionConfig        `json:"alertRuleActions,omitempty"`
-	AlertRuleMatchCriteria        []RuleMatchCriteriaConfig `json:"alertRuleMatchCriteria,omitempty"`
-	LastModifiedTime              int64                     `json:"lastModifiedTime"`
-	Links                         []interface{}             `json:"links,omitempty"`
-	ApplyActionsToActiveAnomalies bool                      `json:"applyActionsToActiveAnomalies,omitempty"`
+	UUID                        string                    `json:"uuid"`
+	Name                        string                    `json:"name"`
+	Priority                    int64                     `json:"priority,omitempty"`
+	Description                 string                    `json:"description,omitempty"`
+	State                       string                    `json:"state,omitempty"`
+	CustomizeAnomaly            CustomizeAnomalyConfig    `json:"customizeAnomaly,omitempty"`
+	SeverityOverride            string                    `json:"severityOverride,omitempty"`
+	AssociatedInsightGroupUuids []string                  `json:"associatedInsightGroupUuids,omitempty"`
+	AlertRuleActions            []RuleActionConfig        `json:"alertRuleActions,omitempty"`
+	AlertRuleMatchCriteria      []RuleMatchCriteriaConfig `json:"alertRuleMatchCriteria,omitempty"`
+	LastModifiedTime            int64                     `json:"lastModifiedTime"`
+	Links                       []interface{}             `json:"links,omitempty"`
+	ApplyActionsToAll           bool                      `json:"applyToExistingActiveAnomalies,omitempty"`
 }
 
 type CustomizeAnomalyConfig struct {

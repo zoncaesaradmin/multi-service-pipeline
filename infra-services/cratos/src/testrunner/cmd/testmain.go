@@ -119,7 +119,7 @@ func main() {
 	// Run tests using unified approach (automatically handles parallel vs non-parallel)
 	runTestSuites(logDir)
 
-	time.Sleep(40*time.Second)
+	time.Sleep(40 * time.Second)
 	testStatus = "complete"
 
 	handleServerShutdown(server)
@@ -499,9 +499,9 @@ func setupGroupFeatureResources(groupCtx *impl.CustomContext, logger logging.Log
 		logger.Debugw("Basic tests use scenario-level setup", "group", groupIndex)
 		return nil
 
-	case "one_to_one_tests":
+	case "one_to_one_tests", "scale_tests":
 		// Setup Kafka producer and consumer for one_to_one_tests.feature
-		logger.Debugw("Setting up one_to_one_tests feature resources with Kafka", "group", groupIndex)
+		logger.Debugw("Setting up feature resources with Kafka", "group", groupIndex)
 		return setupGroupKafkaResources(groupCtx, logger, groupIndex)
 
 	default:
@@ -553,8 +553,8 @@ func cleanupGroupFeatureResources(groupCtx *impl.CustomContext, featureName stri
 		// basic_tests uses scenario-level cleanup, no feature-level cleanup needed
 		logger.Debug("Basic tests use scenario-level cleanup")
 
-	case "one_to_one_tests":
-		logger.Debug("Cleaning up one_to_one_tests feature resources with Kafka")
+	case "one_to_one_tests", "scale_tests":
+		logger.Debug("Cleaning up feature resources with Kafka")
 		cleanupGroupKafkaResources(groupCtx, logger)
 
 	default:

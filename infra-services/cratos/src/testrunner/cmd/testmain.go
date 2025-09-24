@@ -499,15 +499,11 @@ func setupGroupFeatureResources(groupCtx *impl.CustomContext, logger logging.Log
 		logger.Debugw("Basic tests use scenario-level setup", "group", groupIndex)
 		return nil
 
-	case "one_to_one_tests", "scale_tests":
-		// Setup Kafka producer and consumer for one_to_one_tests.feature
+	default:
+		// Setup Kafka producer and consumer for feature by default
 		logger.Debugw("Setting up feature resources with Kafka", "group", groupIndex)
 		return setupGroupKafkaResources(groupCtx, logger, groupIndex)
 
-	default:
-		// Default feature setup
-		logger.Debugw("Setting up default feature resources", "group", groupIndex)
-		return nil
 	}
 }
 
@@ -553,12 +549,10 @@ func cleanupGroupFeatureResources(groupCtx *impl.CustomContext, featureName stri
 		// basic_tests uses scenario-level cleanup, no feature-level cleanup needed
 		logger.Debug("Basic tests use scenario-level cleanup")
 
-	case "one_to_one_tests", "scale_tests":
+	default:
 		logger.Debug("Cleaning up feature resources with Kafka")
 		cleanupGroupKafkaResources(groupCtx, logger)
 
-	default:
-		logger.Debug("Cleaning up default feature resources")
 	}
 }
 

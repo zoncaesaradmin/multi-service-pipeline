@@ -1,0 +1,70 @@
+{
+  "metadata": {
+    "ruleType": "ALERT_RULES",
+    "alertType": "anomaly",
+    "action": "CREATE_ALERT_RULE"
+  },
+  "alertRulePayload": [
+    {
+      "uuid": "SCALE-RULE-UUID-2",
+      "name": "scale_rule_2",
+      "priority": 10000,
+      "description": "Alert description",
+      "state": "true",
+      "customizeAnomaly": {
+        "customMessage": "explicit custom message"
+      },
+      "associatedInsightGroupUuids": [
+        "group-456",
+        "group-789"
+      ],
+      "applyActionsToActiveAnomalies": "true",
+      "severityOverride": "critical",
+      "alertRuleActions": [
+        {
+          "action": "CUSTOMIZE_ANOMALY"
+        },
+        {
+          "action": "ACKNOWLEDGE"
+        },
+        {
+          "action": "SEVERITY_OVERRIDE"
+        }
+      ],
+      "alertRuleMatchCriteria": [
+        {
+          "categoryMatchCriteria": [
+            {
+              "valueEquals": "scale-category-2"
+            }
+          ],
+          "severiyMatchCriteria": [
+            {
+              "valueEquals": "EVENT_SEVERITY_MINOR"
+            }
+          ],
+          "affectedObjectMatchCriteria": [
+            {
+              "objectType": "switch",
+              "valueEquals": "scale-switch-2"
+            },
+            {
+              "objectType": "interface",
+              "valueEquals": "eth1/30"
+            }
+          ],
+          "eventNameMatchCriteria": [
+            {
+              "valueEquals": "scale-title-2"
+            }
+          ],
+          "uuid": "SCALE-RULE-UUID-2-CRITERIA-1",
+          "alertRuleId": "SCALE-RULE-UUID-2",
+          "siteId": "scale-fabric-2"
+        }
+      ],
+      "lastModifiedTime": 1756993825056,
+      "links": []
+    }
+  ]
+}

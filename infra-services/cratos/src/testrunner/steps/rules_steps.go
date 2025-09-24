@@ -93,7 +93,7 @@ func (b *StepBindings) WaitForSeconds(seconds int) error {
 	return nil
 }
 
-func (b *StepBindings) SendScaleInputConfigWithFabric(configFile string, prefix string, fcount int) error {
+func (b *StepBindings) SendScaleInputConfigWithFabric(configFile string, prefix string, count int) error {
 	// Capture config file as example data for trace ID generation
 	if b.Cctx.ExampleData == nil {
 		b.Cctx.ExampleData = make(map[string]string)
@@ -107,7 +107,7 @@ func (b *StepBindings) SendScaleInputConfigWithFabric(configFile string, prefix 
 		return err
 	}
 
-	for i := 1; i <= fcount; i++ {
+	for i := 1; i <= count; i++ {
 
 		suffix := fmt.Sprintf("%v", i)
 		b.Cctx.ExampleData["X"] = configFile + suffix
@@ -136,6 +136,7 @@ func (b *StepBindings) SendScaleInputConfigWithFabric(configFile string, prefix 
 		b.Cctx.ProducerHandler.Send(topic, rBytes, nil)
 		traceLogger.Infof("Sent config %s over Kafka topic %s with fabric %s\n", configFile, topic, fabricName)
 	}
+	time.Sleep(time.Duration(5+(count/10)) * time.Second) // slight delay to ensure config is processed first
 	return nil
 
 }
@@ -148,9 +149,18 @@ func (b *StepBindings) SendScaleInputDataWithFabric(dataFile string, prefix stri
 	b.Cctx.ConsHandler.SetExpectedCount(dcount)
 	b.Cctx.ConsHandler.SetExpectedHeaders(expMetaDataMap)
 
-	// Capture data file as example data for trace ID generation
-	if b.Cctx.ExampleData == nil {
-		b.Cctx.ExampleData = make(map[string]string)
+	// Create trace ID from current scenario name and example data
+	traceID := utils.CreateContextualTraceID(b.Cctx.CurrentScenario, b.Cctx.ExampleData)
+	if traceID == "" {
+		traceID = "testrunner-default-trace"
+	}
+
+	// Use trace-aware logging
+	traceLogger := utils.WithTraceLoggerFromID(b.Cctx.L, traceID)
+
+	metaDataMap := map[string]string{
+		"testData":   "true",
+		"X-Trace-Id": traceID,
 	}
 
 	_, dataMeta, aStream, err := LoadAlertFromJSON(dataFile)
@@ -163,18 +173,6 @@ func (b *StepBindings) SendScaleInputDataWithFabric(dataFile string, prefix stri
 		suffix := fmt.Sprintf("%v", i)
 		b.Cctx.ExampleData["X"] = dataFile + suffix
 		fabricName := prefix + "-fabric-" + suffix
-
-		// Create trace ID from current scenario name and example data
-		traceID := utils.CreateContextualTraceID(b.Cctx.CurrentScenario, b.Cctx.ExampleData)
-		if traceID == "" {
-			traceID = "testrunner-default-trace"
-		}
-		// Use trace-aware logging
-		traceLogger := utils.WithTraceLoggerFromID(b.Cctx.L, traceID)
-		metaDataMap := map[string]string{
-			"testData":   "true",
-			"X-Trace-Id": traceID,
-		}
 
 		for _, aObj := range aStream.AlertObject {
 			aObj.FabricName = fabricName
@@ -238,6 +236,7 @@ func (b *StepBindings) SendScaleInputConfigWithCategory(configFile string, prefi
 		b.Cctx.ProducerHandler.Send(topic, rBytes, nil)
 		traceLogger.Infof("Sent config %s over Kafka topic %s with category %s\n", configFile, topic, category)
 	}
+	time.Sleep(time.Duration(5+(count/10)) * time.Second) // slight delay to ensure config is processed first
 	return nil
 }
 
@@ -249,9 +248,16 @@ func (b *StepBindings) SendScaleInputDataWithCategory(dataFile string, prefix st
 	b.Cctx.ConsHandler.SetExpectedCount(count)
 	b.Cctx.ConsHandler.SetExpectedHeaders(expMetaDataMap)
 
-	// Capture data file as example data for trace ID generation
-	if b.Cctx.ExampleData == nil {
-		b.Cctx.ExampleData = make(map[string]string)
+	// Create trace ID from current scenario name and example data
+	traceID := utils.CreateContextualTraceID(b.Cctx.CurrentScenario, b.Cctx.ExampleData)
+	if traceID == "" {
+		traceID = "testrunner-default-trace"
+	}
+	// Use trace-aware logging
+	traceLogger := utils.WithTraceLoggerFromID(b.Cctx.L, traceID)
+	metaDataMap := map[string]string{
+		"testData":   "true",
+		"X-Trace-Id": traceID,
 	}
 
 	_, dataMeta, aStream, err := LoadAlertFromJSON(dataFile)
@@ -264,18 +270,6 @@ func (b *StepBindings) SendScaleInputDataWithCategory(dataFile string, prefix st
 		suffix := fmt.Sprintf("%v", i)
 		b.Cctx.ExampleData["X"] = dataFile + suffix
 		category := prefix + "-category-" + suffix
-
-		// Create trace ID from current scenario name and example data
-		traceID := utils.CreateContextualTraceID(b.Cctx.CurrentScenario, b.Cctx.ExampleData)
-		if traceID == "" {
-			traceID = "testrunner-default-trace"
-		}
-		// Use trace-aware logging
-		traceLogger := utils.WithTraceLoggerFromID(b.Cctx.L, traceID)
-		metaDataMap := map[string]string{
-			"testData":   "true",
-			"X-Trace-Id": traceID,
-		}
 
 		for _, aObj := range aStream.AlertObject {
 			aObj.Category = category
@@ -394,4 +388,5 @@ func InitializeRulesSteps(ctx *godog.ScenarioContext, suiteMetadataCtx *impl.Cus
 	ctx.Step(`^replicate_and_send_input_data_with_fabricname "([^"]*)" "([^"]*)" (\d+)$`, bindings.SendScaleInputDataWithFabric)
 
 	ctx.Step(`^replicate_and_send_input_config_with_category "([^"]*)" "([^"]*)" (\d+)$`, bindings.SendScaleInputConfigWithCategory)
+	ctx.Step(`^replicate_and_send_input_data_with_category "([^"]*)" "([^"]*)" (\d+)$`, bindings.SendScaleInputDataWithCategory)
 }

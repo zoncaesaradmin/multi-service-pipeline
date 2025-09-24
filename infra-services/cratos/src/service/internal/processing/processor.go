@@ -238,3 +238,7 @@ func (p *Processor) GetStats() map[string]interface{} {
 		"processing_delay": p.config.ProcessingDelay.String(),
 	}
 }
+
+func (p *Processor) GetRuleInfo() []byte {
+	return p.reHandler.GetRuleInfo()
+}

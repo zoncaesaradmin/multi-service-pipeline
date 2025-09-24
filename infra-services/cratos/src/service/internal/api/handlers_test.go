@@ -58,7 +58,7 @@ func (m *mockLogger) Close() error          { return nil }
 
 func TestNewHandler(t *testing.T) {
 	logger := &mockLogger{}
-	handler := NewHandler(logger, nil)
+	handler := NewHandler(logger, nil, nil)
 	if handler == nil {
 		t.Fatal("NewHandler() returned nil")
 	}
@@ -66,7 +66,7 @@ func TestNewHandler(t *testing.T) {
 
 func TestHealthCheck(t *testing.T) {
 	logger := &mockLogger{}
-	handler := NewHandler(logger, nil)
+	handler := NewHandler(logger, nil, nil)
 	req := httptest.NewRequest(http.MethodGet, testHealthPath, nil)
 	rr := httptest.NewRecorder()
 
@@ -99,7 +99,7 @@ func TestHealthCheck(t *testing.T) {
 
 func TestGetStats(t *testing.T) {
 	logger := &mockLogger{}
-	handler := NewHandler(logger, nil)
+	handler := NewHandler(logger, nil, nil)
 	req := httptest.NewRequest(http.MethodGet, testStatsPath, nil)
 	rr := httptest.NewRecorder()
 
@@ -151,7 +151,7 @@ func TestWriteJSON(t *testing.T) {
 
 func TestHealthCheckOPTIONS(t *testing.T) {
 	logger := &mockLogger{}
-	handler := NewHandler(logger, nil)
+	handler := NewHandler(logger, nil, nil)
 	req := httptest.NewRequest(http.MethodOptions, testHealthPath, nil)
 	rr := httptest.NewRecorder()
 
@@ -178,7 +178,7 @@ func TestHealthCheckOPTIONS(t *testing.T) {
 
 func TestSetupRoutes(t *testing.T) {
 	logger := &mockLogger{}
-	handler := NewHandler(logger, nil)
+	handler := NewHandler(logger, nil, nil)
 	mux := http.NewServeMux()
 
 	// Setup routes
@@ -206,37 +206,9 @@ func TestSetupRoutes(t *testing.T) {
 	}
 }
 
-func TestGetStatsResponseData(t *testing.T) {
-	logger := &mockLogger{}
-	handler := NewHandler(logger, nil)
-	req := httptest.NewRequest(http.MethodGet, testStatsPath, nil)
-	rr := httptest.NewRecorder()
-
-	handler.GetStats(rr, req)
-
-	// Parse response
-	var response models.SuccessResponse
-	if err := json.NewDecoder(rr.Body).Decode(&response); err != nil {
-		t.Fatalf("Failed to decode stats response: %v", err)
-	}
-
-	// Check that data contains expected fields
-	data, ok := response.Data.(map[string]interface{})
-	if !ok {
-		t.Fatal("GetStats() response data is not a map")
-	}
-
-	// Verify the data structure - now expecting total_messages instead of total_users
-	if totalMessages, exists := data["total_messages"]; !exists {
-		t.Error("GetStats() response missing 'total_messages' field")
-	} else if totalMessages != float64(0) {
-		t.Errorf("GetStats() total_messages = %v, want %v", totalMessages, 0)
-	}
-}
-
 func TestHandleConfigs(t *testing.T) {
 	logger := &mockLogger{}
-	handler := NewHandler(logger, nil)
+	handler := NewHandler(logger, nil, nil)
 
 	t.Run("GET request", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, testConfigPath, nil)

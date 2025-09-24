@@ -8,6 +8,7 @@ import (
 
 	"servicegomodule/internal/metrics"
 	"servicegomodule/internal/models"
+	"servicegomodule/internal/processing"
 	"sharedgomodule/logging"
 )
 
@@ -44,14 +45,15 @@ const (
 type Handler struct {
 	logger    logging.Logger
 	collector *metrics.MetricsCollector
-	// Any implementation specific variables to be added
+	pipeline  *processing.Pipeline
 }
 
 // NewHandler creates a new Handler instance
-func NewHandler(logger logging.Logger, collector *metrics.MetricsCollector) *Handler {
+func NewHandler(logger logging.Logger, collector *metrics.MetricsCollector, pipeline *processing.Pipeline) *Handler {
 	return &Handler{
 		logger:    logger,
 		collector: collector,
+		pipeline:  pipeline,
 	}
 }
 
@@ -69,6 +71,8 @@ func (h *Handler) SetupRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/metrics/summaries", h.handleSummaries)
 	mux.HandleFunc("/metrics/events", h.handleEvents)
 	mux.HandleFunc("/metrics/health", h.handleHealth)
+
+	mux.HandleFunc("/api/debug/rules", h.GetRules)
 }
 
 // Helper functions for JSON responses and middleware
@@ -117,13 +121,36 @@ func (h *Handler) GetStats(w http.ResponseWriter, r *http.Request) {
 	h.logger.Infow("GetStats handler entry", "method", r.Method, "path", r.URL.Path, "remote_addr", r.RemoteAddr)
 	defer h.logger.Infow("GetStats handler exit", "method", r.Method, "path", r.URL.Path)
 
-	stats := map[string]interface{}{
-		"total_messages": 0, // Stub implementation
+	var stats map[string]interface{}
+	if h.pipeline != nil {
+		stats = h.pipeline.GetStats()
+	} else {
+		stats = map[string]interface{}{
+			"error": "pipeline not initialized",
+		}
 	}
 
 	writeJSON(w, http.StatusOK, models.SuccessResponse{
 		Message: MsgStatsRetrieved,
 		Data:    stats,
+	})
+}
+
+// GetStats handles statistics requests
+func (h *Handler) GetRules(w http.ResponseWriter, r *http.Request) {
+	h.logger.Infow("GetRules handler entry", "method", r.Method, "path", r.URL.Path, "remote_addr", r.RemoteAddr)
+	defer h.logger.Infow("GetRules handler exit", "method", r.Method, "path", r.URL.Path)
+
+	var rBytes []byte
+	if h.pipeline != nil {
+		rBytes = h.pipeline.GetRuleInfo()
+	} else {
+		rBytes = []byte("pipeline not initialized")
+	}
+
+	writeJSON(w, http.StatusOK, models.SuccessResponse{
+		Message: MsgStatsRetrieved,
+		Data:    string(rBytes),
 	})
 }
 

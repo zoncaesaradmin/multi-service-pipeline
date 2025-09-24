@@ -144,6 +144,10 @@ func (rh *RuleEngineHandler) ReadExistingRules() error {
 	return nil
 }
 
+func (rh *RuleEngineHandler) GetRuleInfo() []byte {
+	return rh.reInst.GetAllRuleInfo()
+}
+
 // setupRuleConsumer configures the main rules topic consumer
 func (rh *RuleEngineHandler) setupRuleConsumer() error {
 	rh.ruleconsumer.OnMessage(func(message *messagebus.Message) {

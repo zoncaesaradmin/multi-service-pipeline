@@ -51,10 +51,11 @@ func main() {
 }
 
 func setupRouter(logger logging.Logger, application *app.Application) *http.ServeMux {
-	// Get metrics collector from application
+	// Get metrics collector and processing pipeline from application
 	metricsCollector := application.MetricsCollector()
+	processingPipeline := application.ProcessingPipeline()
 
-	handler := api.NewHandler(logger, metricsCollector)
+	handler := api.NewHandler(logger, metricsCollector, processingPipeline)
 	mux := http.NewServeMux()
 
 	// Setup routes

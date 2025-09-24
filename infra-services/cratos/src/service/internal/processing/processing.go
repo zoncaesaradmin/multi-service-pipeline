@@ -118,6 +118,10 @@ func (p *Pipeline) GetStats() map[string]interface{} {
 	}
 }
 
+func (p *Pipeline) GetRuleInfo() []byte {
+	return p.processor.GetRuleInfo()
+}
+
 func DefaultConfig(cfg *config.RawConfig) ProcConfig {
 	processing := cfg.Processing
 	// Convert config processing configuration to ProcConfig

@@ -244,4 +244,5 @@ type RuleEngineType interface {
 	GetRule(string) (RuleDefinition, bool)
 	AddRule(string) ([]RuleDefinition, error)
 	DeleteRule(string) ([]RuleDefinition, error)
+	GetAllRuleInfo() []byte
 }

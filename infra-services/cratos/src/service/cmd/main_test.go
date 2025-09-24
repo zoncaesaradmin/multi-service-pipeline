@@ -251,7 +251,7 @@ func TestApplicationInitialization(t *testing.T) {
 
 func TestHandlerInitialization(t *testing.T) {
 	logger := &mockLogger{}
-	handler := api.NewHandler(logger, nil)
+	handler := api.NewHandler(logger, nil, nil)
 
 	if handler == nil {
 		t.Fatal("expected handler to not be nil")

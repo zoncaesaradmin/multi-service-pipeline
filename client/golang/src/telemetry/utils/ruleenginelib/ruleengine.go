@@ -1,6 +1,8 @@
 package ruleenginelib
 
 import (
+	"encoding/json"
+	"sort"
 	"strings"
 	"sync"
 )
@@ -339,4 +341,50 @@ func (re *RuleEngine) ValidateIndexIntegrity() bool {
 
 	// Total indexed conditions should match expected conditions from enabled rules
 	return totalIndexedConditions == expectedConditions
+}
+
+func (re *RuleEngine) GetAllRuleInfo() []byte {
+	re.Mutex.Lock()
+	defer re.Mutex.Unlock()
+
+	type RuleInfo struct {
+		PrimaryKey     string              `json:"primaryKey"`
+		MatchCondition *RuleMatchCondition `json:"matchCondition"`
+		//RuleDefinition *RuleDefinition     `json:"ruleDefinition"`
+	}
+
+	var allRuleInfos []RuleInfo
+	primaryKeys := make([]string, 0, len(re.PrimaryKeyIndex))
+	for pk := range re.PrimaryKeyIndex {
+		primaryKeys = append(primaryKeys, pk)
+	}
+	// Sort primaryKeys for deterministic output
+	sort.Strings(primaryKeys)
+
+	for _, pk := range primaryKeys {
+		conditions := re.PrimaryKeyIndex[pk]
+		for _, cond := range conditions {
+			_, exists := re.RuleMap[cond.AlertRuleUUID]
+			//ruleDef, exists := re.RuleMap[cond.AlertRuleUUID]
+			if !exists {
+				continue
+			}
+			allRuleInfos = append(allRuleInfos, RuleInfo{
+				PrimaryKey:     pk,
+				MatchCondition: cond,
+				//RuleDefinition: ruleDef,
+			})
+		}
+	}
+
+	summary := map[string]interface{}{
+		"total_rules":      len(re.RuleMap),
+		"total_conditions": len(allRuleInfos),
+		"rules":            allRuleInfos,
+	}
+	jsonBytes, err := json.Marshal(summary)
+	if err != nil {
+		return []byte(`{"error": "failed to marshal rule info"}`)
+	}
+	return jsonBytes
 }

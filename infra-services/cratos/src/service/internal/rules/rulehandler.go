@@ -176,16 +176,20 @@ func (rh *RuleEngineHandler) handleRuleMessage(message *messagebus.Message) {
 	msgLogger.Debugw("RULE HANDLER - Received message", "size", len(message.Value))
 
 	userMeta := relib.TransactionMetadata{TraceId: traceID}
+
+	// For DELETE operations, capture old rule definitions BEFORE rule engine update
+	// because HandleRuleEvent will remove the rule from cache
+	oldRuleDefinitions, err := rh.getOldRuleDefinitions(message.Value)
+	if err != nil {
+		msgLogger.Errorw("Failed to get old rule definitions", "error", err.Error())
+		// Continue processing even if we can't get old rules
+	}
+
 	res, err := rh.reInst.HandleRuleEvent(message.Value, userMeta)
 	if err != nil {
 		msgLogger.Errorw("RULE HANDLER - Failed to handle rule event", "error", err)
 	} else if res != nil && len(res.Rules) > 0 {
-		// For UPDATE/DELETE operations, capture old rule definitions before rule engine update
-		oldRuleDefinitions, err := rh.getOldRuleDefinitions(message.Value)
-		if err != nil {
-			msgLogger.Errorw("Failed to get old rule definitions", "error", err.Error())
-			// Continue processing even if we can't get old rules
-		}
+		msgLogger.Debugw("RULE HANDLER - Successfully handled rule event", "result", res, "oldRulesCount", len(oldRuleDefinitions))
 		rh.processRuleEvent(msgLogger, traceID, res, oldRuleDefinitions)
 	}
 

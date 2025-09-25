@@ -17,6 +17,7 @@ type RawConfig struct {
 	Server     RawServerConfig     `yaml:"server"`
 	Logging    RawLoggingConfig    `yaml:"logging"`
 	Processing RawProcessingConfig `yaml:"processing"`
+	Metrics    RawMetricsConfig    `yaml:"metrics"`
 }
 
 // ServerConfig holds server-related configuration
@@ -33,6 +34,13 @@ type RawLoggingConfig struct {
 	FileName    string `yaml:"fileName"`    // Path to the log file
 	LoggerName  string `yaml:"loggerName"`  // Name identifier for the logger
 	ServiceName string `yaml:"serviceName"` // Service name for structured logging
+}
+
+type RawMetricsConfig struct {
+	RetentionPeriod   int `yaml:"retentionPeriod"`   // metrics retention period in minutes
+	AggregationWindow int `yaml:"aggregationWindow"` // metrics aggregation window in minutes
+	MaxEvents         int `yaml:"maxEvents"`         // maximum number of events to keep in memory
+	DumpInterval      int `yaml:"dumpInterval"`      // metrics dump interval in seconds
 }
 
 // ProcessingConfig holds processing pipeline configuration

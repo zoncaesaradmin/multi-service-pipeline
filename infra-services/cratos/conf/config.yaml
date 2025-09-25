@@ -21,6 +21,13 @@ logging:
   loggerName: "main"             # Logger name identifier (env: LOG_LOGGER_NAME)
   serviceName: "cratos"          # Service name for structured logging (env: LOG_SERVICE_NAME)
 
+# service metrics collection configuration
+metrics:
+  retentionPeriod: 10            # metrics retention period in minutes
+  aggregationWindow: 1           # metrics aggregation window in minutes
+  maxEvents: 10000               # maximum number of events to keep in memory
+  dumpInterval: 60               # metrics dump interval in seconds
+
 # Processing pipeline configuration
 processing:
   input:

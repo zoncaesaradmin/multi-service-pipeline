@@ -3,6 +3,7 @@ package metrics
 import (
 	"context"
 	"fmt"
+	"servicegomodule/internal/config"
 	"servicegomodule/internal/models"
 	"sharedgomodule/logging"
 	"sort"
@@ -128,13 +129,23 @@ type MetricsConfig struct {
 }
 
 // DefaultMetricsConfig returns default configuration
-func DefaultMetricsConfig() MetricsConfig {
-	return MetricsConfig{
-		ChannelBufferSize: 1000,
-		RetentionPeriod:   10 * time.Minute,
-		AggregationWindow: 1 * time.Minute,
-		MaxEvents:         10000,
-		DumpInterval:      30 * time.Second,
+func DefaultMetricsConfig(cfg *config.RawConfig) MetricsConfig {
+	if cfg != nil {
+		return MetricsConfig{
+			ChannelBufferSize: 1000,
+			RetentionPeriod:   time.Duration(cfg.Metrics.RetentionPeriod) * time.Minute,
+			AggregationWindow: time.Duration(cfg.Metrics.AggregationWindow) * time.Minute,
+			MaxEvents:         cfg.Metrics.MaxEvents,
+			DumpInterval:      time.Duration(cfg.Metrics.DumpInterval) * time.Second,
+		}
+	} else {
+		return MetricsConfig{
+			ChannelBufferSize: 1000,
+			RetentionPeriod:   10 * time.Minute,
+			AggregationWindow: 1 * time.Minute,
+			MaxEvents:         10000,
+			DumpInterval:      30 * time.Second,
+		}
 	}
 }
 

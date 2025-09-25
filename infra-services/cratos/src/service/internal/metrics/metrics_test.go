@@ -66,7 +66,7 @@ func TestMetricType_Constants(t *testing.T) {
 }
 
 func TestDefaultMetricsConfig(t *testing.T) {
-	config := DefaultMetricsConfig()
+	config := DefaultMetricsConfig(nil)
 
 	expectedChannelBufferSize := 1000
 	expectedRetentionPeriod := 10 * time.Minute
@@ -131,7 +131,7 @@ func TestNewMetricsCollector(t *testing.T) {
 
 func TestMetricsCollector_StartStop(t *testing.T) {
 	logger := &mockLogger{}
-	config := DefaultMetricsConfig()
+	config := DefaultMetricsConfig(nil)
 	mc := NewMetricsCollector(logger, config)
 
 	// Test Start
@@ -214,7 +214,7 @@ func TestMetricsCollector_SendMetric(t *testing.T) {
 
 func TestMetricsCollector_UpdateSummary(t *testing.T) {
 	logger := &mockLogger{}
-	mc := NewMetricsCollector(logger, DefaultMetricsConfig())
+	mc := NewMetricsCollector(logger, DefaultMetricsConfig(nil))
 
 	event1 := &MetricEvent{
 		Type:      MetricTypeCounter,
@@ -260,7 +260,7 @@ func TestMetricsCollector_UpdateSummary(t *testing.T) {
 
 func TestMetricsCollector_UpdatePipelineMetrics(t *testing.T) {
 	logger := &mockLogger{}
-	mc := NewMetricsCollector(logger, DefaultMetricsConfig())
+	mc := NewMetricsCollector(logger, DefaultMetricsConfig(nil))
 
 	msg := models.NewDataMessage([]byte("test"), "key", 0)
 	msg.Size = 100
@@ -368,7 +368,7 @@ func TestMetricsCollector_UpdatePipelineMetrics(t *testing.T) {
 
 func TestMetricsCollector_UpdateStageMetrics(t *testing.T) {
 	logger := &mockLogger{}
-	mc := NewMetricsCollector(logger, DefaultMetricsConfig())
+	mc := NewMetricsCollector(logger, DefaultMetricsConfig(nil))
 
 	stageName := "test-stage"
 	now := time.Now()
@@ -433,7 +433,7 @@ func TestMetricsCollector_UpdateStageMetrics(t *testing.T) {
 
 func TestMetricsCollector_UpdateAverageProcessingTime(t *testing.T) {
 	logger := &mockLogger{}
-	mc := NewMetricsCollector(logger, DefaultMetricsConfig())
+	mc := NewMetricsCollector(logger, DefaultMetricsConfig(nil))
 
 	// First message
 	mc.pipelineMetrics.ProcessedMessages = 1
@@ -455,7 +455,7 @@ func TestMetricsCollector_UpdateAverageProcessingTime(t *testing.T) {
 
 func TestMetricsCollector_GetSummaryKey(t *testing.T) {
 	logger := &mockLogger{}
-	mc := NewMetricsCollector(logger, DefaultMetricsConfig())
+	mc := NewMetricsCollector(logger, DefaultMetricsConfig(nil))
 
 	event := &MetricEvent{
 		Type:   MetricTypeCounter,
@@ -523,7 +523,7 @@ func TestMetricsCollector_CleanupOldMetrics(t *testing.T) {
 
 func TestMetricsCollector_GetMethods(t *testing.T) {
 	logger := &mockLogger{}
-	mc := NewMetricsCollector(logger, DefaultMetricsConfig())
+	mc := NewMetricsCollector(logger, DefaultMetricsConfig(nil))
 
 	// Add some test data
 	event := &MetricEvent{
@@ -608,7 +608,7 @@ func TestMetricsCollector_MaxEventsLimit(t *testing.T) {
 
 func TestMetricsCollector_CalculateThroughput(t *testing.T) {
 	logger := &mockLogger{}
-	mc := NewMetricsCollector(logger, DefaultMetricsConfig())
+	mc := NewMetricsCollector(logger, DefaultMetricsConfig(nil))
 
 	// Set up test data
 	now := time.Now()
@@ -639,7 +639,7 @@ func TestMetricsCollector_CalculateThroughput(t *testing.T) {
 
 func TestMetricsCollector_ConcurrentAccess(t *testing.T) {
 	logger := &mockLogger{}
-	mc := NewMetricsCollector(logger, DefaultMetricsConfig())
+	mc := NewMetricsCollector(logger, DefaultMetricsConfig(nil))
 
 	err := mc.Start()
 	if err != nil {

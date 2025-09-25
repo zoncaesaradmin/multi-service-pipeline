@@ -17,7 +17,7 @@ const (
 
 func TestNewMetricsHelper(t *testing.T) {
 	logger := &mockLogger{}
-	collector := NewMetricsCollector(logger, DefaultMetricsConfig())
+	collector := NewMetricsCollector(logger, DefaultMetricsConfig(nil))
 	stage := "test-stage"
 
 	helper := NewMetricsHelper(collector, stage)
@@ -35,7 +35,7 @@ func TestNewMetricsHelper(t *testing.T) {
 
 func TestMetricsHelper_RecordMessageReceived(t *testing.T) {
 	logger := &mockLogger{}
-	collector := NewMetricsCollector(logger, DefaultMetricsConfig())
+	collector := NewMetricsCollector(logger, DefaultMetricsConfig(nil))
 	helper := NewMetricsHelper(collector, "input")
 
 	err := collector.Start()
@@ -78,7 +78,7 @@ func TestMetricsHelper_RecordMessageReceived(t *testing.T) {
 
 func TestMetricsHelper_RecordMessageCompleted(t *testing.T) {
 	logger := &mockLogger{}
-	collector := NewMetricsCollector(logger, DefaultMetricsConfig())
+	collector := NewMetricsCollector(logger, DefaultMetricsConfig(nil))
 	helper := NewMetricsHelper(collector, "processor")
 
 	err := collector.Start()
@@ -130,7 +130,7 @@ func TestMetricsHelper_RecordMessageCompleted(t *testing.T) {
 
 func TestMetricsHelper_RecordMessageFailed(t *testing.T) {
 	logger := &mockLogger{}
-	collector := NewMetricsCollector(logger, DefaultMetricsConfig())
+	collector := NewMetricsCollector(logger, DefaultMetricsConfig(nil))
 	helper := NewMetricsHelper(collector, "processor")
 
 	err := collector.Start()
@@ -166,7 +166,7 @@ func TestMetricsHelper_RecordMessageFailed(t *testing.T) {
 
 func TestMetricsHelper_RecordError(t *testing.T) {
 	logger := &mockLogger{}
-	collector := NewMetricsCollector(logger, DefaultMetricsConfig())
+	collector := NewMetricsCollector(logger, DefaultMetricsConfig(nil))
 	helper := NewMetricsHelper(collector, "processor")
 
 	err := collector.Start()
@@ -202,7 +202,7 @@ func TestMetricsHelper_RecordError(t *testing.T) {
 
 func TestMetricsHelper_RecordRetry(t *testing.T) {
 	logger := &mockLogger{}
-	collector := NewMetricsCollector(logger, DefaultMetricsConfig())
+	collector := NewMetricsCollector(logger, DefaultMetricsConfig(nil))
 	helper := NewMetricsHelper(collector, "processor")
 
 	err := collector.Start()
@@ -238,7 +238,7 @@ func TestMetricsHelper_RecordRetry(t *testing.T) {
 
 func TestMetricsHelper_RecordStageLatency(t *testing.T) {
 	logger := &mockLogger{}
-	collector := NewMetricsCollector(logger, DefaultMetricsConfig())
+	collector := NewMetricsCollector(logger, DefaultMetricsConfig(nil))
 	helper := NewMetricsHelper(collector, "processor")
 
 	err := collector.Start()
@@ -277,7 +277,7 @@ func TestMetricsHelper_RecordStageLatency(t *testing.T) {
 
 func TestMetricsHelper_RecordStageCompleted(t *testing.T) {
 	logger := &mockLogger{}
-	collector := NewMetricsCollector(logger, DefaultMetricsConfig())
+	collector := NewMetricsCollector(logger, DefaultMetricsConfig(nil))
 	helper := NewMetricsHelper(collector, "processor")
 
 	err := collector.Start()
@@ -313,7 +313,7 @@ func TestMetricsHelper_RecordStageCompleted(t *testing.T) {
 
 func TestMetricsHelper_RecordStageFailed(t *testing.T) {
 	logger := &mockLogger{}
-	collector := NewMetricsCollector(logger, DefaultMetricsConfig())
+	collector := NewMetricsCollector(logger, DefaultMetricsConfig(nil))
 	helper := NewMetricsHelper(collector, "processor")
 
 	err := collector.Start()
@@ -349,7 +349,7 @@ func TestMetricsHelper_RecordStageFailed(t *testing.T) {
 
 func TestMetricsHelper_RecordGauge(t *testing.T) {
 	logger := &mockLogger{}
-	collector := NewMetricsCollector(logger, DefaultMetricsConfig())
+	collector := NewMetricsCollector(logger, DefaultMetricsConfig(nil))
 	helper := NewMetricsHelper(collector, "processor")
 
 	err := collector.Start()
@@ -392,7 +392,7 @@ func TestMetricsHelper_RecordGauge(t *testing.T) {
 
 func TestMetricsHelper_RecordCounter(t *testing.T) {
 	logger := &mockLogger{}
-	collector := NewMetricsCollector(logger, DefaultMetricsConfig())
+	collector := NewMetricsCollector(logger, DefaultMetricsConfig(nil))
 	helper := NewMetricsHelper(collector, "processor")
 
 	err := collector.Start()
@@ -435,7 +435,7 @@ func TestMetricsHelper_RecordCounter(t *testing.T) {
 
 func TestMetricsHelper_RecordHistogram(t *testing.T) {
 	logger := &mockLogger{}
-	collector := NewMetricsCollector(logger, DefaultMetricsConfig())
+	collector := NewMetricsCollector(logger, DefaultMetricsConfig(nil))
 	helper := NewMetricsHelper(collector, "processor")
 
 	err := collector.Start()
@@ -478,7 +478,7 @@ func TestMetricsHelper_RecordHistogram(t *testing.T) {
 
 func TestMetricsHelper_GetCollector(t *testing.T) {
 	logger := &mockLogger{}
-	collector := NewMetricsCollector(logger, DefaultMetricsConfig())
+	collector := NewMetricsCollector(logger, DefaultMetricsConfig(nil))
 	helper := NewMetricsHelper(collector, "test")
 
 	retrieved := helper.GetCollector()
@@ -489,7 +489,7 @@ func TestMetricsHelper_GetCollector(t *testing.T) {
 
 func TestMetricsHelper_WithNilLabels(t *testing.T) {
 	logger := &mockLogger{}
-	collector := NewMetricsCollector(logger, DefaultMetricsConfig())
+	collector := NewMetricsCollector(logger, DefaultMetricsConfig(nil))
 	helper := NewMetricsHelper(collector, "processor")
 
 	err := collector.Start()
@@ -521,7 +521,7 @@ func TestMetricsHelper_WithNilLabels(t *testing.T) {
 
 func TestMetricsHelper_IntegrationWithCollector(t *testing.T) {
 	logger := &mockLogger{}
-	collector := NewMetricsCollector(logger, DefaultMetricsConfig())
+	collector := NewMetricsCollector(logger, DefaultMetricsConfig(nil))
 	helper := NewMetricsHelper(collector, "integration_test")
 
 	err := collector.Start()

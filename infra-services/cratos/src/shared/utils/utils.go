@@ -5,10 +5,12 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/stretchr/testify/assert/yaml"
 )
 
+const ISO8601Milli = "2006-01-02T15:04:05.000Z07:00"
 const (
 	TaskIDHeader = "X-Task-Id"
 )
@@ -70,4 +72,8 @@ func LoadConfigMap(configPath string) map[string]any {
 	}
 
 	return config
+}
+
+func GetCurrentUTCTimestampMilli() string {
+	return time.Now().UTC().Format(ISO8601Milli)
 }

@@ -57,6 +57,7 @@ type RuleLookupResult struct {
 	IsRuleHit bool `json:"isRuleHit"`
 	// below are relevant only if IsRuleHit is true
 	RuleUUID           string          `json:"ruleUUID"`
+	RuleName           string          `json:"ruleName"`
 	CriteriaHit        RuleHitCriteria `json:"criteria"`
 	Actions            []RuleHitAction `json:"actions"`
 	CritCount          int             `json:"criteriaCount"`

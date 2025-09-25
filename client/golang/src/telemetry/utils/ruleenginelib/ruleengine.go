@@ -123,6 +123,7 @@ func (re *RuleEngine) EvaluateRules(data Data) RuleLookupResult {
 					return RuleLookupResult{
 						IsRuleHit: true,
 						RuleUUID:  rule.AlertRuleUUID,
+						RuleName:  rule.Name,
 						CriteriaHit: RuleHitCriteria{
 							Any: append([]AstConditional{}, condition.Condition.Any...),
 							All: append([]AstConditional{}, condition.Condition.All...),

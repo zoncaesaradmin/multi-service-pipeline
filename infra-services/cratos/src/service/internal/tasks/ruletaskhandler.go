@@ -41,6 +41,7 @@ type RuleTasksHandler struct {
 	// DB handler
 	dbRecordHandler *DbRecordHandler
 
+	// Metrics
 	totalProcessed int64
 	totalFailed    int64
 	metricsMutex   sync.RWMutex
@@ -57,7 +58,7 @@ type taskJob struct {
 type TaskDataType struct {
 	RuleEvent string
 	Rule      *relib.RuleDefinition
-	oldRule   *relib.RuleDefinition
+	OldRule   *relib.RuleDefinition
 }
 
 // TaskMetrics tracks performance metrics
@@ -73,7 +74,6 @@ func (rh *RuleTasksHandler) GetTaskMetrics() TaskMetrics {
 	rh.metricsMutex.RLock()
 	defer rh.metricsMutex.RUnlock()
 
-	// For simplicity, AverageProcessing is not calculated in this example
 	return TaskMetrics{
 		TotalProcessed: rh.totalProcessed,
 		TotalFailed:    rh.totalFailed,
@@ -234,7 +234,7 @@ func (rh *RuleTasksHandler) SetLeader(isLeader bool) {
 	rh.isLeader = isLeader
 	if isLeader {
 		rh.leaderCtx, rh.leaderCancel = context.WithCancel(rh.ctx)
-		go periodicRuleTaskChecker(rh.rlogger, rh.leaderCtx)
+		go rh.periodicRuleTaskChecker(rh.leaderCtx)
 	} else if rh.leaderCancel != nil {
 		rh.leaderCancel()
 		rh.leaderCancel = nil
@@ -268,13 +268,13 @@ func (rh *RuleTasksHandler) DistributeRuleTask(l logging.Logger, traceID string,
 	return true
 }
 
-func periodicRuleTaskChecker(l logging.Logger, ctx context.Context) {
+func (rh *RuleTasksHandler) periodicRuleTaskChecker(ctx context.Context) {
 
 	select {
 	case <-time.After(TaskCheckerInitInterval):
-		processPendingTasks()
+		rh.processPendingTasks()
 	case <-ctx.Done():
-		l.Info("periodic rule task checker is cancelled before work started")
+		rh.rlogger.Info("periodic rule task checker is cancelled before work started")
 	}
 
 	ticker := time.NewTicker(TaskCheckerInterval)
@@ -283,14 +283,14 @@ func periodicRuleTaskChecker(l logging.Logger, ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			l.Info("periodic rule task checker is cancelled")
+			rh.rlogger.Info("periodic rule task checker is cancelled")
 			return
 		case <-ticker.C:
-			processPendingTasks()
+			rh.processPendingTasks()
 		}
 	}
 }
 
-func processPendingTasks() {
+func (rh *RuleTasksHandler) processPendingTasks() {
 	// add handling to fetch rule tasks from DB and generate tasks into rule tasks topic
 }

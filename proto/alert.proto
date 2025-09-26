@@ -205,6 +205,8 @@ message Alert {
     string clusterName = 85;
     bool isRuleCustomReco = 86;
     repeated string ruleCustomRecoStr = 87;
+    string ruleCustomRecoAction = 88;
+    string alertRuleName = 89;
 }
 
 message Remediation {

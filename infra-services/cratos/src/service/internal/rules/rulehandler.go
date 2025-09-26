@@ -233,15 +233,15 @@ func (rh *RuleEngineHandler) processRuleEvent(l logging.Logger, traceID string, 
 						"ruleUUID", rule.AlertRuleUUID)
 					continue
 				}
+			}
 
-				// Get old rule if available, or nil for CREATE operations or when not found
-				var oldRule *relib.RuleDefinition
-				if oldRuleRef, exists := oldRules[rule.AlertRuleUUID]; exists {
-					oldRule = oldRuleRef
-				}
-				if rh.distributeRuleTask(l, traceID, res.RuleEvent, &rule, oldRule) {
-					l.Debugw("RULE HANDLER - Successfully distributed rule task with old rules", "ruleEvent", res.RuleEvent)
-				}
+			// Get old rule if available, or nil for CREATE operations or when not found
+			var oldRule *relib.RuleDefinition
+			if oldRuleRef, exists := oldRules[rule.AlertRuleUUID]; exists {
+				oldRule = oldRuleRef
+			}
+			if rh.distributeRuleTask(l, traceID, res.RuleEvent, &rule, oldRule) {
+				l.Debugw("RULE HANDLER - Successfully distributed rule task with old rules", "ruleEvent", res.RuleEvent)
 			}
 		}
 	} else {
@@ -360,7 +360,7 @@ func (rh *RuleEngineHandler) applyDefaultAction(aObj *alert.Alert, actionType st
 	switch actionType {
 	case relib.RuleActionSeverityOverride:
 		// fetch default severity from mapping and apply
-		key := fmt.Sprintf("%s|%s", aObj.Vendor, aObj.MnemonicTitle)
+		key := fmt.Sprintf("%s:%s", aObj.Vendor, aObj.MnemonicTitle)
 		severity, exists := rh.severityCache[key]
 		if exists {
 			severity = relib.NormalizeSeverity(severity)
@@ -368,7 +368,7 @@ func (rh *RuleEngineHandler) applyDefaultAction(aObj *alert.Alert, actionType st
 		}
 	case relib.RuleActionAcknowledge:
 		aObj.Acknowledged = false
-		aObj.AckTs = ""
+		aObj.AckTs = utils.GetCurrentUTCTimestampMilli()
 		aObj.AutoAck = false
 	case relib.RuleActionCustomizeRecommendation:
 		aObj.IsRuleCustomReco = false

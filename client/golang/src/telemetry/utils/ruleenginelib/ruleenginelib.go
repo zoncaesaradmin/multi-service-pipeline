@@ -39,7 +39,7 @@ const (
 // action types supported and used in RuleAction.ActionType
 const (
 	RuleActionAcknowledge             = "ACKNOWLEDGE"
-	RuleActionSeverityOverride        = "SEVERITY_OVERRIDE"
+	RuleActionSeverityOverride        = "OVERRIDE_SEVERITY"
 	RuleActionCustomizeRecommendation = "CUSTOMIZE_RECOMMENDATION"
 )
 

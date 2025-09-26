@@ -39,7 +39,7 @@ func TestPrimaryKeyOptimization(t *testing.T) {
 			},
 		},
 		Actions: []*RuleAction{
-			{ActionType: "SEVERITY_OVERRIDE", ActionValueStr: "critical"},
+			{ActionType: "OVERRIDE_SEVERITY", ActionValueStr: "critical"},
 		},
 	}
 
@@ -62,7 +62,7 @@ func TestPrimaryKeyOptimization(t *testing.T) {
 			},
 		},
 		Actions: []*RuleAction{
-			{ActionType: "SEVERITY_OVERRIDE", ActionValueStr: "minor"},
+			{ActionType: "OVERRIDE_SEVERITY", ActionValueStr: "minor"},
 		},
 	}
 
@@ -85,7 +85,7 @@ func TestPrimaryKeyOptimization(t *testing.T) {
 			},
 		},
 		Actions: []*RuleAction{
-			{ActionType: "SEVERITY_OVERRIDE", ActionValueStr: "warning"},
+			{ActionType: "OVERRIDE_SEVERITY", ActionValueStr: "warning"},
 		},
 	}
 
@@ -1146,7 +1146,7 @@ func TestConditionLevelOptimization(t *testing.T) {
 			},
 		},
 		Actions: []*RuleAction{
-			{ActionType: "SEVERITY_OVERRIDE", ActionValueStr: "critical"},
+			{ActionType: "OVERRIDE_SEVERITY", ActionValueStr: "critical"},
 		},
 	}
 

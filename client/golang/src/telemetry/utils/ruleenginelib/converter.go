@@ -32,7 +32,7 @@ type AlertRuleConfig struct {
 	Description                 string                    `json:"description,omitempty"`
 	State                       string                    `json:"state,omitempty"`
 	CustomizeAnomaly            CustomizeAnomalyConfig    `json:"customizeAnomaly,omitempty"`
-	SeverityOverride            string                    `json:"severityOverride,omitempty"`
+	SeverityOverride            string                    `json:"overrideSeverity,omitempty"`
 	AssociatedInsightGroupUuids []string                  `json:"associatedInsightGroupUuids,omitempty"`
 	AlertRuleActions            []RuleActionConfig        `json:"alertRuleActions,omitempty"`
 	AlertRuleMatchCriteria      []RuleMatchCriteriaConfig `json:"alertRuleMatchCriteria,omitempty"`
@@ -212,7 +212,7 @@ func convertToActionType(action string) string {
 		return RuleActionCustomizeRecommendation
 	case "ACKNOWLEDGE":
 		return RuleActionAcknowledge
-	case "SEVERITY_OVERRIDE":
+	case "OVERRIDE_SEVERITY":
 		return RuleActionSeverityOverride
 	default:
 		return "unknown"

@@ -203,17 +203,17 @@ func (re *RuleEngine) deepCopyRuleDefinition(original *RuleDefinition) RuleDefin
 
 // extractPrimaryKey extracts primary key from incoming data for rule lookup optimization
 func (re *RuleEngine) extractPrimaryKey(data Data) string {
-	// Try to extract fabricName (site) as primary key
-	if fabricName, exists := data["fabricName"]; exists {
-		if fabricStr, ok := fabricName.(string); ok && fabricStr != "" {
-			return fabricStr
-		}
-	}
-
 	// Check for system scope indicators
 	if category, exists := data["category"]; exists {
 		if catStr, ok := category.(string); ok && strings.Contains(strings.ToLower(catStr), "system") {
 			return PrimaryKeySystem
+		}
+	}
+
+	// Try to extract fabricName (site) as primary key
+	if fabricName, exists := data["fabricName"]; exists {
+		if fabricStr, ok := fabricName.(string); ok && fabricStr != "" {
+			return fabricStr
 		}
 	}
 

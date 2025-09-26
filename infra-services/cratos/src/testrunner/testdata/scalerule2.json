@@ -19,7 +19,7 @@
         "group-789"
       ],
       "applyActionsToActiveAnomalies": "true",
-      "severityOverride": "critical",
+      "overrideSeverity": "critical",
       "alertRuleActions": [
         {
           "action": "CUSTOMIZE_ANOMALY"
@@ -28,7 +28,7 @@
           "action": "ACKNOWLEDGE"
         },
         {
-          "action": "SEVERITY_OVERRIDE"
+          "action": "OVERRIDE_SEVERITY"
         }
       ],
       "alertRuleMatchCriteria": [

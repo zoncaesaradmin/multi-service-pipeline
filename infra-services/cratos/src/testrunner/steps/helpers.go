@@ -47,7 +47,7 @@ func LoadRulesFromJSON(filename string) ([]byte, types.SentConfigMeta, *AlertRul
 			switch action.Action {
 			case "CUSTOMIZE_ANOMALY":
 				sentConfigMeta.ActionCustomRecoValue = rule.CustomizeAnomaly.CustomMessage
-			case "SEVERITY_OVERRIDE":
+			case "OVERRIDE_SEVERITY":
 				sentConfigMeta.ActionSeverityValue = rule.SeverityOverride
 			case "ACKNOWLEDGE":
 				sentConfigMeta.ActionAcknowledged = true
@@ -79,7 +79,7 @@ type AlertRuleConfig struct {
 	Description                 string                    `json:"description,omitempty"`
 	State                       string                    `json:"state,omitempty"`
 	CustomizeAnomaly            CustomizeAnomalyConfig    `json:"customizeAnomaly,omitempty"`
-	SeverityOverride            string                    `json:"severityOverride,omitempty"`
+	SeverityOverride            string                    `json:"overrideSeverity,omitempty"`
 	AssociatedInsightGroupUuids []string                  `json:"associatedInsightGroupUuids,omitempty"`
 	AlertRuleActions            []RuleActionConfig        `json:"alertRuleActions,omitempty"`
 	AlertRuleMatchCriteria      []RuleMatchCriteriaConfig `json:"alertRuleMatchCriteria,omitempty"`

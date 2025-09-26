@@ -224,16 +224,42 @@ func (rh *RuleEngineHandler) processRuleEvent(l logging.Logger, traceID string, 
 	if rh.ruleTaskHandler.Leader() {
 		for _, rule := range res.Rules {
 			// rule event can have multiple rules, treat each rule as one task
-			if _, exists := oldRules[rule.AlertRuleUUID]; !exists {
-				continue
-			}
-			if rh.distributeRuleTask(l, traceID, res.RuleEvent, &rule, oldRules[rule.AlertRuleUUID]) {
-				l.Debugw("RULE HANDLER - Successfully distributed rule task with old rules", "ruleEvent", res.RuleEvent)
+			// For CREATE operations, proceed even if no old rule (new rule creation)
+			// For UPDATE/DELETE operations, only process if we have the old rule
+			if res.RuleEvent != relib.RuleEventCreate {
+				if _, exists := oldRules[rule.AlertRuleUUID]; !exists {
+					l.Debugw("RULE HANDLER - No old rule definition found for task, skipping",
+						"ruleEvent", res.RuleEvent,
+						"ruleUUID", rule.AlertRuleUUID)
+					continue
+				}
+
+				// Get old rule if available, or nil for CREATE operations or when not found
+				var oldRule *relib.RuleDefinition
+				if oldRuleRef, exists := oldRules[rule.AlertRuleUUID]; exists {
+					oldRule = oldRuleRef
+				}
+				if rh.distributeRuleTask(l, traceID, res.RuleEvent, &rule, oldRule) {
+					l.Debugw("RULE HANDLER - Successfully distributed rule task with old rules", "ruleEvent", res.RuleEvent)
+				}
 			}
 		}
 	} else {
 		l.Debug("RULE HANDLER - Not leader, skipping rule task distribution")
 	}
+}
+
+// distributeRuleTask distributes rule task with old rule definitions included
+func (rh *RuleEngineHandler) distributeRuleTask(l logging.Logger, traceID string, eventType string, rule *relib.RuleDefinition, oldRule *relib.RuleDefinition) bool {
+	// Check if this rule change actually requires database processing
+	if !rh.shouldDistributeTask(eventType, rule) {
+		l.Debugw("RULE HANDLER - Skipping task distribution",
+			"ruleEvent", eventType,
+			"reason", "no database processing required")
+		return true // Return true since skipping is successful
+	}
+
+	return rh.ruleTaskHandler.DistributeRuleTask(l, traceID, eventType, rule, oldRule)
 }
 
 func (rh *RuleEngineHandler) GetStats() map[string]interface{} {
@@ -266,7 +292,7 @@ func (rh *RuleEngineHandler) ApplyRuleToRecord(l logging.Logger, aObj *alert.Ale
 	if rh.metricsHelper != nil {
 		rh.metricsHelper.RecordStageCompleted(nil, lookupTimeTaken)
 	}
-	l.WithField("recId", eapi.RecordIdentifier(aObj)).Debugw("RECORD PROC - post lookup", "lookupResult", lookupResult, "timeTaken", fmt.Sprintf("%v", lookupTimeTaken))
+	l.WithField("recId", eapi.RecordIdentifier(aObj)).Debugw("RECORD PROC - post lookup", "lookupResult", lookupResult, "timeTaken", fmt.Sprintf("%v", lookupTimeTaken), "origin", origin)
 
 	if lookupResult.IsRuleHit {
 		rh.handleRuleHit(l, aObj, lookupResult)
@@ -278,12 +304,12 @@ func (rh *RuleEngineHandler) ApplyRuleToRecord(l logging.Logger, aObj *alert.Ale
 }
 
 func (rh *RuleEngineHandler) handleRuleHit(l logging.Logger, aObj *alert.Alert, lookupResult relib.RuleLookupResult) {
-	aObj.RuleId = lookupResult.RuleUUID
+	aObj.AlertRuleName = lookupResult.RuleName
 	toPrintActionMap := make(map[string]string, 0)
 
 	for _, action := range lookupResult.Actions {
 		toPrintActionMap[action.ActionType] = action.ActionValueStr
-		applyRuleAction(aObj, action.ActionType, action.ActionValueStr)
+		rh.applyRuleAction(aObj, action.ActionType, action.ActionValueStr)
 	}
 
 	l.Debugw("RECORD PROC - rule hit", "matchCriteria", lookupResult.CriteriaHit, "actionsApplied", toPrintActionMap)
@@ -308,20 +334,20 @@ func (rh *RuleEngineHandler) revertToDefaultActions(aObj *alert.Alert, lookupRes
 
 	for _, sAction := range allSupportedActions {
 		if contains, actionValue := containsActionType(lookupResult.Actions, sAction); contains {
-			applyRuleAction(aObj, sAction, actionValue)
+			rh.applyRuleAction(aObj, sAction, actionValue)
 		} else {
-			applyDefaultAction(aObj, sAction)
+			rh.applyDefaultAction(aObj, sAction)
 		}
 	}
 }
 
-func applyRuleAction(aObj *alert.Alert, actionType string, actionValue string) {
+func (rh *RuleEngineHandler) applyRuleAction(aObj *alert.Alert, actionType string, actionValue string) {
 	switch actionType {
 	case relib.RuleActionSeverityOverride:
 		aObj.Severity = actionValue
 	case relib.RuleActionAcknowledge:
 		aObj.Acknowledged = true
-		aObj.AckTs = time.Now().UTC().Format(time.RFC3339)
+		aObj.AckTs = utils.GetCurrentUTCTimestampMilli()
 		aObj.AutoAck = true
 	case relib.RuleActionCustomizeRecommendation:
 		aObj.IsRuleCustomReco = true
@@ -330,11 +356,16 @@ func applyRuleAction(aObj *alert.Alert, actionType string, actionValue string) {
 	}
 }
 
-func applyDefaultAction(aObj *alert.Alert, actionType string) {
+func (rh *RuleEngineHandler) applyDefaultAction(aObj *alert.Alert, actionType string) {
 	switch actionType {
 	case relib.RuleActionSeverityOverride:
 		// fetch default severity from mapping and apply
-		//aObj.Severity = "minor"
+		key := fmt.Sprintf("%s|%s", aObj.Vendor, aObj.MnemonicTitle)
+		severity, exists := rh.severityCache[key]
+		if exists {
+			severity = relib.NormalizeSeverity(severity)
+			aObj.Severity = severity
+		}
 	case relib.RuleActionAcknowledge:
 		aObj.Acknowledged = false
 		aObj.AckTs = ""
@@ -342,26 +373,35 @@ func applyDefaultAction(aObj *alert.Alert, actionType string) {
 	case relib.RuleActionCustomizeRecommendation:
 		aObj.IsRuleCustomReco = false
 		aObj.RuleCustomRecoStr = []string{}
+		aObj.RuleCustomRecoAction = ""
 	default:
 	}
+	aObj.AlertRuleName = ""
 }
 
-func (rh *RuleEngineHandler) distributeRuleTask(l logging.Logger, traceID string, eventType string, rule *relib.RuleDefinition, oldRule *relib.RuleDefinition) bool {
-	if !rh.shouldDistributeTask(eventType, rule) {
-		return true // Return true since skipping is successful
-	}
-	return rh.ruleTaskHandler.DistributeRuleTask(l, traceID, eventType, rule, oldRule)
-}
-
+// shouldDistributeTask determines if a rule change requires database processing
+// Based on action type and applyToExisting flag in the rule actions
 func (rh *RuleEngineHandler) shouldDistributeTask(eventType string, rule *relib.RuleDefinition) bool {
-	// Always distribute DELETE operations, check if any rule has applyToExisting=true
+	// Always distribute DELETE operations - they might need cleanup
 	if eventType == relib.RuleEventDelete {
 		rh.rlogger.Debugw("RULE HANDLER - Distributing DELETE operation", "ruleEvent", eventType)
 		return true
 	}
 
-	// Unknown action type - distribute to be safe
-	rh.rlogger.Warnw("RULE HANDLER - distributing", "ruleEvent", eventType)
+	// For CREATE and UPDATE operations, check if any rule has applyToExisting=true
+	if eventType == relib.RuleEventCreate || eventType == relib.RuleEventUpdate {
+		if !rule.ApplyActionsToAll {
+			rh.rlogger.Debugw("RULE HANDLER - No applyToExisting=true found, skipping distribution",
+				"ruleEvent", eventType)
+			return false
+		}
+
+		rh.rlogger.Debugw("RULE HANDLER - Found applyToExisting=true, distributing task",
+			"ruleEvent", eventType)
+		return true
+	}
+
+	rh.rlogger.Warnw("RULE HANDLER - unknown rule event, distributing anyway", "ruleEvent", eventType)
 	return true
 }
 

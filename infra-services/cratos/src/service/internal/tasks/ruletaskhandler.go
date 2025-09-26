@@ -32,7 +32,7 @@ type RuleTasksHandler struct {
 	rlogger          logging.Logger // for both rules msg and rule tasks msg handling
 	ruleTaskProducer messagebus.Producer
 	ruleTaskConsumer messagebus.Consumer
-	taskStore        *TaskStore
+	taskStore        *TaskStore // OpenSearch task persistence
 	isLeader         bool
 	leaderMutex      sync.RWMutex
 	leaderCancel     context.CancelFunc
@@ -40,8 +40,6 @@ type RuleTasksHandler struct {
 
 	// DB handler
 	dbRecordHandler *DbRecordHandler
-
-	taskChan chan *taskJob
 
 	totalProcessed int64
 	totalFailed    int64
@@ -56,8 +54,36 @@ type taskJob struct {
 	submittedAt time.Time // Track when job was submitted for metrics
 }
 
+type TaskDataType struct {
+	RuleEvent string
+	Rule      *relib.RuleDefinition
+	oldRule   *relib.RuleDefinition
+}
+
+// TaskMetrics tracks performance metrics
+type TaskMetrics struct {
+	TotalProcessed    int64
+	TotalFailed       int64
+	AverageProcessing time.Duration
+	QueueLength       int
+}
+
+// GetTaskMetrics returns current task processing metrics
+func (rh *RuleTasksHandler) GetTaskMetrics() TaskMetrics {
+	rh.metricsMutex.RLock()
+	defer rh.metricsMutex.RUnlock()
+
+	// For simplicity, AverageProcessing is not calculated in this example
+	return TaskMetrics{
+		TotalProcessed: rh.totalProcessed,
+		TotalFailed:    rh.totalFailed,
+		// AverageProcessing would require more complex tracking
+	}
+}
+
 func NewRuleTasksHandler(logger logging.Logger, topic string, pconfig map[string]any, cconfig map[string]any, inputSink chan<- *models.ChannelMessage, metricHelper *metrics.MetricsHelper) *RuleTasksHandler {
 
+	drh := NewDbRecordHandler(logger.WithField("component", "dbRecordHandler"), inputSink, metricHelper)
 	h := &RuleTasksHandler{
 		ruleTasksTopic:              topic,
 		isLeader:                    false,
@@ -65,6 +91,7 @@ func NewRuleTasksHandler(logger logging.Logger, topic string, pconfig map[string
 		metricsHelper:               metricHelper,
 		ruleTasksProdKafkaConfigMap: pconfig,
 		ruleTasksConsKafkaConfigMap: cconfig,
+		dbRecordHandler:             drh,
 	}
 
 	logger.Infow("Initialized Rule Tasks Handler", "ruleTasksTopic", topic)

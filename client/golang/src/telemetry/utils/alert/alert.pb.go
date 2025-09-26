@@ -1166,6 +1166,8 @@ type Alert struct {
 	ClusterName              string                 `protobuf:"bytes,85,opt,name=clusterName,proto3" json:"clusterName,omitempty"`
 	IsRuleCustomReco         bool                   `protobuf:"varint,86,opt,name=isRuleCustomReco,proto3" json:"isRuleCustomReco,omitempty"`
 	RuleCustomRecoStr        []string               `protobuf:"bytes,87,rep,name=ruleCustomRecoStr,proto3" json:"ruleCustomRecoStr,omitempty"`
+	RuleCustomRecoAction     string                 `protobuf:"bytes,88,opt,name=ruleCustomRecoAction,proto3" json:"ruleCustomRecoAction,omitempty"`
+	AlertRuleName            string                 `protobuf:"bytes,89,opt,name=alertRuleName,proto3" json:"alertRuleName,omitempty"`
 	unknownFields            protoimpl.UnknownFields
 	sizeCache                protoimpl.SizeCache
 }
@@ -1809,6 +1811,20 @@ func (x *Alert) GetRuleCustomRecoStr() []string {
 	return nil
 }
 
+func (x *Alert) GetRuleCustomRecoAction() string {
+	if x != nil {
+		return x.RuleCustomRecoAction
+	}
+	return ""
+}
+
+func (x *Alert) GetAlertRuleName() string {
+	if x != nil {
+		return x.AlertRuleName
+	}
+	return ""
+}
+
 type Remediation struct {
 	state              protoimpl.MessageState `protogen:"open.v1"`
 	Desc               string                 `protobuf:"bytes,1,opt,name=desc,proto3" json:"desc,omitempty"`
@@ -2028,7 +2044,7 @@ const file_alert_proto_rawDesc = "" +
 	"identifier\x12\x12\n" +
 	"\x04name\x18\x03 \x01(\tR\x04name\x12\x1c\n" +
 	"\tisPrimary\x18\x04 \x01(\bR\tisPrimary\x12\x1c\n" +
-	"\tisHealthy\x18\x05 \x01(\bR\tisHealthy\"\xea\x17\n" +
+	"\tisHealthy\x18\x05 \x01(\bR\tisHealthy\"\xc4\x18\n" +
 	"\x05Alert\x12\x18\n" +
 	"\astartTs\x18\x01 \x01(\tR\astartTs\x12\x14\n" +
 	"\x05endTs\x18\x02 \x01(\tR\x05endTs\x12\x1e\n" +
@@ -2135,7 +2151,9 @@ const file_alert_proto_rawDesc = "" +
 	"\vserviceName\x18T \x01(\tR\vserviceName\x12 \n" +
 	"\vclusterName\x18U \x01(\tR\vclusterName\x12*\n" +
 	"\x10isRuleCustomReco\x18V \x01(\bR\x10isRuleCustomReco\x12,\n" +
-	"\x11ruleCustomRecoStr\x18W \x03(\tR\x11ruleCustomRecoStr\"{\n" +
+	"\x11ruleCustomRecoStr\x18W \x03(\tR\x11ruleCustomRecoStr\x122\n" +
+	"\x14ruleCustomRecoAction\x18X \x01(\tR\x14ruleCustomRecoAction\x12$\n" +
+	"\ralertRuleName\x18Y \x01(\tR\ralertRuleName\"{\n" +
 	"\vRemediation\x12\x12\n" +
 	"\x04desc\x18\x01 \x01(\tR\x04desc\x12\x16\n" +
 	"\x06method\x18\x02 \x01(\tR\x06method\x12.\n" +

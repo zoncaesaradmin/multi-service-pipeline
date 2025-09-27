@@ -93,12 +93,13 @@ func (b *StepBindings) WaitForSeconds(seconds int) error {
 	return nil
 }
 
-func (b *StepBindings) SendScaleInputConfigWithFabric(configFile string, prefix string, count int) error {
+func (b *StepBindings) SendScaleInputConfigWithFabric(configFile string, count int) error {
 	// Capture config file as example data for trace ID generation
 	if b.Cctx.ExampleData == nil {
 		b.Cctx.ExampleData = make(map[string]string)
 	}
 	topic := b.Cctx.InConfigTopic
+	prefix := "scale"
 
 	_, configMeta, rconfig, err := LoadRulesFromJSON(configFile)
 	if err != nil {
@@ -141,11 +142,12 @@ func (b *StepBindings) SendScaleInputConfigWithFabric(configFile string, prefix 
 
 }
 
-func (b *StepBindings) SendScaleInputDataWithFabric(dataFile string, prefix string, dcount int) error {
+func (b *StepBindings) SendScaleInputDataWithFabric(dataFile string, dcount int) error {
 	topic := b.Cctx.InDataTopic
 	expMetaDataMap := map[string]string{
 		"testData": "true",
 	}
+	prefix := "scale"
 	b.Cctx.ConsHandler.SetExpectedCount(dcount)
 	b.Cctx.ConsHandler.SetExpectedHeaders(expMetaDataMap)
 
@@ -189,12 +191,13 @@ func (b *StepBindings) SendScaleInputDataWithFabric(dataFile string, prefix stri
 
 }
 
-func (b *StepBindings) SendScaleInputConfigWithCategory(configFile string, prefix string, count int) error {
+func (b *StepBindings) SendScaleInputConfigWithCategory(configFile string, count int) error {
 	// Capture config file as example data for trace ID generation
 	if b.Cctx.ExampleData == nil {
 		b.Cctx.ExampleData = make(map[string]string)
 	}
 	topic := b.Cctx.InConfigTopic
+	prefix := "scale"
 
 	_, configMeta, rconfig, err := LoadRulesFromJSON(configFile)
 	if err != nil {
@@ -240,11 +243,12 @@ func (b *StepBindings) SendScaleInputConfigWithCategory(configFile string, prefi
 	return nil
 }
 
-func (b *StepBindings) SendScaleInputDataWithCategory(dataFile string, prefix string, count int) error {
+func (b *StepBindings) SendScaleInputDataWithCategory(dataFile string, count int) error {
 	topic := b.Cctx.InDataTopic
 	expMetaDataMap := map[string]string{
 		"testData": "true",
 	}
+	prefix := "scale"
 	b.Cctx.ConsHandler.SetExpectedCount(count)
 	b.Cctx.ConsHandler.SetExpectedHeaders(expMetaDataMap)
 
@@ -286,12 +290,13 @@ func (b *StepBindings) SendScaleInputDataWithCategory(dataFile string, prefix st
 
 }
 
-func (b *StepBindings) SendScaleInputConfigWithInterface(configFile string, prefix string, count int) error {
+func (b *StepBindings) SendScaleInputConfigWithInterface(configFile string, count int) error {
 	// Capture config file as example data for trace ID generation
 	if b.Cctx.ExampleData == nil {
 		b.Cctx.ExampleData = make(map[string]string)
 	}
 	topic := b.Cctx.InConfigTopic
+	prefix := "scale"
 
 	_, configMeta, rconfig, err := LoadRulesFromJSON(configFile)
 	if err != nil {
@@ -304,9 +309,9 @@ func (b *StepBindings) SendScaleInputConfigWithInterface(configFile string, pref
 
 		suffix := fmt.Sprintf("%v", i)
 		b.Cctx.ExampleData["X"] = configFile + suffix
-		category := prefix + "-category-" + suffix
-		ruleUUID := prefix + "-catrule-uuid-" + suffix
-		ruleName := prefix + "-catrule-name-" + suffix
+		intf := "eth1/" + suffix
+		ruleUUID := prefix + "-intfrule-uuid-" + suffix
+		ruleName := prefix + "-intfrule-name-" + suffix
 
 		//return b.SendInputConfigToTopic(configFile, b.Cctx.InConfigTopic)
 		// Create trace ID for config messages too (for consistency)
@@ -318,10 +323,12 @@ func (b *StepBindings) SendScaleInputConfigWithInterface(configFile string, pref
 			rconfig.AlertRules[m].Name = ruleName
 			rconfig.AlertRules[m].Priority = arule.Priority + 1
 			for n := range arule.AlertRuleMatchCriteria {
-				rconfig.AlertRules[m].AlertRuleMatchCriteria[n].CategoryMatchCriteria =
-					[]MatchCriteria{
-						{ObjectType: "category", ValueEquals: category},
+				for o, am := range arule.AlertRuleMatchCriteria[n].AffectedObjectMatchCriteria {
+					if am.ObjectType == "interface" {
+						arule.AlertRuleMatchCriteria[n].AffectedObjectMatchCriteria[o].ValueEquals = intf
+						break
 					}
+				}
 				rconfig.AlertRules[m].AlertRuleMatchCriteria[n].UUID = ruleUUID + "criteria" + fmt.Sprintf("%v", n)
 				rconfig.AlertRules[m].AlertRuleMatchCriteria[n].AlertRuleId = ruleUUID
 			}
@@ -331,13 +338,13 @@ func (b *StepBindings) SendScaleInputConfigWithInterface(configFile string, pref
 
 		b.Cctx.SentConfigMeta = configMeta
 		b.Cctx.ProducerHandler.Send(topic, rBytes, nil)
-		traceLogger.Infof("Sent config %s over Kafka topic %s with category %s\n", configFile, topic, category)
+		traceLogger.Infof("Sent config %s over Kafka topic %s with interface %s\n", configFile, topic, intf)
 	}
 	time.Sleep(time.Duration(5+(count/10)) * time.Second) // slight delay to ensure config is processed first
 	return nil
 }
 
-func (b *StepBindings) SendScaleInputDataWithInterface(dataFile string, prefix string, count int) error {
+func (b *StepBindings) SendScaleInputDataWithInterface(dataFile string, count int) error {
 	topic := b.Cctx.InDataTopic
 	expMetaDataMap := map[string]string{
 		"testData": "true",
@@ -366,10 +373,16 @@ func (b *StepBindings) SendScaleInputDataWithInterface(dataFile string, prefix s
 	for i := 1; i <= count; i++ {
 		suffix := fmt.Sprintf("%v", i)
 		b.Cctx.ExampleData["X"] = dataFile + suffix
-		category := prefix + "-category-" + suffix
+		intf := "ethernet1/" + suffix
 
 		for _, aObj := range aStream.AlertObject {
-			aObj.Category = category
+			for m, ao := range aObj.AffectedObjects {
+				if ao.Type == "interface" {
+					aObj.AffectedObjects[m].Name = intf
+					aObj.AffectedObjects[m].Identifier = intf
+					break
+				}
+			}
 		}
 		aBytes, _ := proto.Marshal(aStream)
 
@@ -377,7 +390,7 @@ func (b *StepBindings) SendScaleInputDataWithInterface(dataFile string, prefix s
 		b.Cctx.SentDataCount++
 		b.Cctx.SentDataMeta = dataMeta
 		b.Cctx.ProducerHandler.Send(topic, aBytes, metaDataMap)
-		traceLogger.Infof("Sent data %s over Kafka topic %s for category %s\n", dataFile, topic, category)
+		traceLogger.Infof("Sent data %s over Kafka topic %s for interface %s\n", dataFile, topic, intf)
 	}
 	return nil
 
@@ -481,12 +494,12 @@ func InitializeRulesSteps(ctx *godog.ScenarioContext, suiteMetadataCtx *impl.Cus
 	ctx.Step(`^wait_till_data_received_with_timeout_sec (\d+)$`, bindings.WaitTillDataReceivedWithTimeoutSec)
 
 	ctx.Step(`^wait_for_seconds (\d+)$`, bindings.WaitForSeconds)
-	ctx.Step(`^replicate_and_send_input_config_with_fabricname "([^"]*)" "([^"]*)" (\d+)$`, bindings.SendScaleInputConfigWithFabric)
-	ctx.Step(`^replicate_and_send_input_data_with_fabricname "([^"]*)" "([^"]*)" (\d+)$`, bindings.SendScaleInputDataWithFabric)
+	ctx.Step(`^replicate_and_send_input_config_with_fabricname "([^"]*)" (\d+)$`, bindings.SendScaleInputConfigWithFabric)
+	ctx.Step(`^replicate_and_send_input_data_with_fabricname "([^"]*)" (\d+)$`, bindings.SendScaleInputDataWithFabric)
 
-	ctx.Step(`^replicate_and_send_input_config_with_category "([^"]*)" "([^"]*)" (\d+)$`, bindings.SendScaleInputConfigWithCategory)
-	ctx.Step(`^replicate_and_send_input_data_with_category "([^"]*)" "([^"]*)" (\d+)$`, bindings.SendScaleInputDataWithCategory)
+	ctx.Step(`^replicate_and_send_input_config_with_category "([^"]*)" (\d+)$`, bindings.SendScaleInputConfigWithCategory)
+	ctx.Step(`^replicate_and_send_input_data_with_category "([^"]*)" (\d+)$`, bindings.SendScaleInputDataWithCategory)
 
-	ctx.Step(`^replicate_and_send_input_config_with_interface "([^"]*)" "([^"]*)" (\d+)$`, bindings.SendScaleInputConfigWithInterface)
-	ctx.Step(`^replicate_and_send_input_data_with_interface "([^"]*)" "([^"]*)" (\d+)$`, bindings.SendScaleInputDataWithInterface)
+	ctx.Step(`^replicate_and_send_input_config_with_interface "([^"]*)" (\d+)$`, bindings.SendScaleInputConfigWithInterface)
+	ctx.Step(`^replicate_and_send_input_data_with_interface "([^"]*)" (\d+)$`, bindings.SendScaleInputDataWithInterface)
 }

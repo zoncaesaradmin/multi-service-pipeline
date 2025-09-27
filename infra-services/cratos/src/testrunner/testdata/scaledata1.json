@@ -3,7 +3,7 @@
     {
       "startTs": "2025-08-20T10:00:00Z",
       "endTs": "2025-08-20T11:00:00Z",
-      "fabricName": "scale1-fabric-1",
+      "fabricName": "scale-fabric-1",
       "nodeNames": [
         "leaf-1",
         "leaf-2"

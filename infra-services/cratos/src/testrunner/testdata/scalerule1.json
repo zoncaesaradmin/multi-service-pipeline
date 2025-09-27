@@ -6,8 +6,8 @@
   },
   "alertRulePayload": [
     {
-      "uuid": "RULE-UUID-SR",
-      "name": "rule_sr",
+      "uuid": "SCALE-RULE-UUID-2",
+      "name": "scale_rule_1",
       "priority": 1758994360,
       "description": "Alert when CPU usage exceeds threshold",
       "state": "true",
@@ -53,9 +53,9 @@
               "valueEquals": "BGP_PEER_CONNECTION_DOWN"
             }
           ],
-          "uuid": "RULE-UUID-CRITERIA-SR",
-          "alertRuleId": "RULE-UUID-SR",
-          "siteId": "sfabric-1"
+          "uuid": "SCALE-RULE-UUID-1-CRITERIA-1",
+          "alertRuleId": "SCALE-RULE-UUID-2",
+          "siteId": "fabric-2"
         }
       ],
       "lastModifiedTime": 1756993825056,

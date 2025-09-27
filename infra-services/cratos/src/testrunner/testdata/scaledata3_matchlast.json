@@ -196,7 +196,7 @@
         {
           "type": "interface",
           "identifier": "ethernet1/30",
-          "name": "ethernet1/30",
+          "name": "ethernet1/3",
           "isPrimary": true,
           "isHealthy": true
         }

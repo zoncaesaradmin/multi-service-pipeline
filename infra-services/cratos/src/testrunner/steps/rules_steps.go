@@ -286,6 +286,103 @@ func (b *StepBindings) SendScaleInputDataWithCategory(dataFile string, prefix st
 
 }
 
+func (b *StepBindings) SendScaleInputConfigWithInterface(configFile string, prefix string, count int) error {
+	// Capture config file as example data for trace ID generation
+	if b.Cctx.ExampleData == nil {
+		b.Cctx.ExampleData = make(map[string]string)
+	}
+	topic := b.Cctx.InConfigTopic
+
+	_, configMeta, rconfig, err := LoadRulesFromJSON(configFile)
+	if err != nil {
+		// Use trace-aware logging if scenario is available
+		b.Cctx.L.Infof("Failed to load from rules config file %s\n", configFile)
+		return err
+	}
+
+	for i := 1; i <= count; i++ {
+
+		suffix := fmt.Sprintf("%v", i)
+		b.Cctx.ExampleData["X"] = configFile + suffix
+		category := prefix + "-category-" + suffix
+		ruleUUID := prefix + "-catrule-uuid-" + suffix
+		ruleName := prefix + "-catrule-name-" + suffix
+
+		//return b.SendInputConfigToTopic(configFile, b.Cctx.InConfigTopic)
+		// Create trace ID for config messages too (for consistency)
+		traceID := utils.CreateContextualTraceID(b.Cctx.CurrentScenario, b.Cctx.ExampleData)
+		traceLogger := utils.WithTraceLoggerFromID(b.Cctx.L, traceID)
+
+		for m, arule := range rconfig.AlertRules {
+			rconfig.AlertRules[m].UUID = ruleUUID
+			rconfig.AlertRules[m].Name = ruleName
+			rconfig.AlertRules[m].Priority = arule.Priority + 1
+			for n := range arule.AlertRuleMatchCriteria {
+				rconfig.AlertRules[m].AlertRuleMatchCriteria[n].CategoryMatchCriteria =
+					[]MatchCriteria{
+						{ObjectType: "category", ValueEquals: category},
+					}
+				rconfig.AlertRules[m].AlertRuleMatchCriteria[n].UUID = ruleUUID + "criteria" + fmt.Sprintf("%v", n)
+				rconfig.AlertRules[m].AlertRuleMatchCriteria[n].AlertRuleId = ruleUUID
+			}
+		}
+		rBytes, _ := json.Marshal(rconfig)
+		traceLogger.Infof("SREEK send rule - %s\n", string(rBytes))
+
+		b.Cctx.SentConfigMeta = configMeta
+		b.Cctx.ProducerHandler.Send(topic, rBytes, nil)
+		traceLogger.Infof("Sent config %s over Kafka topic %s with category %s\n", configFile, topic, category)
+	}
+	time.Sleep(time.Duration(5+(count/10)) * time.Second) // slight delay to ensure config is processed first
+	return nil
+}
+
+func (b *StepBindings) SendScaleInputDataWithInterface(dataFile string, prefix string, count int) error {
+	topic := b.Cctx.InDataTopic
+	expMetaDataMap := map[string]string{
+		"testData": "true",
+	}
+	b.Cctx.ConsHandler.SetExpectedCount(count)
+	b.Cctx.ConsHandler.SetExpectedHeaders(expMetaDataMap)
+
+	// Create trace ID from current scenario name and example data
+	traceID := utils.CreateContextualTraceID(b.Cctx.CurrentScenario, b.Cctx.ExampleData)
+	if traceID == "" {
+		traceID = "testrunner-default-trace"
+	}
+	// Use trace-aware logging
+	traceLogger := utils.WithTraceLoggerFromID(b.Cctx.L, traceID)
+	metaDataMap := map[string]string{
+		"testData":   "true",
+		"X-Trace-Id": traceID,
+	}
+
+	_, dataMeta, aStream, err := LoadAlertFromJSON(dataFile)
+	if err != nil {
+		b.Cctx.L.Infof("Failed to load from data file %s\n", dataFile)
+		return err
+	}
+
+	for i := 1; i <= count; i++ {
+		suffix := fmt.Sprintf("%v", i)
+		b.Cctx.ExampleData["X"] = dataFile + suffix
+		category := prefix + "-category-" + suffix
+
+		for _, aObj := range aStream.AlertObject {
+			aObj.Category = category
+		}
+		aBytes, _ := proto.Marshal(aStream)
+
+		b.Cctx.SentDataSize += len(aBytes)
+		b.Cctx.SentDataCount++
+		b.Cctx.SentDataMeta = dataMeta
+		b.Cctx.ProducerHandler.Send(topic, aBytes, metaDataMap)
+		traceLogger.Infof("Sent data %s over Kafka topic %s for category %s\n", dataFile, topic, category)
+	}
+	return nil
+
+}
+
 func (b *StepBindings) WaitTillDataReceivedWithTimeoutSec(timeoutSec int) error {
 	return b.WaitTillDataReceivedOnTopicWithTimeoutSec(b.Cctx.OutDataTopic, timeoutSec)
 }
@@ -389,4 +486,7 @@ func InitializeRulesSteps(ctx *godog.ScenarioContext, suiteMetadataCtx *impl.Cus
 
 	ctx.Step(`^replicate_and_send_input_config_with_category "([^"]*)" "([^"]*)" (\d+)$`, bindings.SendScaleInputConfigWithCategory)
 	ctx.Step(`^replicate_and_send_input_data_with_category "([^"]*)" "([^"]*)" (\d+)$`, bindings.SendScaleInputDataWithCategory)
+
+	ctx.Step(`^replicate_and_send_input_config_with_interface "([^"]*)" "([^"]*)" (\d+)$`, bindings.SendScaleInputConfigWithInterface)
+	ctx.Step(`^replicate_and_send_input_data_with_interface "([^"]*)" "([^"]*)" (\d+)$`, bindings.SendScaleInputDataWithInterface)
 }

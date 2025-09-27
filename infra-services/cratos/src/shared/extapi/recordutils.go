@@ -45,18 +45,20 @@ func ConvertAlertObjectToRuleEngineInput(aObj *alert.Alert) map[string]any {
 
 	for _, objField := range aObj.AffectedObjects {
 		switch strings.ToLower(objField.Type) {
-		case "switch", "leaf":
+		case "switch", "leaf", "node":
 			reInput[relib.MatchKeySwitch] = objField.Name
 		case "interface":
 			reInput[relib.MatchKeyInterface] = relib.NormalizeInterfaceName(objField.Name)
-		case "ip":
+		case "ip", "ipv4", "ipv6", "ipaddress", "address":
 			reInput[relib.MatchKeyIp] = objField.Name
 		case "vni":
 			reInput[relib.MatchKeyVni] = objField.Name
-		case "subnet":
+		case "subnet", "network":
 			reInput[relib.MatchKeySubnet] = objField.Name
 		case "vrf":
 			reInput[relib.MatchKeyVrf] = objField.Name
+		case "tenant":
+			reInput[relib.MatchKeyTenant] = objField.Name
 		}
 	}
 	return reInput

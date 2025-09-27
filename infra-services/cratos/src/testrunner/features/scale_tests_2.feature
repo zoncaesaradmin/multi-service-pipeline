@@ -19,5 +19,5 @@ Feature: Scale tests with same fabricName but different category
     And set_output_data_topic "cisco_nir-prealerts"
     And replicate_and_send_input_config_with_category "scalerule2.json" "scale" 10
     And wait_for_seconds 5
-    And replicate_and_send_input_data_with_category "scaledata2.json" "scale1" 10
+    And replicate_and_send_input_data_with_category "scaledata2.json" "scale" 10
     And wait_till_data_received_with_timeout_sec 10

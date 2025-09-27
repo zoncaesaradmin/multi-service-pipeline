@@ -245,6 +245,8 @@ func convertObjIdentifier(objectType string) string {
 		return MatchKeyVni
 	case "vrf":
 		return MatchKeyVrf
+	case "tenant":
+		return MatchKeyTenant
 	case "subnet", "network":
 		return MatchKeySubnet
 	}

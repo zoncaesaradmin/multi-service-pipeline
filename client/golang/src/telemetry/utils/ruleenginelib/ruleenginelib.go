@@ -18,6 +18,7 @@ const (
 	MatchKeyVrf        = "vrf"
 	MatchKeyVni        = "vni"
 	MatchKeySubnet     = "subnet"
+	MatchKeyTenant     = "tenant"
 )
 
 // Constants for rule types

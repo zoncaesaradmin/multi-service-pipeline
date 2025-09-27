@@ -1,0 +1,90 @@
+{
+  "metadata": {
+    "ruleType": "ALERT_RULES",
+    "alertType": "anomaly",
+    "action": "CREATE_ALERT_RULE"
+  },
+  "alertRulePayload": [
+    {
+      "uuid": "SCALE-RULE-UUID-3",
+      "name": "scale_rule_3",
+      "priority": 30000,
+      "description": "Alert description",
+      "state": "true",
+      "customizeAnomaly": {
+        "customMessage": "explicit custom message"
+      },
+      "associatedInsightGroupUuids": [
+        "group-456",
+        "group-789"
+      ],
+      "applyActionsToActiveAnomalies": "true",
+      "overrideSeverity": "critical",
+      "alertRuleActions": [
+        {
+          "action": "CUSTOMIZE_ANOMALY"
+        },
+        {
+          "action": "ACKNOWLEDGE"
+        },
+        {
+          "action": "OVERRIDE_SEVERITY"
+        }
+      ],
+      "alertRuleMatchCriteria": [
+        {
+          "categoryMatchCriteria": [
+            {
+              "valueEquals": "scale-category-3"
+            }
+          ],
+          "severiyMatchCriteria": [
+            {
+              "valueEquals": "EVENT_SEVERITY_MINOR"
+            }
+          ],
+          "affectedObjectMatchCriteria": [
+            {
+              "objectType": "tenant",
+              "valueEquals": "dummy-tenant-3"
+            },
+            {
+              "objectType": "vrf",
+              "valueEquals": "dummy-vrf-3"
+            },
+            {
+              "objectType": "vni",
+              "valueEquals": "dummy-vni-3"
+            },
+            {
+              "objectType": "ip",
+              "valueEquals": "10.1.1.4"
+            },
+            {
+              "objectType": "subnet",
+              "valueEquals": "10.1.1.1/24"
+            },
+            {
+              "objectType": "switch",
+              "valueEquals": "scale-switch-3"
+            },
+            {
+              "objectType": "interface",
+              "valueEquals": "eth1/30"
+            }
+          ],
+          "eventNameMatchCriteria": [
+            {
+              "valueEquals": "scale-title-3"
+            }
+          ],
+          "uuid": "SCALE-RULE-UUID-3-CRITERIA-1",
+          "alertRuleId": "SCALE-RULE-UUID-3",
+          "siteId": "scale-fabric-3"
+        }
+      ],
+      "lastModifiedTime": 1756993825056,
+      "links": []
+    }
+  ]
+}

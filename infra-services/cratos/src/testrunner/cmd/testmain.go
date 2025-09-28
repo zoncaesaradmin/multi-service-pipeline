@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"sharedgomodule/logging"
+	"sharedgomodule/utils"
 	"strconv"
 	"strings"
 	"sync"
@@ -531,9 +532,9 @@ func setupGroupKafkaResources(groupCtx *impl.CustomContext, logger logging.Logge
 	logger.Debugw("Group producer handler started successfully", "group", groupIndex)
 
 	// Set default topics for the group
-	groupCtx.InConfigTopic = "cisco_nir-alertRules"
-	groupCtx.InDataTopic = "cisco_nir-anomalies"
-	groupCtx.OutDataTopic = "cisco_nir-prealerts"
+	groupCtx.InConfigTopic = utils.GetEnv("PROCESSING_RULES_TOPIC", "cisco_nir-alertRules")
+	groupCtx.InDataTopic = utils.GetEnv("PROCESSING_INPUT_TOPIC", "cisco_nir-anomalies")
+	groupCtx.OutDataTopic = utils.GetEnv("PROCESSING_OUTPUT_TOPIC", "cisco_nir-prealerts")
 	groupCtx.ExecGroupIndex = groupIndex
 
 	logger.Infow("Kafka resources initialized successfully for group", "group", groupIndex)

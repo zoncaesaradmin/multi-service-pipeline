@@ -109,7 +109,7 @@ func LoadConfig() *RawConfig {
 		},
 		Processing: RawProcessingConfig{
 			Input: RawInputConfig{
-				Topics:            parseTopics(utils.GetEnv("PROCESSING_INPUT_TOPICS", "cisco_nir-anomalies")),
+				Topics:            parseTopics(utils.GetEnv("PROCESSING_INPUT_TOPIC", "cisco_nir-anomalies")),
 				ChannelBufferSize: utils.GetEnvInt("PROCESSING_INPUT_BUFFER_SIZE", 1000),
 			},
 			Processor: RawProcessorConfig{
@@ -231,7 +231,7 @@ func overrideProcessingConfig(processing *RawProcessingConfig) {
 
 // overrideInputConfig overrides input configuration with environment variables
 func overrideInputConfig(input *RawInputConfig) {
-	if topics := utils.GetEnv("PROCESSING_INPUT_TOPICS", ""); topics != "" {
+	if topics := utils.GetEnv("PROCESSING_INPUT_TOPIC", ""); topics != "" {
 		input.Topics = parseTopics(topics)
 	}
 	if bufferSize := utils.GetEnvInt("PROCESSING_INPUT_BUFFER_SIZE", -1); bufferSize != -1 {
@@ -246,6 +246,12 @@ func overrideProcessorConfig(processor *RawProcessorConfig) {
 	}
 	if batchSize := utils.GetEnvInt("PROCESSING_BATCH_SIZE", -1); batchSize != -1 {
 		processor.BatchSize = batchSize
+	}
+	if rulesTopic := utils.GetEnv("PROCESSING_RULES_TOPIC", ""); rulesTopic != "" {
+		processor.RuleProcConfig.RulesTopic = rulesTopic
+	}
+	if ruleTasksTopic := utils.GetEnv("PROCESSING_RULE_TASKS_TOPIC", ""); ruleTasksTopic != "" {
+		processor.RuleProcConfig.RuleTasksTopic = ruleTasksTopic
 	}
 }
 

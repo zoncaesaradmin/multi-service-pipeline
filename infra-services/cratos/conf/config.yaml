@@ -32,7 +32,7 @@ metrics:
 processing:
   input:
     topics: 
-      - "cisco_nir-anomalies"                 # Input topics (env: PROCESSING_INPUT_TOPICS - comma separated)
+      - "cisco_nir-anomalies"                 # Input topics (env: PROCESSING_INPUT_TOPIC - comma separated)
     channelBufferSize: 1000                   # Input channel buffer size (env: PROCESSING_INPUT_BUFFER_SIZE)
     kafkaConfigFile: "kafka-consumer.yaml"    # Kafka consumer config file (env: PROCESSING_INPUT_KAFKA_CONFIG_FILE)
 
@@ -52,7 +52,7 @@ processing:
         fileName: "rulehandler.log"
         loggerName: "rulehandler"
         serviceName: "cratos"
-      ruleTasksTopic: "cisco_nir-ruletasks"
+      ruleTasksTopic: "cisco_nir-ruletasks"   # rule tasks topic (env: PROCESSING_RULE_TASKS_TOPIC)
       ruleTasksConsKafkaConfigFile: "kafka-consumer-ruletasks.yaml"
       ruleTasksProdKafkaConfigFile: "kafka-producer-ruletasks.yaml"
 

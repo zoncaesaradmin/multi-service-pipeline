@@ -55,7 +55,7 @@ func (m *mockLogger) Close() error                                              
 func sampleRawConfig() ProcConfig {
 	return ProcConfig{
 		Input: InputConfig{
-			Topics:            []string{"cisco_nir-anomalies"},
+			Topics:            []string{"inputtopic"},
 			PollTimeout:       1 * time.Second,
 			ChannelBufferSize: 1000,
 			KafkaConfigMap:    map[string]any{"client.id": "test-consumer"},
@@ -86,7 +86,7 @@ func sampleRawConfig() ProcConfig {
 			},
 		},
 		Output: OutputConfig{
-			OutputTopic:       "cisco_nir-prealerts",
+			OutputTopic:       "outtopic",
 			BatchSize:         50,
 			FlushTimeout:      5 * time.Second,
 			ChannelBufferSize: 1000,

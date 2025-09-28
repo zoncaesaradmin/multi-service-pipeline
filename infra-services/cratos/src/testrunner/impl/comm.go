@@ -60,7 +60,8 @@ func NewConsumerHandler(logger logging.Logger, index int) *ConsumerHandler {
 
 // Start starts the input handler
 func (i *ConsumerHandler) Start() error {
-	topics := []string{"cisco_nir-prealerts"}
+	outTopic := utils.GetEnv("PROCESSING_OUTPUT_TOPIC", "cisco_nir-prealerts")
+	topics := []string{outTopic}
 	//i.logger.Infow("Starting consumer handler", "topics", topics)
 
 	// Create context for cancellation

@@ -9,7 +9,7 @@ const (
 )
 
 const (
-	// number of partitions for cisco_nir-prealerts topic; used to derive partition number
+	// number of partitions for output topic; used to derive partition number
 	PartitionCountPrealerts = 21
 )
 

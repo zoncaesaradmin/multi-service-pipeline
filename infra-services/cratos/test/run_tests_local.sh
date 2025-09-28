@@ -8,10 +8,10 @@ set -e
 # Note: We handle test failures gracefully to ensure log collection
 
 # kafka topic overrides
-INPUT_TOPIC=cisco_nir-anomalies
-RULES_TOPIC=cisco_nir-alertRules
-RULE_TASKS_TOPIC=cisco_nir-ruletasks
-OUTPUT_TOPIC=cisco_nir-prealerts
+INPUT_TOPIC=intopic
+RULES_TOPIC=rulestopic
+RULE_TASKS_TOPIC=ruletaskstopic
+OUTPUT_TOPIC=outtopic
 
 # Colors for output
 RED='\033[0;31m'

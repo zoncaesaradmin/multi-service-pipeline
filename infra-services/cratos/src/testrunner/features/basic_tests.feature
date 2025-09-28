@@ -10,9 +10,7 @@ Feature: Basic test for data reception without hitting any rule
 
   # common steps for each of the scenarios in this feature
   Background:
-    And set_input_config_topic "cisco_nir-alertRules"
-    And set_input_data_topic "cisco_nir-anomalies"
-    And set_output_data_topic "cisco_nir-prealerts"
+    And set_all_needed_kafka_topics
     And ensure_test_config_kafka_producer_is_ready
     And ensure_test_data_consumer_on_output_is_ready
 

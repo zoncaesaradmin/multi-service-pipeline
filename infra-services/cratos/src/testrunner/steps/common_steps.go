@@ -72,4 +72,10 @@ func InitializeCommonSteps(ctx *godog.ScenarioContext, suiteCtx *impl.CustomCont
 		bindings.SuiteCtx.OutDataTopic = topic
 		return nil
 	})
+	ctx.Step(`^set_all_needed_kafka_topics`, func() error {
+		bindings.SuiteCtx.InConfigTopic = utils.GetEnv("PROCESSING_RULES_TOPIC", "cisco_nir-alertRules")
+		bindings.SuiteCtx.InDataTopic = utils.GetEnv("PROCESSING_INPUT_TOPIC", "cisco_nir-alertInput")
+		bindings.SuiteCtx.OutDataTopic = utils.GetEnv("PROCESSING_OUTPUT_TOPIC", "cisco_nir-alertOutput")
+		return nil
+	})
 }

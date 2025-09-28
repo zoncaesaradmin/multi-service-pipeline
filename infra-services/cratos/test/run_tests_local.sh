@@ -7,6 +7,12 @@
 set -e
 # Note: We handle test failures gracefully to ensure log collection
 
+# kafka topic overrides
+INPUT_TOPIC=cisco_nir-anomalies
+RULES_TOPIC=cisco_nir-alertRules
+RULE_TASKS_TOPIC=cisco_nir-ruletasks
+OUTPUT_TOPIC=cisco_nir-prealerts
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -387,7 +393,7 @@ main() {
     fi
     
     # Create fresh directories
-    for topic in cisco_nir-anomalies cisco_nir-prealerts cisco_nir-alertRules cisco_nir-ruletasks; do
+    for topic in $INPUT_TOPIC $OUTPUT_TOPIC $RULES_TOPIC $RULE_TASKS_TOPIC; do
         mkdir -p "$LOCAL_BUS_BASE/$topic"
         log_info "Created clean local bus topic directory: $LOCAL_BUS_BASE/$topic"
     done

@@ -11,51 +11,6 @@ const (
 	expectedLogLevelDebugMsg = "Expected log level 'debug', got %s"
 )
 
-func TestLoadConfigDefaults(t *testing.T) {
-	config := LoadConfig()
-
-	if config.Server.Host != "localhost" {
-		t.Errorf("Expected localhost, got %s", config.Server.Host)
-	}
-	if config.Server.Port != 4477 {
-		t.Errorf("Expected 4477, got %d", config.Server.Port)
-	}
-	if config.Logging.Level != "info" {
-		t.Errorf("Expected info, got %s", config.Logging.Level)
-	}
-}
-
-func TestLoadConfigWithEnvVars(t *testing.T) {
-	// Save original values
-	originalHost := os.Getenv("SERVER_HOST")
-	originalPort := os.Getenv("SERVER_PORT")
-
-	// Set test values
-	os.Setenv("SERVER_HOST", "testhost")
-	os.Setenv("SERVER_PORT", "9999")
-
-	config := LoadConfig()
-
-	if config.Server.Host != "testhost" {
-		t.Errorf("Expected testhost, got %s", config.Server.Host)
-	}
-	if config.Server.Port != 9999 {
-		t.Errorf("Expected 9999, got %d", config.Server.Port)
-	}
-
-	// Restore original values
-	if originalHost != "" {
-		os.Setenv("SERVER_HOST", originalHost)
-	} else {
-		os.Unsetenv("SERVER_HOST")
-	}
-	if originalPort != "" {
-		os.Setenv("SERVER_PORT", originalPort)
-	} else {
-		os.Unsetenv("SERVER_PORT")
-	}
-}
-
 func TestLoadConfigFromFileSuccess(t *testing.T) {
 	// Create temporary directory for test files
 	tempDir := t.TempDir()
@@ -152,34 +107,8 @@ func TestLoadConfigWithDefaultsFallback(t *testing.T) {
 	// Test with non-existent file - should fall back to defaults
 	config := LoadConfigWithDefaults("/nonexistent/config.yaml")
 
-	// Should use default values
-	if config.Server.Host != "localhost" {
-		t.Errorf("Expected default host 'localhost', got %s", config.Server.Host)
-	}
-	if config.Server.Port != 4477 {
-		t.Errorf("Expected default port 4477, got %d", config.Server.Port)
-	}
-}
-
-func TestInvalidEnvVars(t *testing.T) {
-	// Save original values
-	originalPort := os.Getenv("SERVER_PORT")
-
-	// Set invalid values
-	os.Setenv("SERVER_PORT", "not-a-number")
-
-	config := LoadConfig()
-
-	// Should use default values when env vars are invalid
-	if config.Server.Port != 4477 {
-		t.Errorf("Expected default port 4477 for invalid env var, got %d", config.Server.Port)
-	}
-
-	// Restore original values
-	if originalPort != "" {
-		os.Setenv("SERVER_PORT", originalPort)
-	} else {
-		os.Unsetenv("SERVER_PORT")
+	if config != nil {
+		t.Errorf("Expected configuration to fail, got %s", config.Server.Host)
 	}
 }
 

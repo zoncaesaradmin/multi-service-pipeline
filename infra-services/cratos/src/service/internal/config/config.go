@@ -92,64 +92,6 @@ type RawChannelConfig struct {
 	OutputBufferSize int `yaml:"outputBufferSize"`
 }
 
-// LoadConfig loads configuration from environment variables with defaults
-func LoadConfig() *RawConfig {
-	config := &RawConfig{
-		Server: RawServerConfig{
-			Host:         utils.GetEnv("SERVER_HOST", "localhost"),
-			Port:         utils.GetEnvInt("SERVER_PORT", 4477),
-			ReadTimeout:  utils.GetEnvInt("SERVER_READ_TIMEOUT", 10),
-			WriteTimeout: utils.GetEnvInt("SERVER_WRITE_TIMEOUT", 10),
-		},
-		Logging: RawLoggingConfig{
-			Level:       utils.GetEnv("LOG_LEVEL", "info"),
-			FileName:    utils.GetEnv("LOG_FILE_NAME", "main.log"),
-			LoggerName:  utils.GetEnv("LOG_LOGGER_NAME", "main"),
-			ServiceName: utils.GetEnv("LOG_SERVICE_NAME", "cratos"),
-		},
-		Processing: RawProcessingConfig{
-			Input: RawInputConfig{
-				Topics:            parseTopics(utils.GetEnv("PROCESSING_INPUT_TOPIC", "cisco_nir-anomalies")),
-				ChannelBufferSize: utils.GetEnvInt("PROCESSING_INPUT_BUFFER_SIZE", 1000),
-			},
-			Processor: RawProcessorConfig{
-				ProcessingDelay: time.Duration(utils.GetEnvInt("PROCESSING_DELAY_MS", 10)) * time.Millisecond,
-				BatchSize:       utils.GetEnvInt("PROCESSING_BATCH_SIZE", 100),
-			},
-			Output: RawOutputConfig{
-				OutputTopic:       utils.GetEnv("PROCESSING_OUTPUT_TOPIC", "cisco_nir-prealerts"),
-				BatchSize:         utils.GetEnvInt("PROCESSING_OUTPUT_BATCH_SIZE", 50),
-				FlushTimeout:      time.Duration(utils.GetEnvInt("PROCESSING_OUTPUT_FLUSH_TIMEOUT_MS", 5000)) * time.Millisecond,
-				ChannelBufferSize: utils.GetEnvInt("PROCESSING_OUTPUT_BUFFER_SIZE", 1000),
-			},
-			Channels: RawChannelConfig{
-				InputBufferSize:  utils.GetEnvInt("PROCESSING_CHANNELS_INPUT_BUFFER_SIZE", 1000),
-				OutputBufferSize: utils.GetEnvInt("PROCESSING_CHANNELS_OUTPUT_BUFFER_SIZE", 1000),
-			},
-			PloggerConfig: RawLoggingConfig{
-				Level:       utils.GetEnv("PROCESSING_PLOGGER_LEVEL", "info"),
-				FileName:    utils.GetEnv("PROCESSING_PLOGGER_FILE_NAME", "/tmp/cratos-pipeline.log"),
-				LoggerName:  utils.GetEnv("PROCESSING_PLOGGER_LOGGER_NAME", "pipeline"),
-				ServiceName: utils.GetEnv("PROCESSING_PLOGGER_SERVICE_NAME", "cratos"),
-			},
-		},
-	}
-
-	return config
-}
-
-// parseTopics parses comma-separated topics from a string
-func parseTopics(topicsStr string) []string {
-	if topicsStr == "" {
-		return []string{}
-	}
-	topics := strings.Split(topicsStr, ",")
-	for i, topic := range topics {
-		topics[i] = strings.TrimSpace(topic)
-	}
-	return topics
-}
-
 // LoadConfigFromFile loads configuration from a YAML file with optional environment variable overrides
 func LoadConfigFromFile(configPath string) (*RawConfig, error) {
 	// Read the config file
@@ -177,8 +119,7 @@ func LoadConfigWithDefaults(configPath string) *RawConfig {
 		return config
 	}
 
-	// Fallback to environment variables and defaults
-	return LoadConfig()
+	return nil
 }
 
 // overrideWithEnvVars overrides config values with environment variables if they are set
@@ -231,8 +172,8 @@ func overrideProcessingConfig(processing *RawProcessingConfig) {
 
 // overrideInputConfig overrides input configuration with environment variables
 func overrideInputConfig(input *RawInputConfig) {
-	if topics := utils.GetEnv("PROCESSING_INPUT_TOPIC", ""); topics != "" {
-		input.Topics = parseTopics(topics)
+	if inputTopic := utils.GetEnv("PROCESSING_INPUT_TOPIC", ""); inputTopic != "" {
+		input.Topics = []string{inputTopic}
 	}
 	if bufferSize := utils.GetEnvInt("PROCESSING_INPUT_BUFFER_SIZE", -1); bufferSize != -1 {
 		input.ChannelBufferSize = bufferSize

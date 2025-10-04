@@ -109,15 +109,26 @@ setup_directories() {
 
 # Function to build service with coverage
 build_service() {
-    log_info "Service will be built by make run-local-coverage with coverage instrumentation and local tags..."
+    log_info "Building service with coverage instrumentation and local tags..."
     
     # Verify service directory exists and has Makefile
     if [ ! -f "$SERVICE_DIR/Makefile" ]; then
         log_error "Service Makefile not found at $SERVICE_DIR/Makefile"
-        exit 1
+        return 1
     fi
     
-    log_success "Service build preparation completed (will use make run-local-coverage)"
+    cd "$SERVICE_DIR"
+    make build-local
+    BUILD_RESULT=$?
+    cd - > /dev/null
+    
+    if [ $BUILD_RESULT -eq 0 ]; then
+        log_success "Service built successfully with coverage instrumentation"
+        return 0
+    else
+        log_error "Service build failed"
+        return 1
+    fi
 }
 
 # Function to build testrunner
@@ -141,33 +152,32 @@ build_testrunner() {
     if [ $BUILD_RESULT -eq 0 ]; then
         log_success "Testrunner built successfully using Makefile"
     else
-        log_error "Testrunner build failed"
         exit 1
     fi
 }
 
 # Function to run service
 run_service() {
-    log_info "Starting service using make run-local-coverage..."
+    log_info "Starting service..."
     cd "$SERVICE_DIR"
-    
-    # Set coverage directory and log file path (using absolute paths)
-    export GOCOVERDIR="$COVERAGE_DIR"
-    
-        # All other environment variables should be set via .env file
     
     # Run in background and capture stdout/stderr
     make run-local > "$LOGS_DIR/service_stdouterr.log" 2>&1 &
-    #./../../bin/service.bin > "$LOGS_DIR/service_stdouterr.log" 2>&1 &
     COMPONENT_PID=$!
+    
+    # Give process a moment to start
+    sleep 1
+    
+    # Check if process started successfully
+    if ! kill -0 $COMPONENT_PID 2>/dev/null; then
+        log_error "Service failed to start"
+        return 1
+    fi
+    
     echo $COMPONENT_PID > "$ROOT_DIR/test/service.pid"
-    
     log_success "Service started with PID $COMPONENT_PID"
-    log_info "Service logs: $LOGS_DIR/service_stdouterr.log"
     cd - > /dev/null
-    
-    # Wait a moment for service to start
-    sleep 2
+    return 0
 }
 
 # Function to run testrunner
@@ -175,47 +185,74 @@ run_testrunner() {
     log_info "Running testrunner..."
     cd "$TESTRUNNER_DIR"
     
-    # Temporarily disable strict error handling for testrunner execution
-    set +e
     # Run testrunner and capture output
     ./../../bin/testrunner.bin > "$LOGS_DIR/testrunner_stdouterr.log" 2>&1 &
     TESTRUNNER_PID=$!
+    
+    # Check if process started successfully
+    if ! kill -0 $TESTRUNNER_PID 2>/dev/null; then
+        log_error "Test runner failed to start"
+        return 1
+    fi
+    
     log_success "Test runner started with PID $TESTRUNNER_PID"
     echo $TESTRUNNER_PID > "$ROOT_DIR/test/testrunner.pid"
 
     STATUS_URL="http://localhost:4478/report/status"
-    echo "Waiting for test runner to complete..."
+    log_info "Waiting for test runner to complete..."
+    
+    # Add timeout for test runner (30 minutes)
+    local timeout=1800  # 30 minutes in seconds
+    local start_time=$(date +%s)
+    local current_time
+    
     while true; do
-        STATUS=$(curl -s "$STATUS_URL" | grep -o '"status": *"[^"]*"' | cut -d'"' -f4)
+        # Check if test runner is still running
+        if ! kill -0 $TESTRUNNER_PID 2>/dev/null; then
+            log_error "Test runner process died unexpectedly"
+            return 1
+        fi
+        
+        # Check timeout
+        current_time=$(date +%s)
+        if [ $((current_time - start_time)) -gt $timeout ]; then
+            log_error "Test runner timed out after ${timeout} seconds"
+            kill $TESTRUNNER_PID 2>/dev/null || true
+            return 1
+        fi
+        
+        # Get status with timeout
+        STATUS=$(curl -s --connect-timeout 5 "$STATUS_URL" | grep -o '"status": *"[^"]*"' | cut -d'"' -f4)
+        if [ $? -ne 0 ]; then
+            log_warning "Failed to get test runner status, retrying..."
+            sleep 4
+            continue
+        fi
+        
         if [ "$STATUS" = "complete" ]; then
-            echo "Test runner completed."
+            log_success "Test runner completed"
             break
         fi
-        #echo "Test runner status: $STATUS"
+        
         sleep 4
     done
 
-    echo "Fetching test report..."
-    REPORT=$(curl -s http://localhost:4478/report/text)
-    TEST_RESULT=$?
+    log_info "Fetching test report..."
+    REPORT=$(curl -s --connect-timeout 5 http://localhost:4478/report/text)
+    if [ $? -ne 0 ]; then
+        log_error "Failed to fetch test report"
+        return 1
+    fi
+    
     if echo "$REPORT" | grep -q "SUITE RESULT: SUCCESS"; then
-        echo "Test suite PASSED"
+        log_success "Test suite PASSED"
         TEST_RESULT=0
     else
-        echo "Test suite FAILED"
+        log_error "Test suite FAILED"
         TEST_RESULT=1
     fi
-
-    set -e
     
     cd - > /dev/null
-    
-    if [ $TEST_RESULT -eq 0 ]; then
-        log_success "Tests completed successfully"
-    else
-        log_warning "Tests completed with issues"
-    fi
-    
     return $TEST_RESULT
 }
 
@@ -350,6 +387,16 @@ generate_report() {
     fi
 }
 
+# Function to exit with error and cleanup
+exit_with_error() {
+    local error_message="$1"
+    local exit_code="${2:-1}"
+    
+    log_error "$error_message"
+    cleanup
+    exit $exit_code
+}
+
 # Main execution
 main() {
     echo
@@ -360,11 +407,11 @@ main() {
     log_info "Results directory: $RESULTS_DIR"
     echo
     
-    # Setup trap for cleanup on exit - but not for normal script completion
+    # Setup trap for cleanup on exit
     trap 'cleanup' INT TERM
     
     # Setup directories
-    setup_directories
+    setup_directories || exit_with_error "Failed to set up directories"
 
     # Ensure local bus topic directories exist for tests
     LOCAL_BUS_BASE="/tmp/cratos-messagebus-test"
@@ -373,44 +420,70 @@ main() {
     # Clean up any existing local bus data to ensure clean test state
     if [ -d "$LOCAL_BUS_BASE" ]; then
         log_info "Cleaning existing LocalBus message data"
-        rm -rf "$LOCAL_BUS_BASE"
+        rm -rf "$LOCAL_BUS_BASE" || exit_with_error "Failed to clean up LocalBus message data"
     fi
     
     if [ -d "$LOCAL_BUS_OFFSETS" ]; then
         log_info "Cleaning existing LocalBus offset data"
-        rm -rf "$LOCAL_BUS_OFFSETS"
+        rm -rf "$LOCAL_BUS_OFFSETS" || exit_with_error "Failed to clean up LocalBus offset data"
     fi
     
     # Create fresh directories
     for topic in $INPUT_TOPIC $OUTPUT_TOPIC $RULES_TOPIC $RULE_TASKS_TOPIC; do
-        mkdir -p "$LOCAL_BUS_BASE/$topic"
+        mkdir -p "$LOCAL_BUS_BASE/$topic" || exit_with_error "Failed to create topic directory: $topic"
         log_info "Created clean local bus topic directory: $LOCAL_BUS_BASE/$topic"
     done
     
     # Create offset directory
-    mkdir -p "$LOCAL_BUS_OFFSETS"
+    mkdir -p "$LOCAL_BUS_OFFSETS" || exit_with_error "Failed to create offset directory"
     log_info "Created clean local bus offset directory: $LOCAL_BUS_OFFSETS"
     
     if [ "$BUILD_MODE" = "build" ] || [ "$BUILD_MODE" = "all" ]; then
         # Build phase
-        build_service
-        build_testrunner
+        if ! build_service; then
+            cleanup
+            exit 1
+        fi
+        
+        if ! build_testrunner; then
+            cleanup
+            exit 1
+        fi
     fi
     
     if [ "$BUILD_MODE" = "run" ] || [ "$BUILD_MODE" = "build" ] || [ "$BUILD_MODE" = "all" ]; then
         # Run phase
-        run_service
+        if ! run_service; then
+            cleanup
+            exit 1
+        fi
         
-        # Run tests (handle failures gracefully)
-        set +e
-        run_testrunner
-        TEST_RESULT=$?
-        set -e
+        # Run tests
+        if ! run_testrunner; then
+            echo "DEBUG: About to stop service"
+            stop_service
+            
+            echo "DEBUG: About to collect logs"
+            collect_logs
+            
+            # Generate reports
+            #generate_coverage_report
+            generate_report
+            
+            # Manual cleanup at the end
+            cleanup
+            
+            # Show final status
+            echo
+            log_error "Some tests failed. Check $RESULTS_DIR/ and $LOGS_DIR/ for detailed logs."
+            echo
+            exit 1
+        fi
         
-        echo "DEBUG: About to stop service"        # Stop service
+        echo "DEBUG: About to stop service"
         stop_service
         
-        echo "DEBUG: About to collect logs"        # Collect and organize logs
+        echo "DEBUG: About to collect logs"
         collect_logs
         
         # Generate reports
@@ -422,14 +495,13 @@ main() {
         
         # Show final status
         echo
-        if [ $TEST_RESULT -eq 0 ]; then
-            log_success "All tests passed! Check $RESULTS_DIR/ for detailed reports."
-            log_info "All logs are organized in $LOGS_DIR/"
-        else
-            log_error "Some tests failed. Check $RESULTS_DIR/ and $LOGS_DIR/ for detailed logs."
-        fi
+        log_success "All tests passed! Check $RESULTS_DIR/ for detailed reports."
+        log_info "All logs are organized in $LOGS_DIR/"
         echo
+        exit 0
     fi
+    
+    exit 0
 }
 
 # Check if we're being sourced or executed

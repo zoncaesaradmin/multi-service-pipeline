@@ -11,22 +11,25 @@ GO_FILES=$(shell find . -name "*.go" -type f)
 # Default target
 all: clean deps fmt vet test build
 
-# Build the binary
-build:
-	@echo "Building $(BINARY_NAME)..."
+ensurebindir:
 	@mkdir -p $(BINARY_DIR)
-	go build -o $(BINARY_PATH) $(MAIN_PATH)
+
+copydepfiles:
 	@cp -rf features $(BINARY_DIR)
 	@cp -rf testdata $(BINARY_DIR)
-	@echo "Build completed: $(BINARY_PATH)"
 
 # Build the binary
-build-local:
+build: ensurebindir
+	@echo "Building $(BINARY_NAME)..."
+	go build -o $(BINARY_PATH) $(MAIN_PATH)
+	@$(MAKE) copydepfiles
+	@echo "Build completed: $(BINARY_PATH)"
+
+# Build the binary with local tags
+build-local: ensurebindir
 	@echo "Building $(BINARY_NAME) with local tags ..."
-	@mkdir -p $(BINARY_DIR)
 	go build -tags local -o $(BINARY_PATH) $(MAIN_PATH)
-	@cp -rf features $(BINARY_DIR)
-	@cp -rf testdata $(BINARY_DIR)
+	@$(MAKE) copydepfiles
 	@echo "Local testrunner Build completed: $(BINARY_PATH)"
 
 # Run the test runner

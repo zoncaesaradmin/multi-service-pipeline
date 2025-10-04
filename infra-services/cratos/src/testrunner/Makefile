@@ -72,6 +72,7 @@ clean:
 	@echo "Cleaning build artifacts and generated files..."
 	@rm -rf $(BINARY_DIR)
 	@rm -f *.log
+	@rm -rf ../../../../client/golang/src/telemetry/utils/alert/alert.pb.go
 	@rm -rf tmp/ temp/
 	@find . -name "*.test" -type f -delete
 	@find . -name "*.out" -type f -delete

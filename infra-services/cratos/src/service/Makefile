@@ -24,12 +24,22 @@ endif
 # Default target
 all: clean deps fmt vet lint test build
 
-# Build the binary
-build:
-	@echo "Building $(BINARY_NAME)..."
+ensureproto:
 	@protoc --go_out=${ROOT}/client/golang/src/telemetry/utils/alert --proto_path=$(PROTO_DIR) $(PROTO_DIR)/alert.proto
+
+ensurebindir:
 	@mkdir -p $(BINARY_DIR)
+
+# Build the binary
+build: ensurebindir ensureproto
+	@echo "Building $(BINARY_NAME)..."
 	go build $(BUILD_FLAGS) -o $(BINARY_PATH) $(MAIN_PATH)
+	@echo "Build completed: $(BINARY_PATH)"
+
+# Build the binary with local tags
+build-local: ensurebindir ensureproto
+	@echo "Building $(BINARY_NAME) with local tags ..."
+	go build -tags local -o $(BINARY_PATH) $(MAIN_PATH)
 	@echo "Build completed: $(BINARY_PATH)"
 
 # Run the service
@@ -38,10 +48,7 @@ run: build
 	@SERVICE_HOME="$$(cd ../../ && pwd)" $(BINARY_PATH)
 
 # Run the service with local development settings
-run-local:
-	@echo "Building and running $(BINARY_NAME) with local tags and SERVICE_HOME..."
-	@mkdir -p $(BINARY_DIR)
-	go build -tags local -o $(BINARY_PATH) $(MAIN_PATH)
+run-local: build-local
 	@SERVICE_HOME="$$(cd ../../ && pwd)" $(BINARY_PATH)
 
 # Run the service with local development settings and coverage instrumentation (for integration tests)
@@ -119,6 +126,7 @@ clean:
 	@rm -rf $(BINARY_DIR)
 	@rm -f $(COVERAGE_OUT) $(COVERAGE_HTML)
 	@rm -f *.log
+	@rm -rf ../../../../client/golang/src/telemetry/utils/alert/alert.pb.go
 	@rm -rf tmp/ temp/
 	@find . -name "*.test" -type f -delete
 	@find . -name "*.out" -type f -delete

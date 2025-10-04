@@ -2,6 +2,8 @@
 .PHONY: build build-local test clean deep-clean run deps tidy fmt vet run-integration-tests run-performance-tests help
 
 # Variables
+ROOT ?= $(shell git rev-parse --show-toplevel)
+PROTO_DIR=${ROOT}/proto
 BINARY_NAME=testrunner.bin
 BINARY_DIR=./../../bin
 BINARY_PATH=$(BINARY_DIR)/$(BINARY_NAME)
@@ -11,6 +13,9 @@ GO_FILES=$(shell find . -name "*.go" -type f)
 # Default target
 all: clean deps fmt vet test build
 
+ensureproto:
+	@protoc --go_out=${ROOT}/client/golang/src/telemetry/utils/alert --proto_path=$(PROTO_DIR) $(PROTO_DIR)/alert.proto
+
 ensurebindir:
 	@mkdir -p $(BINARY_DIR)
 
@@ -19,14 +24,14 @@ copydepfiles:
 	@cp -rf testdata $(BINARY_DIR)
 
 # Build the binary
-build: ensurebindir
+build: ensurebindir ensureproto
 	@echo "Building $(BINARY_NAME)..."
 	go build -o $(BINARY_PATH) $(MAIN_PATH)
 	@$(MAKE) copydepfiles
 	@echo "Build completed: $(BINARY_PATH)"
 
 # Build the binary with local tags
-build-local: ensurebindir
+build-local: ensurebindir ensureproto
 	@echo "Building $(BINARY_NAME) with local tags ..."
 	go build -tags local -o $(BINARY_PATH) $(MAIN_PATH)
 	@$(MAKE) copydepfiles

@@ -57,36 +57,19 @@ else
     COVERAGE_DIR="$ROOT_DIR/test/coverage"
 fi
 
-    log_info "Repository root: $ROOT_DIR"
+log_info "Repository root: $ROOT_DIR"
 
-    # Load environment variables from .env file (if present)
-    if [ -f "$ROOT_DIR/.env" ]; then
-        log_info "Loading environment variables from $ROOT_DIR/.env"
-        set -a
-        source "$ROOT_DIR/.env"
-        set +a
-    else
-        log_warning ".env file not found at $ROOT_DIR/.env; using default environment."
-    fi
-    
+# Load environment variables from .env file (if present)
+if [ -f "$ROOT_DIR/.env" ]; then
+    log_info "Loading environment variables from $ROOT_DIR/.env"
+    set -a
+    source "$ROOT_DIR/.env"
+    set +a
+else
+    log_warning ".env file not found at $ROOT_DIR/.env; using default environment."
+fi
+
 BUILD_MODE="${1:-build}"
-
-# Function to print colored output
-log_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
-}
-
-log_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
-
-log_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
-
-log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
 
 # Function to cleanup processes and directories
 cleanup() {
@@ -139,22 +122,28 @@ build_service() {
 
 # Function to build testrunner
 build_testrunner() {
-    log_info "Building testrunner..."
+    log_info "Building testrunner using Makefile..."
+    
+    # Verify testrunner directory exists and has Makefile
+    if [ ! -f "$TESTRUNNER_DIR/Makefile" ]; then
+        log_error "Testrunner Makefile not found at $TESTRUNNER_DIR/Makefile"
+        exit 1
+    fi
+    
     cd "$TESTRUNNER_DIR"
     
-    # Build testrunner
-    go build -tags local -o ./../../bin/testrunner.bin cmd/testmain.go
-    cp -rf features ./../../bin
-    cp -rf testdata ./../../bin
-  
-    if [ $? -eq 0 ]; then
-        log_success "Testrunner built successfully"
+    # Build testrunner using Makefile
+    make build-local
+    BUILD_RESULT=$?
+    
+    cd - > /dev/null
+    
+    if [ $BUILD_RESULT -eq 0 ]; then
+        log_success "Testrunner built successfully using Makefile"
     else
         log_error "Testrunner build failed"
         exit 1
     fi
-    
-    cd - > /dev/null
 }
 
 # Function to run service

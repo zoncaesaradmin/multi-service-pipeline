@@ -1,5 +1,5 @@
 # Test Runner Makefile
-.PHONY: build test clean deep-clean run deps tidy fmt vet run-integration-tests run-performance-tests help
+.PHONY: build build-local test clean deep-clean run deps tidy fmt vet run-integration-tests run-performance-tests help
 
 # Variables
 BINARY_NAME=testrunner.bin
@@ -19,6 +19,15 @@ build:
 	@cp -rf features $(BINARY_DIR)
 	@cp -rf testdata $(BINARY_DIR)
 	@echo "Build completed: $(BINARY_PATH)"
+
+# Build the binary
+build-local:
+	@echo "Building $(BINARY_NAME) with local tags ..."
+	@mkdir -p $(BINARY_DIR)
+	go build -tags local -o $(BINARY_PATH) $(MAIN_PATH)
+	@cp -rf features $(BINARY_DIR)
+	@cp -rf testdata $(BINARY_DIR)
+	@echo "Local testrunner Build completed: $(BINARY_PATH)"
 
 # Run the test runner
 run: build

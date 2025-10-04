@@ -2,8 +2,12 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -23,46 +27,17 @@ const (
 	configEndpoint  = "/api/v1/config/"
 	statsEndpoint   = "/api/v1/stats"
 	nonexistentPath = "/nonexistent"
+	envDocker       = "/.dockerenv"
+	testEnvFile     = ".env.test"
 )
 
-// Mock logger for testing
-type mockLogger struct{}
-
-func (m *mockLogger) SetLevel(level logging.Level)                           { /* no-op for testing */ }
-func (m *mockLogger) GetLevel() logging.Level                                { return logging.InfoLevel }
-func (m *mockLogger) IsLevelEnabled(level logging.Level) bool                { return true }
-func (m *mockLogger) Debug(msg string)                                       { /* no-op for testing */ }
-func (m *mockLogger) Info(msg string)                                        { /* no-op for testing */ }
-func (m *mockLogger) Warn(msg string)                                        { /* no-op for testing */ }
-func (m *mockLogger) Error(msg string)                                       { /* no-op for testing */ }
-func (m *mockLogger) Fatal(msg string)                                       { /* no-op for testing */ }
-func (m *mockLogger) Panic(msg string)                                       { /* no-op for testing */ }
-func (m *mockLogger) Debugf(format string, args ...interface{})              { /* no-op for testing */ }
-func (m *mockLogger) Infof(format string, args ...interface{})               { /* no-op for testing */ }
-func (m *mockLogger) Warnf(format string, args ...interface{})               { /* no-op for testing */ }
-func (m *mockLogger) Errorf(format string, args ...interface{})              { /* no-op for testing */ }
-func (m *mockLogger) Fatalf(format string, args ...interface{})              { /* no-op for testing */ }
-func (m *mockLogger) Panicf(format string, args ...interface{})              { /* no-op for testing */ }
-func (m *mockLogger) Debugw(msg string, keysAndValues ...interface{})        { /* no-op for testing */ }
-func (m *mockLogger) Infow(msg string, keysAndValues ...interface{})         { /* no-op for testing */ }
-func (m *mockLogger) Warnw(msg string, keysAndValues ...interface{})         { /* no-op for testing */ }
-func (m *mockLogger) Errorw(msg string, keysAndValues ...interface{})        { /* no-op for testing */ }
-func (m *mockLogger) Fatalw(msg string, keysAndValues ...interface{})        { /* no-op for testing */ }
-func (m *mockLogger) Panicw(msg string, keysAndValues ...interface{})        { /* no-op for testing */ }
-func (m *mockLogger) WithFields(fields logging.Fields) logging.Logger        { return m }
-func (m *mockLogger) WithField(key string, value interface{}) logging.Logger { return m }
-func (m *mockLogger) WithError(err error) logging.Logger                     { return m }
-func (m *mockLogger) WithContext(ctx context.Context) logging.Logger         { return m }
-func (m *mockLogger) Log(level logging.Level, msg string)                    { /* no-op for testing */ }
-func (m *mockLogger) Logf(level logging.Level, format string, args ...interface{}) { /* no-op for testing */
+// Helper function to create a test logger
+func createTestLogger() logging.Logger {
+	return logging.NewMockLogger()
 }
-func (m *mockLogger) Logw(level logging.Level, msg string, keysAndValues ...interface{}) { /* no-op for testing */
-}
-func (m *mockLogger) Clone() logging.Logger { return &mockLogger{} }
-func (m *mockLogger) Close() error          { return nil }
 
 func TestSetupRouter(t *testing.T) {
-	logger := &mockLogger{}
+	logger := createTestLogger()
 	cfg := sampleRawConfig()
 	application := app.NewApplication(cfg, logger)
 	defer application.Shutdown()
@@ -103,7 +78,7 @@ func TestSetupRouter(t *testing.T) {
 func TestSetupRouterWithNilHandler(t *testing.T) {
 	// Test setupRouter function - it creates its own handler internally
 	// This test verifies that setupRouter works correctly
-	logger := &mockLogger{}
+	logger := createTestLogger()
 	cfg := sampleRawConfig()
 	application := app.NewApplication(cfg, logger)
 	defer application.Shutdown()
@@ -167,7 +142,7 @@ func TestServerConfiguration(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Create test server configuration
-			logger := &mockLogger{}
+			logger := createTestLogger()
 			application := app.NewApplication(tc.rawconfig, logger)
 			defer application.Shutdown()
 
@@ -205,7 +180,7 @@ func TestApplicationInitialization(t *testing.T) {
 	// Test that application is initialized correctly
 	cfg := sampleRawConfig()
 
-	logger := &mockLogger{}
+	logger := createTestLogger()
 	application := app.NewApplication(cfg, logger)
 
 	// Verify application is created properly
@@ -250,7 +225,7 @@ func TestApplicationInitialization(t *testing.T) {
 }
 
 func TestHandlerInitialization(t *testing.T) {
-	logger := &mockLogger{}
+	logger := createTestLogger()
 	handler := api.NewHandler(logger, nil, nil)
 
 	if handler == nil {
@@ -313,7 +288,7 @@ func TestIntegrationComponents(t *testing.T) {
 	// Test that all components work together
 	cfg := sampleRawConfig()
 
-	logger := &mockLogger{}
+	logger := createTestLogger()
 	application := app.NewApplication(cfg, logger)
 	defer application.Shutdown()
 
@@ -359,7 +334,7 @@ func TestIntegrationComponents(t *testing.T) {
 func TestServerShutdownGraceful(t *testing.T) {
 	// Test graceful shutdown simulation
 	cfg := sampleRawConfig()
-	logger := &mockLogger{}
+	logger := createTestLogger()
 	application := app.NewApplication(cfg, logger)
 
 	// Test that application can be shut down gracefully
@@ -376,7 +351,7 @@ func TestServerShutdownGraceful(t *testing.T) {
 
 // Benchmark tests for performance
 func BenchmarkSetupRouter(b *testing.B) {
-	logger := &mockLogger{}
+	logger := createTestLogger()
 	cfg := sampleRawConfig()
 	application := app.NewApplication(cfg, logger)
 	defer application.Shutdown()
@@ -389,7 +364,7 @@ func BenchmarkSetupRouter(b *testing.B) {
 }
 
 func BenchmarkHealthCheckRequest(b *testing.B) {
-	logger := &mockLogger{}
+	logger := createTestLogger()
 	cfg := sampleRawConfig()
 	application := app.NewApplication(cfg, logger)
 	defer application.Shutdown()
@@ -407,13 +382,190 @@ func BenchmarkHealthCheckRequest(b *testing.B) {
 
 func BenchmarkApplicationCreation(b *testing.B) {
 	cfg := sampleRawConfig()
-	logger := &mockLogger{}
+	logger := createTestLogger()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		app := app.NewApplication(cfg, logger)
 		app.Shutdown()
 	}
+}
+
+func TestIsRunningInContainer(t *testing.T) {
+	// Save original environment and restore after test
+	origK8sHost := os.Getenv("KUBERNETES_SERVICE_HOST")
+	origContainer := os.Getenv("CONTAINER")
+	defer func() {
+		os.Setenv("KUBERNETES_SERVICE_HOST", origK8sHost)
+		os.Setenv("CONTAINER", origContainer)
+	}()
+
+	tests := []struct {
+		name  string
+		setup func()
+		want  bool
+	}{
+		{
+			name: "not in container",
+			setup: func() {
+				os.Unsetenv("KUBERNETES_SERVICE_HOST")
+				os.Unsetenv("CONTAINER")
+			},
+			want: false,
+		},
+		{
+			name: "in kubernetes",
+			setup: func() {
+				os.Setenv("KUBERNETES_SERVICE_HOST", "test-host")
+			},
+			want: true,
+		},
+		{
+			name: "container flag set",
+			setup: func() {
+				os.Setenv("CONTAINER", "true")
+			},
+			want: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.setup()
+			if got := isRunningInContainer(); got != tt.want {
+				t.Errorf("isRunningInContainer() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestLogEnvironmentInfo(t *testing.T) {
+	// Save original environment and restore after test
+	origAppEnv := os.Getenv("APP_ENV")
+	origAppName := os.Getenv("APP_NAME")
+	origAppVersion := os.Getenv("APP_VERSION")
+	origContainer := os.Getenv("CONTAINER")
+	defer func() {
+		os.Setenv("APP_ENV", origAppEnv)
+		os.Setenv("APP_NAME", origAppName)
+		os.Setenv("APP_VERSION", origAppVersion)
+		os.Setenv("CONTAINER", origContainer)
+	}()
+
+	// Test with custom environment values
+	os.Setenv("APP_ENV", "testing")
+	os.Setenv("APP_NAME", "test-app")
+	os.Setenv("APP_VERSION", "1.0.0")
+
+	// Test both container and non-container environments
+	tests := []struct {
+		name        string
+		inContainer bool
+	}{
+		{"local environment", false},
+		{"container environment", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.inContainer {
+				os.Setenv("CONTAINER", "true")
+			} else {
+				os.Unsetenv("CONTAINER")
+			}
+			// Since logEnvironmentInfo only logs, we just verify it doesn't panic
+			logEnvironmentInfo()
+		})
+	}
+}
+
+func TestServerGracefulShutdown(t *testing.T) {
+	// Set up a minimal test environment
+	origServiceHome := os.Getenv("SERVICE_HOME")
+	defer os.Setenv("SERVICE_HOME", origServiceHome)
+	os.Setenv("SERVICE_HOME", "/tmp") // Set to a known location for testing
+
+	// Create a minimal test server with just the health endpoint
+	mux := http.NewServeMux()
+	mux.HandleFunc(healthEndpoint, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	// Create test listener
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("Failed to create listener: %v", err)
+	}
+	testPort := listener.Addr().(*net.TCPAddr).Port
+
+	// Create server with test configuration
+	srv := &http.Server{
+		Handler:      mux,
+		ReadTimeout:  time.Second,
+		WriteTimeout: time.Second,
+	}
+
+	// Start server in goroutine
+	go func() {
+		if err := srv.Serve(listener); err != nil && err != http.ErrServerClosed {
+			t.Logf("Server stopped with error: %v", err)
+		}
+	}()
+
+	// Test the server is working
+	client := &http.Client{Timeout: time.Second}
+	resp, err := client.Get(fmt.Sprintf("http://127.0.0.1:%d%s", testPort, healthEndpoint))
+	if err != nil {
+		t.Fatalf("Initial health check failed: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Expected status OK, got %v", resp.Status)
+	}
+
+	// Shutdown the server
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		t.Fatalf("Error shutting down server: %v", err)
+	}
+
+	// Verify server is shut down by attempting a request
+	_, err = client.Get(fmt.Sprintf("http://127.0.0.1:%d%s", testPort, healthEndpoint))
+	if err == nil {
+		t.Error("Expected error when connecting to shutdown server")
+	}
+}
+
+func TestConfigSetup(t *testing.T) {
+	t.Run("with valid SERVICE_HOME", func(t *testing.T) {
+		// Save original environment and restore after test
+		origServiceHome := os.Getenv("SERVICE_HOME")
+		defer os.Setenv("SERVICE_HOME", origServiceHome)
+
+		// Set SERVICE_HOME to a known location
+		tmpDir, err := os.MkdirTemp("", "test-service-*")
+		if err != nil {
+			t.Fatalf("Failed to create temp dir: %v", err)
+		}
+		defer os.RemoveAll(tmpDir)
+
+		// Create test config directory
+		configDir := filepath.Join(tmpDir, "conf")
+		err = os.MkdirAll(configDir, 0755)
+		if err != nil {
+			t.Fatalf("Failed to create config dir: %v", err)
+		}
+
+		os.Setenv("SERVICE_HOME", tmpDir)
+
+		// Let loadConfig return nil (which is expected since we don't have a real config file)
+		cfg := loadConfig()
+		if cfg != nil {
+			t.Error("Expected nil config with empty but valid SERVICE_HOME")
+		}
+	})
 }
 
 func sampleRawConfig() *config.RawConfig {

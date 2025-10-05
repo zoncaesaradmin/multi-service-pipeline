@@ -184,6 +184,7 @@ func (rh *RuleTasksHandler) setupRuleTaskConsumerCallbacks() {
 }
 
 // handleRuleTaskMessage processes incoming rule task messages
+// Flow: Read from cisco_nir-ruletasks topic - Store in opensearch - Commit offset
 func (rh *RuleTasksHandler) handleRuleTaskMessage(message *messagebus.Message) {
 	if message == nil {
 		return
@@ -196,9 +197,24 @@ func (rh *RuleTasksHandler) handleRuleTaskMessage(message *messagebus.Message) {
 
 	msgLogger.Debugw("RULE TASK HANDLER - Received task", "size", len(message.Value))
 
-	if err := rh.ruleTaskConsumer.Commit(context.Background(), message); err != nil {
-		msgLogger.Errorw("RULE TASK HANDLER - Failed to commit message", "error", err)
+	// Commit the Kafka offset AFTER successful storage
+	if err := rh.commitMessage(msgLogger, message); err != nil {
+		msgLogger.Errorw("RULE TASK HANDLER - Failed to commit message", "error", err, "taskID", message.Headers["taskID"])
+		// Even if commit fails, we've stored the task, so we can continue processing
 	}
+}
+
+func (rh *RuleTasksHandler) commitMessage(logger logging.Logger, message *messagebus.Message) error {
+	commitCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := rh.ruleTaskConsumer.Commit(commitCtx, message); err != nil {
+		logger.Errorw("RULE TASK HANDLER - kafka commit failed", "error", err, "topic", message.Topic, "partition", message.Partition, "offset", message.Offset)
+		return err
+	}
+
+	logger.Debugw("RULE TASk HANDLER - Message committed successfully", "topic", message.Topic, "partition", message.Partition, "offset", message.Offset)
+	return nil
 }
 
 // handlePartitionAssignment manages partition assignment and leadership

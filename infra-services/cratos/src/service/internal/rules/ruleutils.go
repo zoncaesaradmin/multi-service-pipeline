@@ -9,9 +9,10 @@ func extractRuleName(rule map[string]interface{}, fallbackIndex int) string {
 	}
 
 	// Try alternative field names
-	if alertName, ok := rule["alertname"].(string); ok && alertName != "" {
+	if alertName, ok := rule["alertName"].(string); ok && alertName != "" {
 		return alertName
 	}
+
 	if ruleIdentifier, ok := rule["ruleIdentifier"].(string); ok && ruleIdentifier != "" {
 		return ruleIdentifier
 	}
@@ -26,6 +27,5 @@ func extractRuleID(rule map[string]interface{}, fallbackIndex int) string {
 		return id
 	}
 
-	// Return a fallback ID
 	return fmt.Sprintf("rule_id_%d", fallbackIndex)
 }

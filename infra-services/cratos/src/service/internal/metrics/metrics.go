@@ -582,17 +582,17 @@ func (mc *MetricsCollector) Timer(name string, labels ...map[string]string) func
 }
 
 // Counter increments a counter metric
-func (mc *MetricsCollector) Counter(name string, value float64, labels ...map[string]string) {
+func (mc *MetricsCollector) Counter(name string, labels ...map[string]string) {
 	mc.SendMetric(&MetricEvent{
-		Type:      MetricTypeGauge,
+		Type:      MetricTypeCounter,
 		Name:      name,
-		Value:     value,
+		Value:     1,
 		Labels:    combineLabels(labels...),
 		Timestamp: time.Now(),
 	})
 }
 
-// Counter increments a counter metric
+// Gauge sets a gauge value
 func (mc *MetricsCollector) Gauge(name string, value float64, labels ...map[string]string) {
 	mc.SendMetric(&MetricEvent{
 		Type:      MetricTypeGauge,

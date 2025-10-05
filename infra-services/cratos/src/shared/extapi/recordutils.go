@@ -90,8 +90,9 @@ func getSeverityInt(doc map[string]interface{}, key string) (int, bool) {
 	return 0, false
 }
 
+// mapJSONToAlert converts a JSON document from Opensearch to an Alert protobuf object
 func MapJSONToAlert(logger logging.Logger, doc map[string]interface{}, alertObj *alert.Alert) error {
-	rawSeveritInt, foundSeverity := getSeverityInt(doc, "severity")
+	rawSeverityInt, foundSeverity := getSeverityInt(doc, "severity")
 	docForUnmarshal := make(map[string]interface{})
 	for k, v := range doc {
 		if k != "severity" { // Copy all fields severity since it is int
@@ -100,7 +101,7 @@ func MapJSONToAlert(logger logging.Logger, doc map[string]interface{}, alertObj 
 	}
 	jsonBytes, err := json.Marshal(docForUnmarshal)
 	if err != nil {
-		logger.Errorw("marshal of doc failed", "error", err)
+		logger.Errorw("Marshal of doc failed", "error", err)
 		return err
 	}
 	err = json.Unmarshal(jsonBytes, alertObj)
@@ -109,7 +110,7 @@ func MapJSONToAlert(logger logging.Logger, doc map[string]interface{}, alertObj 
 		return err
 	}
 	if foundSeverity {
-		if sevStr, ok := severityMap[rawSeveritInt]; ok {
+		if sevStr, ok := severityMap[rawSeverityInt]; ok {
 			alertObj.Severity = sevStr
 		}
 	}

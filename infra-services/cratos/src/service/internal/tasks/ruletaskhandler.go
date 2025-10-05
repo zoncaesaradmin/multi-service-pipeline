@@ -108,7 +108,7 @@ func (rh *RuleTasksHandler) Start() error {
 	// Initialize task store
 	if err := rh.taskStore.Initialize(rh.ctx); err != nil {
 		rh.rlogger.Errorw("Failed to initialize task store", "error", err)
-		// Continue without task store
+		// Continue without task store - degraded mode
 	}
 
 	if err := rh.initializeRuleTaskHandling(); err != nil {
@@ -122,6 +122,8 @@ func (rh *RuleTasksHandler) Start() error {
 
 func (rh *RuleTasksHandler) Stop() error {
 	rh.rlogger.Info("Stopping Rule Tasks Handler...")
+
+	rh.dbRecordHandler.Stop()
 
 	if rh.cancel != nil {
 		rh.cancel()
@@ -221,6 +223,7 @@ func (rh *RuleTasksHandler) handlePartitionRevocation(revoked []messagebus.Parti
 	}
 }
 
+// DistributeRuleTask distributes rule task with old rule definitions included
 func (rh *RuleTasksHandler) DistributeRuleTask(l logging.Logger, traceID string, eventType string, rule *relib.RuleDefinition, oldRule *relib.RuleDefinition) bool {
 	return true
 }

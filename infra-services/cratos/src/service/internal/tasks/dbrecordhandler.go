@@ -17,5 +17,7 @@ func NewDbRecordHandler(logger logging.Logger, inputSink chan<- *models.ChannelM
 }
 
 func (drh *DbRecordHandler) Start() {
-	// Implement the logic to start handling DB records
+}
+
+func (drh *DbRecordHandler) Stop() {
 }

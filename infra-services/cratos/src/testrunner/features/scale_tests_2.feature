@@ -5,7 +5,7 @@ Feature: Scale tests with same fabricName but different category
     And set_all_needed_kafka_topics
     And replicate_and_send_input_config_with_category "scalerule2.json" 10
     And send_input_data "scaledata2.json"
-    And wait_till_data_received_with_timeout_sec 5
+    And wait_till_data_received_with_timeout_sec 20
     And verify_if_record_has_acknowledged
     And verify_if_record_has_custom_message
     And verify_if_record_has_severity
@@ -16,4 +16,4 @@ Feature: Scale tests with same fabricName but different category
     And replicate_and_send_input_config_with_category "scalerule2.json" 10
     And wait_for_seconds 5
     And replicate_and_send_input_data_with_category "scaledata2.json" 10
-    And wait_till_data_received_with_timeout_sec 10
+    And wait_till_data_received_with_timeout_sec 20

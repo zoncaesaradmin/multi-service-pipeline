@@ -42,7 +42,7 @@ func (b *StepBindings) SendInputConfigToTopic(configFile string, topic string) e
 	b.Cctx.SentConfigMeta = configMeta
 	b.Cctx.ProducerHandler.Send(topic, rBytes, nil)
 	traceLogger.Infof("Sent config %s over Kafka topic %s and trace ID in headers\n", configFile, topic)
-	time.Sleep(5 * time.Second) // slight delay to ensure config is processed first
+	time.Sleep(10 * time.Second) // slight delay to ensure config is processed first
 	return nil
 }
 

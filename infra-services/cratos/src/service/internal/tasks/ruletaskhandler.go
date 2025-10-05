@@ -204,16 +204,17 @@ func (rh *RuleTasksHandler) handleRuleTaskMessage(message *messagebus.Message) {
 	}
 }
 
+// commitMessage commits a Kafka message with proper error handling
 func (rh *RuleTasksHandler) commitMessage(logger logging.Logger, message *messagebus.Message) error {
 	commitCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	if err := rh.ruleTaskConsumer.Commit(commitCtx, message); err != nil {
-		logger.Errorw("RULE TASK HANDLER - kafka commit failed", "error", err, "topic", message.Topic, "partition", message.Partition, "offset", message.Offset)
+		logger.Errorw("RULE TASK HANDLER - Kafka commit failed", "error", err, "topic", message.Topic, "partition", message.Partition, "offset", message.Offset)
 		return err
 	}
 
-	logger.Debugw("RULE TASk HANDLER - Message committed successfully", "topic", message.Topic, "partition", message.Partition, "offset", message.Offset)
+	logger.Debugw("RULE TASK HANDLER - Message committed successfully", "topic", message.Topic, "partition", message.Partition, "offset", message.Offset)
 	return nil
 }
 

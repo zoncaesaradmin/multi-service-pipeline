@@ -126,7 +126,7 @@ clean:
 	@rm -rf $(BINARY_DIR)
 	@rm -f $(COVERAGE_OUT) $(COVERAGE_HTML)
 	@rm -f *.log
-	@rm -rf ../../../../client/golang/src/telemetry/utils/alert/alert.pb.go
+	#@rm -rf ../../../../client/golang/src/telemetry/utils/alert/alert.pb.go
 	@rm -rf tmp/ temp/
 	@find . -name "*.test" -type f -delete
 	@find . -name "*.out" -type f -delete

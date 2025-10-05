@@ -1,6 +1,9 @@
 package extapi
 
 import (
+	"encoding/json"
+	"sharedgomodule/logging"
+	"strconv"
 	"strings"
 	"telemetry/utils/alert"
 	relib "telemetry/utils/ruleenginelib"
@@ -20,6 +23,11 @@ func NeedsRuleProcessing(aObj *alert.Alert) bool {
 	// Placeholder for actual logic to determine if a record needs rule processing
 	// This function should return true if the record requires rule processing,
 	// and false otherwise.
+
+	if strings.EqualFold(aObj.AlertType, "advisory") {
+		// skip rule lookup for advisories as there is no such support so far
+		return false
+	}
 	return true
 }
 
@@ -62,4 +70,48 @@ func ConvertAlertObjectToRuleEngineInput(aObj *alert.Alert) map[string]any {
 		}
 	}
 	return reInput
+}
+
+func getSeverityInt(doc map[string]interface{}, key string) (int, bool) {
+	if val, exists := doc[key]; exists {
+		switch v := val.(type) {
+		case int:
+			return v, true
+		case int64:
+			return int(v), true // Convert int64 to int
+		case float64:
+			return int(v), true // Convert float64 to int (truncates decimals)
+		case string:
+			if i, err := strconv.Atoi(v); err == nil { // strconv.Atoi is for int
+				return i, true
+			}
+		}
+	}
+	return 0, false
+}
+
+func MapJSONToAlert(logger logging.Logger, doc map[string]interface{}, alertObj *alert.Alert) error {
+	rawSeveritInt, foundSeverity := getSeverityInt(doc, "severity")
+	docForUnmarshal := make(map[string]interface{})
+	for k, v := range doc {
+		if k != "severity" { // Copy all fields severity since it is int
+			docForUnmarshal[k] = v
+		}
+	}
+	jsonBytes, err := json.Marshal(docForUnmarshal)
+	if err != nil {
+		logger.Errorw("marshal of doc failed", "error", err)
+		return err
+	}
+	err = json.Unmarshal(jsonBytes, alertObj)
+	if err != nil {
+		logger.Errorw("Unmarshal to alertObj failed", "error", err)
+		return err
+	}
+	if foundSeverity {
+		if sevStr, ok := severityMap[rawSeveritInt]; ok {
+			alertObj.Severity = sevStr
+		}
+	}
+	return nil
 }

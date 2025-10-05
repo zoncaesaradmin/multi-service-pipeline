@@ -89,6 +89,7 @@ func NewRuleTasksHandler(logger logging.Logger, topic string, pconfig map[string
 		isLeader:                    false,
 		rlogger:                     logger,
 		metricsHelper:               metricHelper,
+		taskStore:                   NewTaskStore(logger), // Initialize task store
 		ruleTasksProdKafkaConfigMap: pconfig,
 		ruleTasksConsKafkaConfigMap: cconfig,
 		dbRecordHandler:             drh,
@@ -104,9 +105,17 @@ func (rh *RuleTasksHandler) Start() error {
 	// Create context for cancellation
 	rh.ctx, rh.cancel = context.WithCancel(context.Background())
 
+	// Initialize task store
+	if err := rh.taskStore.Initialize(rh.ctx); err != nil {
+		rh.rlogger.Errorw("Failed to initialize task store", "error", err)
+		// Continue without task store
+	}
+
 	if err := rh.initializeRuleTaskHandling(); err != nil {
 		return err
 	}
+
+	rh.dbRecordHandler.Start()
 
 	return nil
 }
@@ -212,6 +221,10 @@ func (rh *RuleTasksHandler) handlePartitionRevocation(revoked []messagebus.Parti
 	}
 }
 
+func (rh *RuleTasksHandler) DistributeRuleTask(l logging.Logger, traceID string, eventType string, rule *relib.RuleDefinition, oldRule *relib.RuleDefinition) bool {
+	return true
+}
+
 func (rh *RuleTasksHandler) GetStats() map[string]interface{} {
 	return map[string]interface{}{
 		"status":         "running",
@@ -242,37 +255,11 @@ func (rh *RuleTasksHandler) SetLeader(isLeader bool) {
 	}
 }
 
-func (rh *RuleTasksHandler) DistributeRuleTask(l logging.Logger, traceID string, eventType string, rule *relib.RuleDefinition, oldRule *relib.RuleDefinition) bool {
-	/*
-		taskBytes, err := json.Marshal(res)
-		if err != nil {
-			l.Errorw("RULE HANDLER - Failed to marshal task data", "error", err)
-			return false
-		}
-		out := &messagebus.Message{
-			Topic: rh.ruleTasksTopic,
-			Value: taskBytes,
-			Headers: map[string]string{
-				utils.TraceIDHeader: traceID,
-			},
-		}
-
-		ctx, cancel := context.WithTimeout(rh.ctx, 5*time.Second)
-		defer cancel()
-
-		if _, _, err := rh.ruleTaskProducer.Send(ctx, out); err != nil {
-			l.Errorw("RULE HANDLER - Failed to send rule task message", "error", err)
-			return false
-		}
-	*/
-	return true
-}
-
 func (rh *RuleTasksHandler) periodicRuleTaskChecker(ctx context.Context) {
 
 	select {
 	case <-time.After(TaskCheckerInitInterval):
-		rh.processPendingTasks()
+		rh.processPendingTasks(ctx)
 	case <-ctx.Done():
 		rh.rlogger.Info("periodic rule task checker is cancelled before work started")
 	}
@@ -286,11 +273,10 @@ func (rh *RuleTasksHandler) periodicRuleTaskChecker(ctx context.Context) {
 			rh.rlogger.Info("periodic rule task checker is cancelled")
 			return
 		case <-ticker.C:
-			rh.processPendingTasks()
+			rh.processPendingTasks(ctx)
 		}
 	}
 }
 
-func (rh *RuleTasksHandler) processPendingTasks() {
-	// add handling to fetch rule tasks from DB and generate tasks into rule tasks topic
+func (rh *RuleTasksHandler) processPendingTasks(ctx context.Context) {
 }

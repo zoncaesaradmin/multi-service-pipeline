@@ -562,3 +562,69 @@ func (mc *MetricsCollector) GetRecentEvents(limit int) []*MetricEvent {
 
 	return events
 }
+
+// Timer creates a simple timer that tracks duration when called
+func (mc *MetricsCollector) Timer(name string, labels ...map[string]string) func() {
+	start := time.Now()
+	combinedLabels := combineLabels(labels...)
+
+	return func() {
+		duration := time.Since(start)
+		mc.SendMetric(&MetricEvent{
+			Type:      MetricTypeTiming,
+			Name:      name,
+			Value:     float64(duration.Milliseconds()),
+			Labels:    combinedLabels,
+			Timestamp: time.Now(),
+			Duration:  duration,
+		})
+	}
+}
+
+// Counter increments a counter metric
+func (mc *MetricsCollector) Counter(name string, value float64, labels ...map[string]string) {
+	mc.SendMetric(&MetricEvent{
+		Type:      MetricTypeGauge,
+		Name:      name,
+		Value:     value,
+		Labels:    combineLabels(labels...),
+		Timestamp: time.Now(),
+	})
+}
+
+// Counter increments a counter metric
+func (mc *MetricsCollector) Gauge(name string, value float64, labels ...map[string]string) {
+	mc.SendMetric(&MetricEvent{
+		Type:      MetricTypeGauge,
+		Name:      name,
+		Value:     value,
+		Labels:    combineLabels(labels...),
+		Timestamp: time.Now(),
+	})
+}
+
+// Helper function to combine multiple label maps
+func combineLabels(labelMaps ...map[string]string) map[string]string {
+	if len(labelMaps) == 0 {
+		return make(map[string]string)
+	}
+	if len(labelMaps) == 1 {
+		if labelMaps[0] == nil {
+			return make(map[string]string)
+		}
+		// Make a copy to avoid mutations
+		result := make(map[string]string)
+		for k, v := range labelMaps[0] {
+			result[k] = v
+		}
+		return result
+	}
+
+	result := make(map[string]string)
+	for _, labelMap := range labelMaps {
+		for k, v := range labelMap {
+			result[k] = v
+		}
+	}
+	return result
+}

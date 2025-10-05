@@ -222,6 +222,16 @@ func (rh *RuleEngineHandler) processRuleEvent(l logging.Logger, traceID string, 
 		"oldRulesCount", len(oldRules))
 
 	if rh.ruleTaskHandler.Leader() {
+		operationLabels := map[string]string{
+			"event_type":    res.RuleEvent,
+			"rule_count":    fmt.Sprintf("%d", len(res.Rules)),
+			"trace_id":      traceID,
+			"has_old_rules": fmt.Sprintf("%v", len(oldRules) > 0),
+		}
+		if rh.metricsHelper != nil && rh.metricsHelper.GetCollector() != nil {
+			defer rh.metricsHelper.GetCollector().Timer("flow1_rule_event_processing", operationLabels)()
+		}
+
 		for _, rule := range res.Rules {
 			// rule event can have multiple rules, treat each rule as one task
 			// For CREATE operations, proceed even if no old rule (new rule creation)

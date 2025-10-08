@@ -39,7 +39,7 @@ func main() {
 import "sharedgomodule/logging"
 
 func main() {
-    logger := logging.NewLogger(logging.DefaultConfig())
+    logger := logging.NewLogger(logging.DefaultLoggerConfig())
     logger.Info("Using default configuration")
 }
 ```
@@ -123,7 +123,7 @@ func setupLogger() logging.Logger {
             Writer: os.Stderr,
         }
     default:
-        config = logging.DefaultConfig()
+        config = logging.DefaultLoggerConfig()
     }
     
     return logging.NewLogger(config)

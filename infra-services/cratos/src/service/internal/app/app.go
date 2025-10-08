@@ -37,7 +37,7 @@ func NewApplication(cfg *config.RawConfig, logger logging.Logger) *Application {
 	metricsCollector := metrics.NewMetricsCollector(logger.WithField("component", "metrics"), metricsConfig)
 
 	// Create processing pipeline with configuration from config file
-	processingConfig := processing.DefaultConfig(cfg)
+	processingConfig := processing.DefaultProcConfig(cfg)
 	processingPipeline := processing.NewPipeline(processingConfig, logger.WithField("component", "processing"), metricsCollector)
 
 	return &Application{

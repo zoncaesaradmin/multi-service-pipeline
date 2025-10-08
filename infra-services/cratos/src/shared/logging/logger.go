@@ -44,7 +44,7 @@ func (l Level) String() string {
 	}
 }
 
-// convertLogLevel converts a string log level to logging.Level
+// ConvertToLogLevel converts a string log level to logging.Level
 func ConvertToLogLevel(levelStr string) Level {
 	switch strings.ToLower(levelStr) {
 	case "debug":
@@ -140,8 +140,8 @@ type LoggerConfig struct {
 	ServiceName   string // Service name for structured logging
 }
 
-// DefaultConfig returns the default logger configuration
-func DefaultConfig() *LoggerConfig {
+// DefaultLoggerConfig returns the default logger configuration
+func DefaultLoggerConfig() *LoggerConfig {
 	return &LoggerConfig{
 		Level:         InfoLevel,
 		FilePath:      "/tmp/app.log", // Default file path only
@@ -169,7 +169,7 @@ func (c *LoggerConfig) Validate() error {
 // This is a factory function that creates the default implementation (zerolog)
 func NewLogger(config *LoggerConfig) (Logger, error) {
 	if config == nil {
-		config = DefaultConfig()
+		config = DefaultLoggerConfig()
 	}
 
 	// Validate configuration

@@ -157,33 +157,33 @@ func TestLoggerConfigValidate(t *testing.T) {
 	}
 }
 
-func TestDefaultConfig(t *testing.T) {
-	config := DefaultConfig()
+func TestDefaultLoggerConfig(t *testing.T) {
+	config := DefaultLoggerConfig()
 
 	// Test all fields of default config
 	if config.Level != InfoLevel {
-		t.Errorf("DefaultConfig() Level = %v, want %v", config.Level, InfoLevel)
+		t.Errorf("DefaultLoggerConfig() Level = %v, want %v", config.Level, InfoLevel)
 	}
 
 	if config.LoggerName != "default" {
-		t.Errorf("DefaultConfig() LoggerName = %v, want %v", config.LoggerName, "default")
+		t.Errorf("DefaultLoggerConfig() LoggerName = %v, want %v", config.LoggerName, "default")
 	}
 
 	if config.ComponentName != "application" {
-		t.Errorf("DefaultConfig() ComponentName = %v, want %v", config.ComponentName, "application")
+		t.Errorf("DefaultLoggerConfig() ComponentName = %v, want %v", config.ComponentName, "application")
 	}
 
 	if config.ServiceName != "service" {
-		t.Errorf("DefaultConfig() ServiceName = %v, want %v", config.ServiceName, "service")
+		t.Errorf("DefaultLoggerConfig() ServiceName = %v, want %v", config.ServiceName, "service")
 	}
 
 	if config.FilePath != "/tmp/app.log" {
-		t.Errorf("DefaultConfig() FilePath = %v, want %v", config.FilePath, "/tmp/app.log")
+		t.Errorf("DefaultLoggerConfig() FilePath = %v, want %v", config.FilePath, "/tmp/app.log")
 	}
 
 	// Test that default config is valid
 	if err := config.Validate(); err != nil {
-		t.Errorf("DefaultConfig() produced invalid config: %v", err)
+		t.Errorf("DefaultLoggerConfig() produced invalid config: %v", err)
 	}
 }
 

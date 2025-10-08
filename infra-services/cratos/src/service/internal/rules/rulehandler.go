@@ -49,7 +49,9 @@ type RuleEngineHandler struct {
 	ruleTaskHandler *tasks.RuleTasksHandler
 }
 
-func NewRuleHandler(config RuleEngineConfig, logger logging.Logger, inputSink chan<- *models.ChannelMessage, metricHelper *metrics.MetricsHelper) *RuleEngineHandler {
+func NewRuleHandler(config RuleEngineConfig, logger logging.Logger,
+	inputSink chan<- *models.ChannelMessage, metricHelper *metrics.MetricsHelper) *RuleEngineHandler {
+
 	// use simple filename - path resolution is handled by messagebus config loader
 	consumer := messagebus.NewConsumer(config.RulesKafkaConfigMap, "ruleConsGroup"+utils.GetEnv("HOSTNAME", ""))
 
@@ -68,7 +70,8 @@ func NewRuleHandler(config RuleEngineConfig, logger logging.Logger, inputSink ch
 		rlogger = logger
 	}
 
-	rth := tasks.NewRuleTasksHandler(rlogger, config.RuleTasksTopic, config.RuleTasksProdKafkaConfigMap, config.RuleTasksConsKafkaConfigMap, inputSink, metricHelper)
+	rth := tasks.NewRuleTasksHandler(rlogger, config.RuleTasksTopic,
+		config.RuleTasksProdKafkaConfigMap, config.RuleTasksConsKafkaConfigMap, inputSink, metricHelper)
 	h := &RuleEngineHandler{
 		ruleTaskHandler: rth,
 		ruleconsumer:    consumer,
@@ -189,7 +192,8 @@ func (rh *RuleEngineHandler) handleRuleMessage(message *messagebus.Message) {
 	if err != nil {
 		msgLogger.Errorw("RULE HANDLER - Failed to handle rule event", "error", err)
 	} else if res != nil && len(res.Rules) > 0 {
-		msgLogger.Debugw("RULE HANDLER - Successfully handled rule event", "result", res, "oldRulesCount", len(oldRuleDefinitions))
+		msgLogger.Debugw("RULE HANDLER - Successfully handled rule event",
+			"result", res, "oldRulesCount", len(oldRuleDefinitions))
 		rh.processRuleEvent(msgLogger, traceID, res, oldRuleDefinitions)
 	}
 
@@ -260,7 +264,9 @@ func (rh *RuleEngineHandler) processRuleEvent(l logging.Logger, traceID string, 
 }
 
 // distributeRuleTask distributes rule task with old rule definitions included
-func (rh *RuleEngineHandler) distributeRuleTask(l logging.Logger, traceID string, eventType string, rule *relib.RuleDefinition, oldRule *relib.RuleDefinition) bool {
+func (rh *RuleEngineHandler) distributeRuleTask(l logging.Logger, traceID string,
+	eventType string, rule *relib.RuleDefinition, oldRule *relib.RuleDefinition) bool {
+
 	// Check if this rule change actually requires database processing
 	if !rh.shouldDistributeTask(eventType, rule) {
 		l.Debugw("RULE HANDLER - Skipping task distribution",
@@ -280,7 +286,9 @@ func (rh *RuleEngineHandler) GetStatus() map[string]interface{} {
 	}
 }
 
-func (rh *RuleEngineHandler) ApplyRuleToRecord(l logging.Logger, aObj *alert.Alert, origin models.ChannelMessageOrigin) (*alert.Alert, error) {
+func (rh *RuleEngineHandler) ApplyRuleToRecord(l logging.Logger, aObj *alert.Alert,
+	origin models.ChannelMessageOrigin) (*alert.Alert, error) {
+
 	if !eapi.NeedsRuleProcessing(aObj) {
 		l.WithField("recId", eapi.RecordIdentifier(aObj)).Infof("RECORD PROC - skipped rule lookup")
 		return aObj, nil
@@ -288,21 +296,24 @@ func (rh *RuleEngineHandler) ApplyRuleToRecord(l logging.Logger, aObj *alert.Ale
 
 	convStartTime := time.Now()
 	convRecord := eapi.ConvertAlertObjectToRuleEngineInput(aObj)
-	l.WithField("recId", eapi.RecordIdentifier(aObj)).Debugw("RECORD PROC - after conversion", "convertedData", convRecord, "timeTaken", fmt.Sprintf("%v", time.Since(convStartTime)))
+	l.WithField("recId", eapi.RecordIdentifier(aObj)).Debugw("RECORD PROC - after conversion",
+		"convertedData", convRecord, "timeTaken", fmt.Sprintf("%v", time.Since(convStartTime)))
 
 	lookupStartTime := time.Now()
 	lookupResult := rh.reInst.EvaluateRules(relib.Data(convRecord))
 	if rh.metricsHelper != nil {
 		rh.metricsHelper.RecordStageLatency(time.Since(lookupStartTime), "rule_lookup")
-		rh.metricsHelper.RecordCounter("criteria.count", float64(lookupResult.CritCount), map[string]string{
-			"hit": fmt.Sprintf("%v", lookupResult.IsRuleHit),
-		})
+		rh.metricsHelper.RecordCounter("criteria.count",
+			float64(lookupResult.CritCount), map[string]string{
+				"hit": fmt.Sprintf("%v", lookupResult.IsRuleHit),
+			})
 	}
 	lookupTimeTaken := time.Since(lookupStartTime)
 	if rh.metricsHelper != nil {
 		rh.metricsHelper.RecordStageCompleted(nil, lookupTimeTaken)
 	}
-	l.WithField("recId", eapi.RecordIdentifier(aObj)).Debugw("RECORD PROC - post lookup", "lookupResult", lookupResult, "timeTaken", fmt.Sprintf("%v", lookupTimeTaken), "origin", origin)
+	l.WithField("recId", eapi.RecordIdentifier(aObj)).Debugw("RECORD PROC - post lookup",
+		"lookupResult", lookupResult, "timeTaken", fmt.Sprintf("%v", lookupTimeTaken), "origin", origin)
 
 	if lookupResult.IsRuleHit {
 		rh.handleRuleHit(l, aObj, lookupResult)

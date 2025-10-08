@@ -44,7 +44,7 @@ type RuleTasksHandler struct {
 	// Metrics
 	totalProcessed int64
 	totalFailed    int64
-	metricsMutex   sync.RWMutex
+	countersMutex  sync.RWMutex
 }
 
 type taskJob struct {
@@ -135,10 +135,10 @@ func (rh *RuleTasksHandler) Stop() error {
 	return nil
 }
 
-// GetTaskMetrics returns current task processing metrics
-func (rh *RuleTasksHandler) GetTaskMetrics() TaskCounters {
-	rh.metricsMutex.RLock()
-	defer rh.metricsMutex.RUnlock()
+// GetTaskCounters returns current task processing metrics
+func (rh *RuleTasksHandler) GetTaskCounters() TaskCounters {
+	rh.countersMutex.RLock()
+	defer rh.countersMutex.RUnlock()
 
 	return TaskCounters{
 		TotalProcessed: rh.totalProcessed,
@@ -148,16 +148,16 @@ func (rh *RuleTasksHandler) GetTaskMetrics() TaskCounters {
 
 // IncrementProcessedCount increments the processed task count
 func (rh *RuleTasksHandler) IncrementProcessedCount() {
-	rh.metricsMutex.Lock()
-	defer rh.metricsMutex.Unlock()
+	rh.countersMutex.Lock()
+	defer rh.countersMutex.Unlock()
 
 	rh.totalProcessed++
 }
 
 // IncrementFailedCount increments the failed task count
 func (rh *RuleTasksHandler) IncrementFailedCount() {
-	rh.metricsMutex.Lock()
-	defer rh.metricsMutex.Unlock()
+	rh.countersMutex.Lock()
+	defer rh.countersMutex.Unlock()
 
 	rh.totalFailed++
 }

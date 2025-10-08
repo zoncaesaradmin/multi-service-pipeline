@@ -98,7 +98,8 @@ func (p *Processor) processMessage(message *models.ChannelMessage) error {
 		msgLogger = utils.WithTraceLogger(p.logger, message.Context)
 	}
 
-	msgLogger.Debugw("Processing message", "type", message.Type, "size", len(message.Data))
+	msgLogger.Debugw("Processing message",
+		"type", message.Type, "size", len(message.Data))
 
 	// Update processing stage
 	message.ProcessStartTime = startTime
@@ -160,10 +161,12 @@ func (p *Processor) processMessage(message *models.ChannelMessage) error {
 	// Record rule applying metrics
 	if p.metricsHelper != nil {
 		if ruleApplyErrors > 0 {
-			p.metricsHelper.RecordCounter("rule.apply.erroredrecords", float64(ruleApplyErrors), map[string]string{"type": "applying_failed"})
+			p.metricsHelper.RecordCounter("rule.apply.erroredrecords",
+				float64(ruleApplyErrors), map[string]string{"type": "applying_failed"})
 		}
 		p.metricsHelper.RecordCounter("rule.msg.records", float64(recordCountInMsg), nil)
-		p.metricsHelper.RecordCounter("rule.appliedrecords", float64(recordCountInMsg-ruleApplyErrors), nil)
+		p.metricsHelper.RecordCounter("rule.appliedrecords",
+			float64(recordCountInMsg-ruleApplyErrors), nil)
 	}
 
 	if len(outAlerts) > 0 {

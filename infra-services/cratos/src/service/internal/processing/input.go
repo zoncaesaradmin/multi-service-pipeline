@@ -145,8 +145,8 @@ func (i *InputHandler) Stop() error {
 	return nil
 }
 
-// GetStats returns statistics about the input handler
-func (i *InputHandler) GetStats() map[string]interface{} {
+// GetStatus returns statistics about the input handler
+func (i *InputHandler) GetStatus() map[string]interface{} {
 	return map[string]interface{}{
 		"status":              "running",
 		"topics":              i.config.Topics,

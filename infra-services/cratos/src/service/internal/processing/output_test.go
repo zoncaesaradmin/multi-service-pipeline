@@ -81,7 +81,7 @@ func TestOutputHandlerStartSuccess(t *testing.T) {
 	}
 
 	// Test that the handler state shows it's running
-	stats := handler.GetStats()
+	stats := handler.GetStatus()
 	if stats["status"] != "running" {
 		t.Errorf("Expected handler status to be 'running', got %v", stats["status"])
 	}

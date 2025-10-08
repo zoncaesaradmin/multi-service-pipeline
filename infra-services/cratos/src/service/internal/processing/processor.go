@@ -231,7 +231,7 @@ func (p *Processor) processMessage(message *models.ChannelMessage) error {
 	return nil
 }
 
-func (p *Processor) GetStats() map[string]interface{} {
+func (p *Processor) GetStatus() map[string]interface{} {
 	return map[string]interface{}{
 		"status":           "running",
 		"batch_size":       p.config.BatchSize,

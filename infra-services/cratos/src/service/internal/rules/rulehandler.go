@@ -272,7 +272,7 @@ func (rh *RuleEngineHandler) distributeRuleTask(l logging.Logger, traceID string
 	return rh.ruleTaskHandler.DistributeRuleTask(l, traceID, eventType, rule, oldRule)
 }
 
-func (rh *RuleEngineHandler) GetStats() map[string]interface{} {
+func (rh *RuleEngineHandler) GetStatus() map[string]interface{} {
 	return map[string]interface{}{
 		"status":       "running",
 		"rulesTopic":   rh.config.RulesTopic,

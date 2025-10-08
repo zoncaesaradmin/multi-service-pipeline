@@ -182,7 +182,7 @@ func TestNewOutputHandler(t *testing.T) {
 	}
 }
 
-func TestProcessorGetStats(t *testing.T) {
+func TestProcessorGetStatus(t *testing.T) {
 	testLogFile := "/tmp/test.log"
 	config := ProcessorConfig{
 		ProcessingDelay: 10 * time.Millisecond,
@@ -215,7 +215,7 @@ func TestProcessorGetStats(t *testing.T) {
 
 	processor := NewProcessor(config, logger, inputCh, outputCh, inputCh, nil, nil)
 
-	stats := processor.GetStats()
+	stats := processor.GetStatus()
 	if stats == nil {
 		t.Error("Expected stats to be returned")
 	}
@@ -231,7 +231,7 @@ func TestProcessorGetStats(t *testing.T) {
 	}
 }
 
-func TestOutputHandlerGetStats(t *testing.T) {
+func TestOutputHandlerGetStatus(t *testing.T) {
 	config := OutputConfig{
 		OutputTopic:       "output-topic",
 		BatchSize:         10,
@@ -242,7 +242,7 @@ func TestOutputHandlerGetStats(t *testing.T) {
 
 	handler := NewOutputHandler(config, logger, nil)
 
-	stats := handler.GetStats()
+	stats := handler.GetStatus()
 	if stats == nil {
 		t.Error("Expected stats to be returned")
 	}

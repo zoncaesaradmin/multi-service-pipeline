@@ -3,6 +3,7 @@ package logging
 import (
 	"context"
 	"fmt"
+	"strings"
 )
 
 // Level represents the logging level
@@ -40,6 +41,26 @@ func (l Level) String() string {
 		return "PANIC"
 	default:
 		return "UNKNOWN"
+	}
+}
+
+// convertLogLevel converts a string log level to logging.Level
+func ConvertToLogLevel(levelStr string) Level {
+	switch strings.ToLower(levelStr) {
+	case "debug":
+		return DebugLevel
+	case "info":
+		return InfoLevel
+	case "warn":
+		return WarnLevel
+	case "error":
+		return ErrorLevel
+	case "fatal":
+		return FatalLevel
+	case "panic":
+		return PanicLevel
+	default:
+		return InfoLevel // Default to info if invalid level
 	}
 }
 

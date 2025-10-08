@@ -206,7 +206,7 @@ func TestConsumeLoopForwardsMessageAndCommits(t *testing.T) {
 	}
 }
 
-func TestGetStatsReturnsCorrectValues(t *testing.T) {
+func TestGetStatusReturnsCorrectValues(t *testing.T) {
 	config := InputConfig{
 		Topics:            []string{topic1, topic2},
 		PollTimeout:       3 * time.Second,
@@ -215,7 +215,7 @@ func TestGetStatsReturnsCorrectValues(t *testing.T) {
 	}
 	logger := &mockLogger{}
 	handler := NewInputHandler(config, logger, nil)
-	stats := handler.GetStats()
+	stats := handler.GetStatus()
 	if stats["status"] != "running" {
 		t.Errorf("Expected status 'running', got %v", stats["status"])
 	}

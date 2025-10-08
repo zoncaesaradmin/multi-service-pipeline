@@ -14,7 +14,7 @@ import (
 const (
 	// Test constants
 	testHealthPath    = "/health"
-	testStatsPath     = "/api/v1/stats"
+	testStatusPath    = "/api/v1/status"
 	testConfigPath    = "/api/v1/config/"
 	contentTypeHeader = "Content-Type"
 	jsonContentType   = "application/json"
@@ -97,22 +97,22 @@ func TestHealthCheck(t *testing.T) {
 	}
 }
 
-func TestGetStats(t *testing.T) {
+func TestGetStatus(t *testing.T) {
 	logger := &mockLogger{}
 	handler := NewHandler(logger, nil, nil)
-	req := httptest.NewRequest(http.MethodGet, testStatsPath, nil)
+	req := httptest.NewRequest(http.MethodGet, testStatusPath, nil)
 	rr := httptest.NewRecorder()
 
-	handler.GetStats(rr, req)
+	handler.GetStatus(rr, req)
 
 	// Check status code
 	if rr.Code != http.StatusOK {
-		t.Errorf("GetStats() status = %d, want %d", rr.Code, http.StatusOK)
+		t.Errorf("GetStatus() status = %d, want %d", rr.Code, http.StatusOK)
 	}
 
 	// Check Content-Type
 	if contentType := rr.Header().Get(contentTypeHeader); contentType != jsonContentType {
-		t.Errorf("GetStats() Content-Type = %q, want %q", contentType, jsonContentType)
+		t.Errorf("GetStatus() Content-Type = %q, want %q", contentType, jsonContentType)
 	}
 
 	// Parse and validate JSON response
@@ -122,7 +122,7 @@ func TestGetStats(t *testing.T) {
 	}
 
 	if response.Message != MsgStatsRetrieved {
-		t.Errorf("GetStats() message = %q, want %q", response.Message, MsgStatsRetrieved)
+		t.Errorf("GetStatus() message = %q, want %q", response.Message, MsgStatsRetrieved)
 	}
 }
 
@@ -149,33 +149,6 @@ func TestWriteJSON(t *testing.T) {
 	}
 }
 
-func TestHealthCheckOPTIONS(t *testing.T) {
-	logger := &mockLogger{}
-	handler := NewHandler(logger, nil, nil)
-	req := httptest.NewRequest(http.MethodOptions, testHealthPath, nil)
-	rr := httptest.NewRecorder()
-
-	handler.HealthCheck(rr, req)
-
-	// Check status code for OPTIONS
-	if rr.Code != http.StatusNoContent {
-		t.Errorf("HealthCheck OPTIONS status = %d, want %d", rr.Code, http.StatusNoContent)
-	}
-
-	// Check CORS headers
-	expectedHeaders := map[string]string{
-		"Access-Control-Allow-Origin":      "*",
-		"Access-Control-Allow-Credentials": "true",
-		"Access-Control-Allow-Methods":     "POST, OPTIONS, GET, PUT, DELETE",
-	}
-
-	for header, expectedValue := range expectedHeaders {
-		if got := rr.Header().Get(header); got != expectedValue {
-			t.Errorf("HealthCheck CORS header %s = %q, want %q", header, got, expectedValue)
-		}
-	}
-}
-
 func TestSetupRoutes(t *testing.T) {
 	logger := &mockLogger{}
 	handler := NewHandler(logger, nil, nil)
@@ -190,7 +163,7 @@ func TestSetupRoutes(t *testing.T) {
 		expectedStatus int
 	}{
 		{testHealthPath, http.StatusOK},
-		{testStatsPath, http.StatusOK},
+		{testStatusPath, http.StatusOK},
 		{testConfigPath, http.StatusOK},
 	}
 
@@ -244,31 +217,6 @@ func TestHandleConfigs(t *testing.T) {
 
 		if len(data) != 0 {
 			t.Errorf("HandleConfigs GET data length = %d, want %d", len(data), 0)
-		}
-	})
-
-	t.Run("OPTIONS request", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodOptions, testConfigPath, nil)
-		rr := httptest.NewRecorder()
-
-		handler.HandleConfigs(rr, req)
-
-		// Check status code for OPTIONS
-		if rr.Code != http.StatusNoContent {
-			t.Errorf("HandleConfigs OPTIONS status = %d, want %d", rr.Code, http.StatusNoContent)
-		}
-
-		// Check CORS headers
-		expectedHeaders := map[string]string{
-			"Access-Control-Allow-Origin":      "*",
-			"Access-Control-Allow-Credentials": "true",
-			"Access-Control-Allow-Methods":     "POST, OPTIONS, GET, PUT, DELETE",
-		}
-
-		for header, expectedValue := range expectedHeaders {
-			if got := rr.Header().Get(header); got != expectedValue {
-				t.Errorf("HandleConfigs CORS header %s = %q, want %q", header, got, expectedValue)
-			}
 		}
 	})
 

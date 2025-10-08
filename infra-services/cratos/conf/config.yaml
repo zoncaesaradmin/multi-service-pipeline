@@ -73,36 +73,4 @@ processing:
     fileName: "pipeline.log"     # Pipeline log file path (env: PROCESSING_PLOGGER_FILE_NAME)
     loggerName: "pipeline"       # Pipeline logger name identifier (env: PROCESSING_PLOGGER_LOGGER_NAME)
     serviceName: "cratos"        # Pipeline logger service name (env: PROCESSING_PLOGGER_SERVICE_NAME)
-
-# Configuration Notes:
-# 
-# 1. Environment Variable Override:
-#    All configuration values can be overridden using environment variables.
-#    The environment variable names are shown in comments above.
-#
-# 2. File Location and SERVICE_HOME:
-#    - The service requires SERVICE_HOME environment variable pointing to repository root
-#    - Configuration is loaded from: $SERVICE_HOME/conf/config.yaml
-#    - If no config file is found, the service will fail to start
-#    - Environment variables can override any configuration value
-#
-# 3. Development vs Production:
-#    - For local development, use: make run-local (sets SERVICE_HOME automatically)
-#    - For production, set SERVICE_HOME=/path/to/repo when running the binary
-#    - Consider using environment variables for sensitive data in production
-#    - Never commit production passwords or secrets to version control
-#
-# 4. Message Bus Configuration:
-#    - Message bus settings are currently configured in code
-#    - Future versions may move message bus config to this file
-#
-# 5. Processing Pipeline:
-#    - Processing pipeline settings are now configurable through this file
-#    - All processing delays, batch sizes, and buffer sizes can be customized
-#    - Topic names and timeouts are also configurable
-#    - Environment variables can override any processing configuration value
-#    - Pipeline logger is separate from main application logger:
-#      * Main logger logs application-level events (startup, shutdown, API requests)
-#      * Pipeline logger logs processing-specific events (message processing, pipeline stats)
-#      * Both loggers can have different log levels and output files
-#      * This separation helps with debugging and monitoring specific to data processing
+    

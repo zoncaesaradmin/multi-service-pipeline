@@ -62,7 +62,7 @@ func (h *Handler) SetupRoutes(mux *http.ServeMux) {
 	// Health check
 	mux.HandleFunc("/health", h.HealthCheck)
 
-	mux.HandleFunc("/api/v1/stats", h.GetStats)
+	mux.HandleFunc("/api/v1/status", h.GetStatus)
 	mux.HandleFunc("/api/v1/config/", h.HandleConfigs)
 
 	// Add metrics routes if metrics collector is available
@@ -84,29 +84,10 @@ func writeJSON(w http.ResponseWriter, status int, data interface{}) {
 	json.NewEncoder(w).Encode(data)
 }
 
-// corsMiddleware handles CORS headers
-func (h *Handler) corsMiddleware(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Credentials", "true")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
-	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
-
-	if r.Method == "OPTIONS" {
-		w.WriteHeader(http.StatusNoContent)
-		return
-	}
-}
-
 // HealthCheck handles health check requests
 func (h *Handler) HealthCheck(w http.ResponseWriter, r *http.Request) {
 	h.logger.Infow("HealthCheck handler entry", "method", r.Method, "path", r.URL.Path, "remote_addr", r.RemoteAddr)
 	defer h.logger.Infow("HealthCheck handler exit", "method", r.Method, "path", r.URL.Path)
-
-	// Apply CORS middleware
-	h.corsMiddleware(w, r)
-	if r.Method == "OPTIONS" {
-		return
-	}
 
 	health := &models.HealthResponse{
 		Status:    "healthy",
@@ -116,14 +97,14 @@ func (h *Handler) HealthCheck(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, health)
 }
 
-// GetStats handles statistics requests
-func (h *Handler) GetStats(w http.ResponseWriter, r *http.Request) {
-	h.logger.Infow("GetStats handler entry", "method", r.Method, "path", r.URL.Path, "remote_addr", r.RemoteAddr)
-	defer h.logger.Infow("GetStats handler exit", "method", r.Method, "path", r.URL.Path)
+// GetStatus handles status requests
+func (h *Handler) GetStatus(w http.ResponseWriter, r *http.Request) {
+	h.logger.Infow("GetStaus handler entry", "method", r.Method, "path", r.URL.Path, "remote_addr", r.RemoteAddr)
+	defer h.logger.Infow("GetStatus handler exit", "method", r.Method, "path", r.URL.Path)
 
 	var stats map[string]interface{}
 	if h.pipeline != nil {
-		stats = h.pipeline.GetStats()
+		stats = h.pipeline.GetStatus()
 	} else {
 		stats = map[string]interface{}{
 			"error": "pipeline not initialized",
@@ -136,7 +117,7 @@ func (h *Handler) GetStats(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// GetStats handles statistics requests
+// GetStatus handles status requests
 func (h *Handler) GetRules(w http.ResponseWriter, r *http.Request) {
 	h.logger.Infow("GetRules handler entry", "method", r.Method, "path", r.URL.Path, "remote_addr", r.RemoteAddr)
 	defer h.logger.Infow("GetRules handler exit", "method", r.Method, "path", r.URL.Path)
@@ -158,12 +139,6 @@ func (h *Handler) GetRules(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) HandleConfigs(w http.ResponseWriter, r *http.Request) {
 	h.logger.Infow("HandleConfigs handler entry", "method", r.Method, "path", r.URL.Path, "remote_addr", r.RemoteAddr)
 	defer h.logger.Infow("HandleConfigs handler exit", "method", r.Method, "path", r.URL.Path)
-
-	// Apply CORS middleware
-	h.corsMiddleware(w, r)
-	if r.Method == "OPTIONS" {
-		return
-	}
 
 	switch r.Method {
 	case "GET":

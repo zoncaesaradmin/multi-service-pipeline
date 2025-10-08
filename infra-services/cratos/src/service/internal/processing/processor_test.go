@@ -129,7 +129,7 @@ func TestProcessorStatsRetrieval(t *testing.T) {
 
 	processor := NewProcessor(config, logger, inputCh, outputCh, inputCh, nil, nil)
 
-	stats := processor.GetStats()
+	stats := processor.GetStatus()
 	if stats == nil {
 		t.Error("Expected stats to be non-nil")
 	}

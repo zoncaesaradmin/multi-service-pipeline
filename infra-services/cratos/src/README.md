@@ -100,7 +100,7 @@ src/                          # Source code root
 - **Processing Pipeline**: Input → Processor → Output pipeline with message bus integration
 - **Configurable Processing**: Customizable processing delays and batch sizes
 - **Health Check API**: HTTP endpoint for service monitoring (`/health`)
-- **Stats API**: Service statistics endpoint (`/api/v1/stats`)
+- **Status API**: Service status endpoint (`/api/v1/status`)
 - **Graceful Shutdown**: Clean shutdown with processing pipeline cleanup
 - **Structured Logging**: JSON logging via zerolog with configurable levels
 - **Coverage Instrumentation**: Built-in coverage tracking for development
@@ -249,7 +249,7 @@ go build
 The service still provides HTTP endpoints for monitoring:
 
 - **GET** `/health` - Service health status
-- **GET** `/api/v1/stats` - Processing statistics
+- **GET** `/api/v1/status` - Processing statistics
 
 ## Configuration
 

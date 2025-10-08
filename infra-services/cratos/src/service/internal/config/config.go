@@ -3,7 +3,6 @@ package config
 import (
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
 	"sharedgomodule/logging"
@@ -238,30 +237,10 @@ func overridePipelineLoggerConfig(plogger *RawLoggingConfig) {
 	}
 }
 
-// convertLogLevel converts a string log level to logging.Level
-func convertLogLevel(levelStr string) logging.Level {
-	switch strings.ToLower(levelStr) {
-	case "debug":
-		return logging.DebugLevel
-	case "info":
-		return logging.InfoLevel
-	case "warn":
-		return logging.WarnLevel
-	case "error":
-		return logging.ErrorLevel
-	case "fatal":
-		return logging.FatalLevel
-	case "panic":
-		return logging.PanicLevel
-	default:
-		return logging.InfoLevel // Default to info if invalid level
-	}
-}
-
 // ConvertLoggingConfig converts LoggingConfig to logging.LoggerConfig
 func (cfg RawLoggingConfig) ConvertToLoggerConfig() logging.LoggerConfig {
 	return logging.LoggerConfig{
-		Level:       convertLogLevel(cfg.Level),
+		Level:       logging.ConvertToLogLevel(cfg.Level),
 		FilePath:    cfg.FileName,
 		LoggerName:  cfg.LoggerName,
 		ServiceName: cfg.ServiceName,

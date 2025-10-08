@@ -109,12 +109,12 @@ func (p *Pipeline) Stop() error {
 	return nil
 }
 
-func (p *Pipeline) GetStats() map[string]interface{} {
+func (p *Pipeline) GetStatus() map[string]interface{} {
 	return map[string]interface{}{
 		"pipeline_status": "running",
-		"input_stats":     p.inputHandler.GetStats(),
-		"processor_stats": p.processor.GetStats(),
-		"output_stats":    p.outputHandler.GetStats(),
+		"input_stats":     p.inputHandler.GetStatus(),
+		"processor_stats": p.processor.GetStatus(),
+		"output_stats":    p.outputHandler.GetStatus(),
 	}
 }
 

@@ -31,7 +31,7 @@ func main() {
 		log.Fatal("Failed to load configuration, exiting")
 	}
 
-	initKafkaConfFiles(cfg)
+	initKafkaConfigMaps(cfg)
 	logger := initLoggerSettings(cfg)
 	defer logger.Close()
 
@@ -127,10 +127,14 @@ func initLoggerSettings(cfg *config.RawConfig) logging.Logger {
 	// update all log file paths to absolute paths
 	logDir := os.Getenv("SERVICE_LOG_DIR")
 	if logDir != "" && !filepath.IsAbs(cfg.Logging.FileName) {
-		cfg.Logging.FileName = filepath.Join(logDir, cfg.Logging.FileName)
-		cfg.Processing.PloggerConfig.FileName = filepath.Join(logDir, cfg.Processing.PloggerConfig.FileName)
-		cfg.Processing.Processor.RuleProcConfig.RelibLogging.FileName = filepath.Join(logDir, cfg.Processing.Processor.RuleProcConfig.RelibLogging.FileName)
-		cfg.Processing.Processor.RuleProcConfig.RuleHandlerLogging.FileName = filepath.Join(logDir, cfg.Processing.Processor.RuleProcConfig.RuleHandlerLogging.FileName)
+		cfg.Logging.FileName =
+			filepath.Join(logDir, cfg.Logging.FileName)
+		cfg.Processing.PloggerConfig.FileName =
+			filepath.Join(logDir, cfg.Processing.PloggerConfig.FileName)
+		cfg.Processing.Processor.RuleProcConfig.RelibLogging.FileName =
+			filepath.Join(logDir, cfg.Processing.Processor.RuleProcConfig.RelibLogging.FileName)
+		cfg.Processing.Processor.RuleProcConfig.RuleHandlerLogging.FileName =
+			filepath.Join(logDir, cfg.Processing.Processor.RuleProcConfig.RuleHandlerLogging.FileName)
 	}
 
 	// Convert config logging configuration to logger config
@@ -143,7 +147,7 @@ func initLoggerSettings(cfg *config.RawConfig) logging.Logger {
 	return logger
 }
 
-func initKafkaConfFiles(cfg *config.RawConfig) {
+func initKafkaConfigMaps(cfg *config.RawConfig) {
 	cfg.Processing.Input.KafkaConfFile = utils.ResolveConfFilePath(cfg.Processing.Input.KafkaConfFile)
 	cfg.Processing.Processor.RuleProcConfig.RulesKafkaConfFile = utils.ResolveConfFilePath(cfg.Processing.Processor.RuleProcConfig.RulesKafkaConfFile)
 	cfg.Processing.Output.KafkaConfFile = utils.ResolveConfFilePath(cfg.Processing.Output.KafkaConfFile)
@@ -155,7 +159,7 @@ func initKafkaConfFiles(cfg *config.RawConfig) {
 // In production (Docker/K8s), environment variables are set directly
 func loadEnvFile() {
 	// Determine if we're in a containerized environment
-	if isRunningInContainer() {
+	if isRunningInProdContainer() {
 		log.Println("Running in container - using system environment variables")
 		return
 	}
@@ -184,16 +188,13 @@ func loadEnvFile() {
 }
 
 // isRunningInContainer detects if the application is running in a container
-func isRunningInContainer() bool {
+func isRunningInProdContainer() bool {
 	// Check for common container environment indicators
 	if os.Getenv("KUBERNETES_SERVICE_HOST") != "" {
 		return true // Running in Kubernetes
 	}
 	if os.Getenv("CONTAINER") == "true" {
 		return true // Explicit container flag
-	}
-	if _, err := os.Stat("/.dockerenv"); err == nil {
-		return true // Docker container
 	}
 	return false
 }
@@ -206,7 +207,7 @@ func logEnvironmentInfo() {
 
 	log.Printf("🚀 Starting %s v%s in %s environment", appName, appVersion, appEnv)
 
-	if isRunningInContainer() {
+	if isRunningInProdContainer() {
 		log.Println("📦 Running in containerized environment")
 	} else {
 		log.Println("💻 Running in local development environment")

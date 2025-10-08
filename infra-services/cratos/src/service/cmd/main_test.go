@@ -25,10 +25,8 @@ const (
 	testHost        = "localhost"
 	testHostAll     = "0.0.0.0"
 	configEndpoint  = "/api/v1/config/"
-	statsEndpoint   = "/api/v1/stats"
+	statusEndpoint  = "/api/v1/status"
 	nonexistentPath = "/nonexistent"
-	envDocker       = "/.dockerenv"
-	testEnvFile     = ".env.test"
 )
 
 // Helper function to create a test logger
@@ -56,7 +54,7 @@ func TestSetupRouter(t *testing.T) {
 	}{
 		{healthEndpoint, "GET", http.StatusOK},
 		{configEndpoint, "GET", http.StatusOK},
-		{statsEndpoint, "GET", http.StatusOK},
+		{statusEndpoint, "GET", http.StatusOK},
 		{nonexistentPath, "GET", http.StatusNotFound},
 	}
 
@@ -310,7 +308,7 @@ func TestIntegrationComponents(t *testing.T) {
 	// Test API endpoints
 	apiEndpoints := []string{
 		configEndpoint,
-		statsEndpoint,
+		statusEndpoint,
 	}
 
 	for _, endpoint := range apiEndpoints {
@@ -432,8 +430,8 @@ func TestIsRunningInContainer(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setup()
-			if got := isRunningInContainer(); got != tt.want {
-				t.Errorf("isRunningInContainer() = %v, want %v", got, tt.want)
+			if got := isRunningInProdContainer(); got != tt.want {
+				t.Errorf("isRunningInProdContainer() = %v, want %v", got, tt.want)
 			}
 		})
 	}

@@ -254,7 +254,7 @@ func (o *OutputHandler) sendMessage(channelMsg *models.ChannelMessage) error {
 	return nil
 }
 
-func (o *OutputHandler) GetStats() map[string]interface{} {
+func (o *OutputHandler) GetStatus() map[string]interface{} {
 	return map[string]interface{}{
 		"status":        "running",
 		"output_topic":  o.config.OutputTopic,

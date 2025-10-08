@@ -61,24 +61,10 @@ type TaskDataType struct {
 	OldRule   *relib.RuleDefinition
 }
 
-// TaskMetrics tracks performance metrics
-type TaskMetrics struct {
-	TotalProcessed    int64
-	TotalFailed       int64
-	AverageProcessing time.Duration
-	QueueLength       int
-}
-
-// GetTaskMetrics returns current task processing metrics
-func (rh *RuleTasksHandler) GetTaskMetrics() TaskMetrics {
-	rh.metricsMutex.RLock()
-	defer rh.metricsMutex.RUnlock()
-
-	return TaskMetrics{
-		TotalProcessed: rh.totalProcessed,
-		TotalFailed:    rh.totalFailed,
-		// AverageProcessing would require more complex tracking
-	}
+// TaskCounters tracks performance metrics
+type TaskCounters struct {
+	TotalProcessed int64
+	TotalFailed    int64
 }
 
 func NewRuleTasksHandler(logger logging.Logger, topic string, pconfig map[string]any, cconfig map[string]any, inputSink chan<- *models.ChannelMessage, metricHelper *metrics.MetricsHelper) *RuleTasksHandler {
@@ -147,6 +133,33 @@ func (rh *RuleTasksHandler) Stop() error {
 
 	rh.rlogger.Info("Stopped Rule Tasks Handler")
 	return nil
+}
+
+// GetTaskMetrics returns current task processing metrics
+func (rh *RuleTasksHandler) GetTaskMetrics() TaskCounters {
+	rh.metricsMutex.RLock()
+	defer rh.metricsMutex.RUnlock()
+
+	return TaskCounters{
+		TotalProcessed: rh.totalProcessed,
+		TotalFailed:    rh.totalFailed,
+	}
+}
+
+// IncrementProcessedCount increments the processed task count
+func (rh *RuleTasksHandler) IncrementProcessedCount() {
+	rh.metricsMutex.Lock()
+	defer rh.metricsMutex.Unlock()
+
+	rh.totalProcessed++
+}
+
+// IncrementFailedCount increments the failed task count
+func (rh *RuleTasksHandler) IncrementFailedCount() {
+	rh.metricsMutex.Lock()
+	defer rh.metricsMutex.Unlock()
+
+	rh.totalFailed++
 }
 
 // initializeRuleTaskHandling sets up rule task producer and consumer
@@ -245,7 +258,7 @@ func (rh *RuleTasksHandler) DistributeRuleTask(l logging.Logger, traceID string,
 	return true
 }
 
-func (rh *RuleTasksHandler) GetStats() map[string]interface{} {
+func (rh *RuleTasksHandler) GetStatus() map[string]interface{} {
 	return map[string]interface{}{
 		"status":         "running",
 		"ruleTasksTopic": rh.ruleTasksTopic,

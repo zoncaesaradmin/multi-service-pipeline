@@ -99,7 +99,7 @@ export LOG_LEVEL=debug
 
 ### For Testing:
 1. Test infrastructure automatically sets `SERVICE_HOME`
-2. Use `./test/run_tests_local.sh` to run integration tests
+2. Use `./test/local_test_run.sh` to run integration tests
 3. Testrunner uses `conf/testconfig.yaml` automatically
 4. Log files are directed to `test/results/logs/` during test runs
 

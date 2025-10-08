@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Local Development Test Runner
-# Usage: ./run_tests_local.sh [build|run]
+# Usage: ./local_test_run.sh [build|run]
 # Default mode: build (builds and runs)
 
 set -e

@@ -11,7 +11,7 @@ make test
 
 # Or from the test directory
 cd test/
-./run_tests_local.sh
+./local_test_run.sh
 ```
 
 ### Available Commands
@@ -46,10 +46,10 @@ make test-help
 cd test/
 
 # Build and run (default)
-./run_tests_local.sh build
+./local_test_run.sh build
 
 # Run only (assumes binaries exist)
-./run_tests_local.sh run
+./local_test_run.sh run
 ```
 
 ## Test Infrastructure Architecture
@@ -63,7 +63,7 @@ cratos/
 │   ├── testrunner/         # Test runner source
 │   └── shared/             # Shared modules
 ├── test/                   # Test infrastructure (NEW LOCATION)
-│   ├── run_tests_local.sh  # Main test script
+│   ├── local_test_run.sh  # Main test script
 │   ├── results/            # Test results and reports
 │   │   ├── logs/          # Service and testrunner logs
 │   │   ├── coverage.html  # Coverage report
@@ -141,7 +141,7 @@ The local development setup automatically configures logging for both services:
 
 ### Environment Variables for Log Control
 ```bash
-# Service logging (automatically set by run_tests_local.sh)
+# Service logging (automatically set by local_test_run.sh)
 export LOG_FILE_NAME="../../test/results/logs/service.log"
 export GOCOVERDIR="../../test/coverage"
 

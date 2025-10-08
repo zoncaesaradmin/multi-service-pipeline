@@ -27,80 +27,118 @@ help:
 	@echo ""
 	@echo "🚀 LOCAL DEVELOPMENT (Mac/PC):"
 	@echo "  dev          - Full development workflow:"
-	@echo "                 • Build service with enforced coverage"
-	@echo "                 • Build testrunner (no coverage)"
+	@echo "                 • Clean environment and processes"
+	@echo "                 • Build service and testrunner"
+	@echo "                 • Set up LocalBus topics"
 	@echo "                 • Run integration tests"
-	@echo "                 • Generate reports"
-	@echo "                 • Auto cleanup"
+	@echo "                 • Generate coverage reports"
+	@echo "                 • Collect logs and test results"
+	@echo "                 • Auto cleanup on completion"
 	@echo ""
 	@echo "  dev-run      - Quick development iteration:"
 	@echo "                 • Use existing binaries"
 	@echo "                 • Run integration tests only"
-	@echo "                 • Faster for testing changes"
+	@echo "                 • Skip build steps"
+	@echo "                 • Ideal for rapid testing"
 	@echo ""
 	@echo "  dev-clean    - Development cleanup:"
-	@echo "                 • Kill all processes"
-	@echo "                 • Clean artifacts and logs"
-	@echo "                 • Reset environment"
+	@echo "                 • Kill service and testrunner processes"
+	@echo "                 • Clean test artifacts and logs"
+	@echo "                 • Remove LocalBus data"
+	@echo "                 • Reset environment completely"
 	@echo ""
-	@echo "  test-coverage- Generate coverage report from latest test run"
-	@echo "                 • Convert binary coverage data to HTML"
-	@echo "                 • Show coverage summary"
+	@echo "  test-coverage- Generate coverage report:"
+	@echo "                 • Process raw coverage data"
+	@echo "                 • Generate HTML report"
+	@echo "                 • Show function coverage"
+	@echo "                 • Display coverage summary"
+	@echo ""
+	@echo "  devenv      - Setup development environment:"
+	@echo "                 • Create .env from template"
+	@echo "                 • Configure SERVICE_HOME"
+	@echo "                 • Set up local environment"
+	@echo ""
+	@echo "  testrun     - Run testrunner directly:"
+	@echo "                 • Execute testrunner binary"
+	@echo "                 • Useful for debugging"
 	@echo ""
 	@echo "🏭 PRODUCTION BUILD:"
-	@echo "  buildall       - Production build with enforced coverage:"
-	@echo "                 • Build all services with coverage enforcement"
+	@echo "  buildall     - Production build with coverage:"
+	@echo "                 • Enforce coverage requirements"
+	@echo "                 • Build service with production tags"
+	@echo "                 • Build testrunner"
 	@echo "                 • Ready for deployment"
-	@echo "                 • No test execution"
 	@echo ""
 	@echo "📦 CI/CD & BUILD SYSTEM:"
-	@echo "  package      - Run specified ENTRYPOINT_MODE target in src/ (production mode)"
-	@echo "  package-local- Run specified ENTRYPOINT_MODE target in src/ (local development mode)"
-	@echo "  pre_build    - Pre-build target (depends on package)"
-	@echo "  post_build   - Post-build target (depends on clean)"
+	@echo "  package      - Production mode build:"
+	@echo "                 • No local development tags"
+	@echo "                 • Suitable for deployment"
+	@echo ""
+	@echo "  package-local- Local development build:"
+	@echo "                 • Includes 'local' build tag"
+	@echo "                 • Enables local-only features"
+	@echo ""
+	@echo "  pre_build   - CI/CD pre-build steps"
+	@echo "  post_build  - CI/CD post-build cleanup"
 	@echo ""
 	@echo "🧹 CLEANUP:"
-	@echo "  clean        - Clean all build artifacts"
+	@echo "  clean       - Clean all artifacts:"
+	@echo "                 • Remove build outputs"
+	@echo "                 • Clean test results"
+	@echo "                 • Remove temporary files"
 	@echo ""
 	@echo "Parameters:"
-	@echo "  ENTRYPOINT_MODE - Mode to pass to src/Makefile (default: start)"
-	@echo "  BUILD_TAGS      - Additional build tags to use (empty by default)"
+	@echo "  ENTRYPOINT_MODE - Build/run mode (default: start)"
+	@echo "  BUILD_TAGS      - Go build tags:"
+	@echo "                    • Production: empty by default"
+	@echo "                    • Local dev: 'local' tag added"
 	@echo ""
 	@echo "Examples:"
-	@echo "  make dev                           # Full local development cycle"
-	@echo "  make dev-run                       # Quick test run"
-	@echo "  make test-coverage                 # Generate coverage report from latest test"
-	@echo "  make buildall                      # Production build"
-	@echo "  make package                       # Uses default ENTRYPOINT_MODE=start (production)"
-	@echo "  make package-local                 # Uses default ENTRYPOINT_MODE=start (local dev)"
-	@echo "  make package ENTRYPOINT_MODE=test  # Run tests via CI/CD"
+	@echo "  make devenv                        # Set up development environment"
+	@echo "  make dev                           # Full development cycle"
+	@echo "  make dev-run                       # Quick test iteration"
+	@echo "  make test-coverage                 # Process coverage data"
+	@echo "  make buildall BUILD_TAGS=feature   # Build with custom tag"
+	@echo "  make package-local                 # Local development build"
+	@echo "  ENTRYPOINT_MODE=test make package  # Run tests in CI/CD"
 
 # ==============================================================================
 # LOCAL DEVELOPMENT WORKFLOW
 # ==============================================================================
 
-# Full development workflow
+# Full development workflow with automatic cleanup
 dev: dev-clean
 	@echo "🚀 Starting full development workflow..."
 	@echo ""
 	@echo "📋 Workflow Steps:"
-	@echo "  1. Setup environment and directories"
-	@echo "  2. Build service with enforced coverage"
-	@echo "  3. Build testrunner (no coverage)"
-	@echo "  4. Run integration tests"
-	@echo "  5. Generate coverage and test reports"
-	@echo "  6. Auto cleanup processes"
+	@echo "  1. Clean environment and setup directories"
+	@echo "  2. Build service and testrunner binaries"
+	@echo "  3. Setup LocalBus topics for testing"
+	@echo "  4. Start service with coverage tracking"
+	@echo "  5. Run integration test suite"
+	@echo "  6. Collect logs and generate reports"
+	@echo "  7. Process coverage data"
+	@echo "  8. Clean up processes and temporary files"
 	@echo ""
-	@cd test && ./run_tests_local.sh build
+	@cd test && ./local_test_run.sh build
 	@echo ""
 	@echo "✅ Development workflow completed!"
-	@echo "📁 Check test/results/ for reports and logs"
+	@echo "📁 Results available in:"
+	@echo "   • Coverage Report: test/results/coverage.html"
+	@echo "   • Test Results:   test/results/report.txt"
+	@echo "   • Logs:          test/results/logs/"
 
-# Quick development iteration (use existing binaries)
+# Quick development iteration - skips rebuild, uses existing binaries
 dev-run:
 	@echo "⚡ Quick development run (using existing binaries)..."
-	@cd test && ./run_tests_local.sh run
+	@echo "📋 Steps:"
+	@echo "  1. Setup test environment"
+	@echo "  2. Start service (existing binary)"
+	@echo "  3. Run integration tests"
+	@echo "  4. Collect results and logs"
+	@cd test && ./local_test_run.sh run
 	@echo "✅ Quick run completed!"
+	@echo "📁 Check test/results/ for latest run data"
 
 # Development cleanup
 dev-clean:
@@ -143,14 +181,20 @@ test-coverage:
 # CI/CD & BUILD SYSTEM TARGETS
 # ==============================================================================
 
-# Package target - runs the specified ENTRYPOINT_MODE in src/ (production mode)
+# Package target - production build without local development features
+# Use this for deployment builds where local testing features should be disabled
 package:
-	@echo "Running package target with ENTRYPOINT_MODE=$(ENTRYPOINT_MODE) (production mode)"
+	@echo "📦 Running production build (ENTRYPOINT_MODE=$(ENTRYPOINT_MODE))..."
+	@echo "   • No local development features"
+	@echo "   • Build tags: $(if $(BUILD_TAGS),'$(BUILD_TAGS)','<none>')"
 	@$(MAKE) -C src $(ENTRYPOINT_MODE) BUILD_TAGS="$(BUILD_TAGS)"
 
-# Package target with local development build tags
+# Package target for local development - includes local testing features
+# Use this for local development and testing where additional debug/test features are needed
 package-local:
-	@echo "Running package target with ENTRYPOINT_MODE=$(ENTRYPOINT_MODE) (local development mode)"
+	@echo "🔧 Running local development build (ENTRYPOINT_MODE=$(ENTRYPOINT_MODE))..."
+	@echo "   • Including local development features"
+	@echo "   • Build tags: $(LOCAL_BUILD_TAGS)"
 	@$(MAKE) -C src $(ENTRYPOINT_MODE) BUILD_TAGS="$(LOCAL_BUILD_TAGS)"
 
 # Pre-build target that depends on package
@@ -197,6 +241,9 @@ devenv:
 	@rm .env.bak
 	@echo ".env created with SERVICE_HOME=$(shell pwd)"
 
+# Run testrunner directly - useful for debugging test issues
+# This bypasses the test orchestration script and runs the testrunner binary directly
 testrun:
-	@echo "run testrunner "
+	@echo "🔍 Running testrunner directly..."
+	@echo "Note: This is for debugging only. Use 'make dev' or 'make dev-run' for normal testing."
 	@$(MAKE) -C src/testrunner run

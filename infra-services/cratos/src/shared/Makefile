@@ -1,6 +1,26 @@
 # Shared Module Makefile
 .PHONY: help build test clean deps fmt vet lint coverage coverage-html coverage-check coverage-enforce
 
+# Help
+help:
+	@echo "Cratos Shared Module Makefile"
+	@echo "==========================="
+	@echo ""
+	@echo "🧪 Testing & Quality:"
+	@echo "  test             - Run unit tests"
+	@echo "  coverage         - Generate coverage report"
+	@echo "  coverage-html    - Generate HTML coverage report"
+	@echo ""
+	@echo "🛠️  Development:"
+	@echo "  deps             - Download Go dependencies"
+	@echo "  tidy             - Clean up go.mod and go.sum"
+	@echo "  fmt              - Format Go code"
+	@echo "  vet              - Run Go vet checks"
+	@echo "  lint             - Run linter"
+	@echo ""
+	@echo "Note: This module provides shared code used by"
+	@echo "other components of the Cratos service."est clean deps fmt vet lint coverage coverage-html coverage-check coverage-enforce
+
 # Go parameters
 GOCMD=go
 GOBUILD=$(GOCMD) build

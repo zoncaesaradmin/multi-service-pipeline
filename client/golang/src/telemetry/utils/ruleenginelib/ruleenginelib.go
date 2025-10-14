@@ -250,7 +250,7 @@ type RuleChangeRequest struct {
 	AlertRuleUUID   string
 }
 
-// RuleChangeResponse represents the response after processing a rule changes
+// RuleChangeResponse represents the response from processing rule changes
 type RuleChangeResponse struct {
 	ShouldProcess    bool
 	Conditions       []map[string]interface{}
@@ -258,6 +258,7 @@ type RuleChangeResponse struct {
 	ProcessingReason string
 }
 
+// ProcessRuleChangeRequest processes a rule change request and returns what conditions to query
 func ProcessRuleChangeRequest(req RuleChangeRequest) RuleChangeResponse {
 	response := RuleChangeResponse{
 		ShouldProcess: false,
@@ -273,16 +274,14 @@ func ProcessRuleChangeRequest(req RuleChangeRequest) RuleChangeResponse {
 	case RuleEventCreate:
 		return processCreateRequest(req)
 	default:
-		response.ProcessingReason = fmt.Sprintf("Unknown rule event %s", req.RuleEvent)
+		response.ProcessingReason = fmt.Sprintf("Unknown rule event: %s", req.RuleEvent)
 		return response
 	}
-
-	return response
 }
 
 // processDeleteRequest handles DELETE rule events
 func processDeleteRequest(req RuleChangeRequest) RuleChangeResponse {
-	response := RuleChangeResponse{ShouldProcess: false, Conditions: []map[string]interface{}{}, NeedsCleanup: true}
+	response := RuleChangeResponse{ShouldProcess: false, Conditions: []map[string]interface{}{}, NeedsCleanup: false}
 
 	if !req.ApplyToExisting {
 		response.ProcessingReason = "DELETE rule - skipping existing anomalies (applyToExisting=false)"
@@ -291,6 +290,9 @@ func processDeleteRequest(req RuleChangeRequest) RuleChangeResponse {
 
 	response.ShouldProcess = true
 	response.ProcessingReason = "DELETE rule - processing existing anomalies"
+	if req.NewRule != nil {
+		response.Conditions = ExtractConditions(req.NewRule)
+	}
 	return response
 }
 
@@ -313,7 +315,7 @@ func processCreateRequest(req RuleChangeRequest) RuleChangeResponse {
 
 // processUpdateRequest handles UPDATE rule events
 func processUpdateRequest(req RuleChangeRequest) RuleChangeResponse {
-	// check ApplyActionsToAll transitions
+	// Check ApplyActionsToAll transitions
 	return processApplyActionsTransition(req)
 }
 
@@ -321,7 +323,7 @@ func processUpdateRequest(req RuleChangeRequest) RuleChangeResponse {
 func processApplyActionsTransition(req RuleChangeRequest) RuleChangeResponse {
 	response := RuleChangeResponse{ShouldProcess: false, Conditions: []map[string]interface{}{}, NeedsCleanup: false}
 
-	// Check for ApplyActionsToAll transitino from true to false (for enabled rules)
+	// Check for ApplyActionsToAll transition from true to false (for enabled rules)
 	needsCleanup := false
 	if req.OldRule != nil && req.OldRule.ApplyActionsToAll && !req.ApplyToExisting {
 		needsCleanup = true
@@ -340,13 +342,15 @@ func processApplyActionsTransition(req RuleChangeRequest) RuleChangeResponse {
 	if req.NewRule != nil {
 		allConditions = append(allConditions, ExtractConditions(req.NewRule)...)
 	}
+
+	// Add old conditions if they exists and are different
 	if req.OldRule != nil {
 		allConditions = mergeUniqueConditions(allConditions, ExtractConditions(req.OldRule))
 	}
 
 	response.Conditions = allConditions
 	if needsCleanup {
-		response.ProcessingReason = "UPDATE rule - ApplyActionsToAll changed from true to false, processing for cleanup)"
+		response.ProcessingReason = "UPDATE rule - ApplyActionsToAll changed from true to false, processing for cleanup"
 	} else {
 		response.ProcessingReason = "UPDATE rule - processing existing anomalies"
 	}
@@ -376,6 +380,7 @@ func DeepEqualMaps(map1, map2 map[string]interface{}) bool {
 	if len(map1) != len(map2) {
 		return false
 	}
+
 	for key, val1 := range map1 {
 		val2, exists := map2[key]
 		if !exists {
@@ -387,11 +392,12 @@ func DeepEqualMaps(map1, map2 map[string]interface{}) bool {
 			return false
 		}
 	}
+
 	return true
 }
 
-// ExtractValueConditions extracts a value for a specific identifier from rule conditions
-func ExtractValueConditions(conditions []map[string]interface{}, identifier string) interface{} {
+// ExtractValueFromConditions extracts a value for a specific identifier from rule conditions
+func ExtractValueFromConditions(conditions []map[string]interface{}, identifier string) interface{} {
 	for _, condition := range conditions {
 		if value := extractFromConditionArray(condition, "all", identifier); value != nil {
 			return value

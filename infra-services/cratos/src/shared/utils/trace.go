@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"sharedgomodule/logging"
-	"strconv"
 	"time"
 )
 
@@ -108,7 +107,7 @@ func CreateScenarioOutlineTraceID(scenarioName string, exampleData map[string]st
 		}
 	}
 
-	return baseTraceID + "_" + strconv.FormatInt(time.Now().UnixNano(), 36)
+	return baseTraceID
 }
 
 // cleanForTraceID cleans a string to be used in trace ID

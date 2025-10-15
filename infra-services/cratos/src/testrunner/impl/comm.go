@@ -204,6 +204,7 @@ func (i *ConsumerHandler) checkFieldMatch(field string, aObj interface{}, value 
 func (i *ConsumerHandler) checkAcknowledged(aObj interface{}, value interface{}) bool {
 	// Use reflection or interface{} to access fields dynamically
 	if objVal, ok := aObj.(interface{ GetAcknowledged() bool }); ok {
+		i.logger.Infof("Verifying acknowledged with actual=%v expected=%v", objVal.GetAcknowledged(), value.(bool))
 		return objVal.GetAcknowledged() == value.(bool)
 	}
 	return false
@@ -213,8 +214,12 @@ func (i *ConsumerHandler) checkAcknowledged(aObj interface{}, value interface{})
 func (i *ConsumerHandler) checkRuleCustomReco(aObj interface{}, value interface{}) bool {
 	if objVal, ok := aObj.(interface{ GetRuleCustomRecoStr() []string }); ok {
 		expectedValue := value.(string)
+		if expectedValue == "" && len(objVal.GetRuleCustomRecoStr()) == 0 {
+			i.logger.Info("Verifying ruleCustomRecoStr with both actual and expected being empty")
+			return true
+		}
 		for _, reco := range objVal.GetRuleCustomRecoStr() {
-			//i.logger.Infof("Verifying ruleCustomRecoStr with actual=%s expected=%s", reco, expectedValue)
+			i.logger.Infof("Verifying ruleCustomRecoStr with actual=%s expected=%s", reco, expectedValue)
 			if reco == expectedValue {
 				return true
 			}
@@ -226,6 +231,7 @@ func (i *ConsumerHandler) checkRuleCustomReco(aObj interface{}, value interface{
 // checkSeverity verifies the severity field
 func (i *ConsumerHandler) checkSeverity(aObj interface{}, value interface{}) bool {
 	if objVal, ok := aObj.(interface{ GetSeverity() string }); ok {
+		i.logger.Infof("Verifying severity with actual=%s expected=%s", objVal.GetSeverity(), value.(string))
 		return objVal.GetSeverity() == value.(string)
 	}
 	return false
@@ -234,6 +240,7 @@ func (i *ConsumerHandler) checkSeverity(aObj interface{}, value interface{}) boo
 // checkFabricName verifies the fabricName field
 func (i *ConsumerHandler) checkFabricName(aObj interface{}, value interface{}) bool {
 	if objVal, ok := aObj.(interface{ GetFabricName() string }); ok {
+		i.logger.Infof("Verifying fabricName with actual=%s expected=%s", objVal.GetFabricName(), value.(string))
 		return objVal.GetFabricName() == value.(string)
 	}
 	return false

@@ -20,14 +20,14 @@ Feature: Basic test for data reception without hitting any rule
     And send_input_data "data_1_conn.json"
     And wait_till_data_received_with_timeout_sec 20
     And verify_if_data_is_fully_received_as_is
-    And verify_if_valid_fabric
+    And verify_if_record_has_same_fabric_as_input_data
 
   # test if basic input and output of service are working fine
   Scenario: IT_002_allactions
     And send_input_config "rule_2_conn.json"
     And send_input_data "data_2_conn.json"
     And wait_till_data_received_with_timeout_sec 20
-    And verify_if_valid_fabric
+    And verify_if_record_has_same_fabric_as_input_data
     And verify_if_record_has_acknowledged
     And verify_if_record_has_custom_message
     And verify_if_record_has_severity

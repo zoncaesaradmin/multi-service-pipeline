@@ -108,7 +108,7 @@ func (i *InputHandler) Start() error {
 			}
 
 			i.inputCh <- channelMsg
-			msgLogger.Debugw("Input message received", "key", message.Key, "headers", message.Headers)
+			msgLogger.Debugw("Input message received", "key", message.Key, "headers", message.Headers, "size", len(message.Value))
 
 			// Record message processed at input stage with timing
 			if i.metricsHelper != nil {

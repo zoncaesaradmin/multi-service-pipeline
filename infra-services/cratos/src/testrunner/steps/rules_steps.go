@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sharedgomodule/utils"
 	"strconv"
+	"strings"
 	"testgomodule/impl"
 	"time"
 
@@ -52,6 +53,7 @@ func (b *StepBindings) SendInputData(dataFile string) error {
 		b.Cctx.ExampleData = make(map[string]string)
 	}
 	b.Cctx.ExampleData["X"] = dataFile
+	b.Cctx.ConsHandler.Reset()
 
 	return b.SendInputDataToTopic(dataFile, b.Cctx.InDataTopic)
 }
@@ -233,7 +235,7 @@ func (b *StepBindings) SendScaleInputConfigWithCategory(configFile string, count
 			}
 		}
 		rBytes, _ := json.Marshal(rconfig)
-		traceLogger.Infof("SREEK send rule - %s\n", string(rBytes))
+		//traceLogger.Infof("send rule - %s\n", string(rBytes))
 
 		b.Cctx.SentConfigMeta = configMeta
 		b.Cctx.ProducerHandler.Send(topic, rBytes, nil)
@@ -334,7 +336,7 @@ func (b *StepBindings) SendScaleInputConfigWithInterface(configFile string, coun
 			}
 		}
 		rBytes, _ := json.Marshal(rconfig)
-		traceLogger.Infof("SREEK send rule - %s\n", string(rBytes))
+		//traceLogger.Infof("send rule - %s\n", string(rBytes))
 
 		b.Cctx.SentConfigMeta = configMeta
 		b.Cctx.ProducerHandler.Send(topic, rBytes, nil)
@@ -435,18 +437,26 @@ func (b *StepBindings) VerifyIfValidFabric() error {
 	if !b.Cctx.ConsHandler.VerifyDataField("fabricName", fabricName) {
 		return errors.New("fabric does not match")
 	}
-	b.Cctx.L.Infof("Verified: Record has fabric '%s'.\n", fabricName)
+	//b.Cctx.L.Infof("Verified: Record has fabric '%s'.\n", fabricName)
 	return nil
 }
 
 func (b *StepBindings) VerifyIfAcknowledged() error {
-	// fetch sent fabric name from meta
+	// fetch ack value from action of the rule sent
 	ack := b.Cctx.SentConfigMeta.ActionAcknowledged
 
 	if !b.Cctx.ConsHandler.VerifyDataField("acknowledged", ack) {
 		return errors.New("field 'acknowledged' is not true as expected")
 	}
-	b.Cctx.L.Infof("Verified: Record has acknowledged '%v'\n", ack)
+	//b.Cctx.L.Infof("Verified: Record has acknowledged '%v'\n", ack)
+	return nil
+}
+
+func (b *StepBindings) VerifyIfAcknowledgedAsExpected(ackstr string) error {
+	ack := strings.EqualFold(ackstr, "true")
+	if !b.Cctx.ConsHandler.VerifyDataField("acknowledged", ack) {
+		return errors.New("field 'acknowledged' is not true as expected")
+	}
 	return nil
 }
 
@@ -457,7 +467,14 @@ func (b *StepBindings) VerifyIfRecordHasCustomMessage() error {
 	if !b.Cctx.ConsHandler.VerifyDataField("ruleCustomRecoStr", expectedMessage) {
 		return errors.New("custom message does not match")
 	}
-	b.Cctx.L.Infof("Verified: Record has custom message '%s'.\n", expectedMessage)
+	//b.Cctx.L.Infof("Verified: Record has custom message '%s'.\n", expectedMessage)
+	return nil
+}
+
+func (b *StepBindings) VerifyIfCustomMessageAsExpected(expectedMessage string) error {
+	if !b.Cctx.ConsHandler.VerifyDataField("ruleCustomRecoStr", expectedMessage) {
+		return errors.New("custom message does not match")
+	}
 	return nil
 }
 
@@ -468,7 +485,14 @@ func (b *StepBindings) VerifyIfRecordHasSeverity() error {
 	if !b.Cctx.ConsHandler.VerifyDataField("severity", expectedSeverity) {
 		return errors.New("severity does not match")
 	}
-	b.Cctx.L.Infof("Verified: Record has severity '%s'.\n", expectedSeverity)
+	//b.Cctx.L.Infof("Verified: Record has severity '%s'.\n", expectedSeverity)
+	return nil
+}
+
+func (b *StepBindings) VerifyIfSeverityAsExpected(expectedSeverity string) error {
+	if !b.Cctx.ConsHandler.VerifyDataField("severity", expectedSeverity) {
+		return errors.New("field 'severity' is not true as expected")
+	}
 	return nil
 }
 
@@ -484,10 +508,13 @@ func InitializeRulesSteps(ctx *godog.ScenarioContext, suiteMetadataCtx *impl.Cus
 	ctx.Step(`^wait_till_data_received_on_topic_with_timeout_sec "([^"]*)", (\d+)$`, bindings.WaitTillDataReceivedOnTopicWithTimeoutSec)
 	ctx.Step(`^verify_if_data_is_fully_received_as_is$`, bindings.VerifyIfDataIsFullyReceived)
 
-	ctx.Step(`^verify_if_valid_fabric$`, bindings.VerifyIfValidFabric)
+	ctx.Step(`^verify_if_record_has_same_fabric_as_input_data$`, bindings.VerifyIfValidFabric)
 	ctx.Step(`^verify_if_record_has_acknowledged$`, bindings.VerifyIfAcknowledged)
 	ctx.Step(`^verify_if_record_has_custom_message$`, bindings.VerifyIfRecordHasCustomMessage)
 	ctx.Step(`^verify_if_record_has_severity$`, bindings.VerifyIfRecordHasSeverity)
+	ctx.Step(`^verify_if_record_has_expected_acknowledged_value "([^"]*)"$`, bindings.VerifyIfAcknowledgedAsExpected)
+	ctx.Step(`^verify_if_record_has_expected_severity_value "([^"]*)"$`, bindings.VerifyIfSeverityAsExpected)
+	ctx.Step(`^verify_if_record_has_expected_custom_message_value "([^"]*)"$`, bindings.VerifyIfCustomMessageAsExpected)
 
 	ctx.Step(`^send_input_config "([^"]*)"$`, bindings.SendInputConfig)
 	ctx.Step(`^send_input_data "([^"]*)"$`, bindings.SendInputData)

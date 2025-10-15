@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"servicegomodule/internal/metrics"
 	"servicegomodule/internal/models"
-	"servicegomodule/internal/tasks"
+	ruletask "servicegomodule/internal/ruletask"
 	eapi "sharedgomodule/extapi"
 	"sharedgomodule/logging"
 	"sharedgomodule/messagebus"
@@ -46,7 +46,7 @@ type RuleEngineHandler struct {
 	severityCache map[string]string
 
 	// link to rule task handler
-	ruleTaskHandler *tasks.RuleTasksHandler
+	ruleTaskHandler *ruletask.RuleTasksHandler
 }
 
 func NewRuleHandler(config RuleEngineConfig, logger logging.Logger,
@@ -70,7 +70,7 @@ func NewRuleHandler(config RuleEngineConfig, logger logging.Logger,
 		rlogger = logger
 	}
 
-	rth := tasks.NewRuleTasksHandler(rlogger, config.RuleTasksTopic,
+	rth := ruletask.NewRuleTasksHandler(rlogger, config.RuleTasksTopic,
 		config.RuleTasksProdKafkaConfigMap, config.RuleTasksConsKafkaConfigMap, inputSink, metricHelper)
 	h := &RuleEngineHandler{
 		ruleTaskHandler: rth,

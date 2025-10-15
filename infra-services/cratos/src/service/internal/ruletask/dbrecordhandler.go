@@ -1,4 +1,4 @@
-package tasks
+package ruletask
 
 import (
 	"servicegomodule/internal/metrics"

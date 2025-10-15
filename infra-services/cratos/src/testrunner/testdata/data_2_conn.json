@@ -126,7 +126,7 @@
       "mnemonicNum": 42,
       "entityNameList": [
         {
-          "resourceType": "TypeA",
+          "objectType": "TypeA",
           "objectValue": [
             "Value1",
             "Value2"

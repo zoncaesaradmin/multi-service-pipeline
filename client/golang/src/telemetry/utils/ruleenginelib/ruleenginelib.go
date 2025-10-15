@@ -343,7 +343,7 @@ func processApplyActionsTransition(req RuleChangeRequest) RuleChangeResponse {
 		allConditions = append(allConditions, ExtractConditions(req.NewRule)...)
 	}
 
-	// Add old conditions if they exists and are different
+	// Add old conditions if they exist and are different
 	if req.OldRule != nil {
 		allConditions = mergeUniqueConditions(allConditions, ExtractConditions(req.OldRule))
 	}

@@ -45,31 +45,31 @@
           ],
           "affectedObjectMatchCriteria": [
             {
-              "objectType": "tenant",
+              "resourceType": "tenant",
               "valueEquals": "dummy-tenant-3"
             },
             {
-              "objectType": "vrf",
+              "resourceType": "vrf",
               "valueEquals": "dummy-vrf-3"
             },
             {
-              "objectType": "vni",
+              "resourceType": "vni",
               "valueEquals": "dummy-vni-3"
             },
             {
-              "objectType": "ip",
+              "resourceType": "ip",
               "valueEquals": "10.1.1.4"
             },
             {
-              "objectType": "subnet",
+              "resourceType": "subnet",
               "valueEquals": "10.1.1.1/24"
             },
             {
-              "objectType": "switch",
+              "resourceType": "switch",
               "valueEquals": "scale-switch-3"
             },
             {
-              "objectType": "interface",
+              "resourceType": "interface",
               "valueEquals": "eth1/30"
             }
           ],

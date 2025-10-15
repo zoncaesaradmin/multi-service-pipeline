@@ -33,7 +33,7 @@ processing:
   input:
     topics: 
       - "cisco_nir-anomalies"                 # Input topics (env: PROCESSING_INPUT_TOPIC - comma separated)
-    channelBufferSize: 1000                   # Input channel buffer size (env: PROCESSING_INPUT_BUFFER_SIZE)
+    channelBufferSize: 2000                   # Input channel buffer size (env: PROCESSING_INPUT_BUFFER_SIZE)
     kafkaConfigFile: "kafka-consumer.yaml"    # Kafka consumer config file (env: PROCESSING_INPUT_KAFKA_CONFIG_FILE)
 
   processor:
@@ -60,12 +60,12 @@ processing:
     outputTopic: "cisco_nir-prealerts"      # Output topic (env: PROCESSING_OUTPUT_TOPIC)
     batchSize: 1                            # Output batch size (env: PROCESSING_OUTPUT_BATCH_SIZE)
     flushTimeout: 1000ms                    # Flush timeout (env: PROCESSING_OUTPUT_FLUSH_TIMEOUT_MS)
-    channelBufferSize: 1000                 # Output channel buffer size (env: PROCESSING_OUTPUT_BUFFER_SIZE)
+    channelBufferSize: 2000                 # Output channel buffer size (env: PROCESSING_OUTPUT_BUFFER_SIZE)
     kafkaConfigFile: "kafka-producer.yaml"  # Kafka producer config file (env: PROCESSING_OUTPUT_KAFKA_CONFIG_FILE)
 
   channels:
-    inputBufferSize: 1000        # Pipeline input buffer size (env: PROCESSING_CHANNELS_INPUT_BUFFER_SIZE)
-    outputBufferSize: 1000       # Pipeline output buffer size (env: PROCESSING_CHANNELS_OUTPUT_BUFFER_SIZE)
+    inputBufferSize: 2000        # Pipeline input buffer size (env: PROCESSING_CHANNELS_INPUT_BUFFER_SIZE)
+    outputBufferSize: 2000       # Pipeline output buffer size (env: PROCESSING_CHANNELS_OUTPUT_BUFFER_SIZE)
   
   # Pipeline-specific logger configuration (separate from main application logger)
   logging:

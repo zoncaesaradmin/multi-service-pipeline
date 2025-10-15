@@ -45,11 +45,11 @@
           ],
           "affectedObjectMatchCriteria": [
             {
-              "objectType": "switch",
+              "resourceType": "switch",
               "valueEquals": "scale-switch-2"
             },
             {
-              "objectType": "interface",
+              "resourceType": "interface",
               "valueEquals": "eth1/30"
             }
           ],

@@ -47,11 +47,11 @@ func TestConvertFunc(t *testing.T) {
                  ],
                  "affectedObjectMatchCriteria": [
                    {
-                     "objectType": "switch",
+                     "resourceType": "switch",
                      "valueEquals": "leaf-1"
                    },
                    {
-                     "objectType": "interface",
+                     "resourceType": "interface",
                      "valueEquals": "eth1/3"
                    }
                  ],

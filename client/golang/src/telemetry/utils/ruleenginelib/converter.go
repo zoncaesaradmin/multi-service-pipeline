@@ -61,7 +61,7 @@ type RuleMatchCriteriaConfig struct {
 }
 
 type MatchCriteria struct {
-	ObjectType  string `json:"objectType,omitempty"`
+	ObjectType  string `json:"resourceType,omitempty"`
 	ValueEquals string `json:"valueEquals,omitempty"`
 }
 

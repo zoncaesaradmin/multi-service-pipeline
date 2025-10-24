@@ -18,3 +18,4 @@ Feature: Test multiple cases of matching rule with data.
     Examples:
       | rule | rec |
       | rule_2_conn.json | data_2_conn.json |
+      | rule_vpc_one_leg_down.json | vpc_one_leg_down_data.json |

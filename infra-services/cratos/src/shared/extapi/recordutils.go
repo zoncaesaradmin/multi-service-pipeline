@@ -40,6 +40,7 @@ func RecordIdentifier(aObj *alert.Alert) string {
 
 func ConvertAlertObjectToRuleEngineInput(aObj *alert.Alert) map[string]any {
 	reInput := make(map[string]any)
+
 	// NOTE: though it is less code to copy fields by using
 	// struct marshal and unmarshal in to a map[string]any,
 	// it is faster at runtime to copy fields explicitly
@@ -51,12 +52,33 @@ func ConvertAlertObjectToRuleEngineInput(aObj *alert.Alert) map[string]any {
 	reInput[relib.MatchKeyTitle] = aObj.MnemonicTitle
 	reInput[relib.MatchKeySeverity] = strings.ToLower(aObj.Severity)
 
+	add := func(key, val string) {
+		if val == "" {
+			return
+		}
+		if existing, ok := reInput[key]; ok {
+			if sSlice, ok := existing.([]string); ok {
+				reInput[key] = append(sSlice, val)
+				return
+			}
+			// convert other single values to slice
+			switch v := existing.(type) {
+			case string:
+				reInput[key] = []string{v, val}
+			default:
+				reInput[key] = []string{val}
+			}
+		} else {
+			reInput[key] = []string{val}
+		}
+	}
+
 	for _, objField := range aObj.AffectedObjects {
 		switch strings.ToLower(objField.Type) {
 		case "switch", "leaf", "node":
-			reInput[relib.MatchKeySwitch] = objField.Name
+			add(relib.MatchKeySwitch, objField.Name)
 		case "interface":
-			reInput[relib.MatchKeyInterface] = relib.NormalizeInterfaceName(objField.Name)
+			add(relib.MatchKeyInterface, relib.NormalizeInterfaceName(objField.Name))
 		case "ip", "ipv4", "ipv6", "ipaddress", "address":
 			reInput[relib.MatchKeyIp] = objField.Name
 		case "vni":
@@ -67,6 +89,8 @@ func ConvertAlertObjectToRuleEngineInput(aObj *alert.Alert) map[string]any {
 			reInput[relib.MatchKeyVrf] = objField.Name
 		case "tenant":
 			reInput[relib.MatchKeyTenant] = objField.Name
+		case "vpc":
+			reInput[relib.MatchKeyVpc] = objField.Name
 		}
 	}
 	return reInput

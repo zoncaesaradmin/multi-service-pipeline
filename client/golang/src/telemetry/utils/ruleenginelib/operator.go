@@ -75,6 +75,15 @@ func evaluateNoneOf(dataValue, value interface{}) (bool, error) {
 
 // evaluateEquals checks if two values are equal
 func evaluateEquals(dataValue, value interface{}) (bool, error) {
+	switch dataSlice := dataValue.(type) {
+	case []string:
+		for _, dval := range dataSlice {
+			if dval == value.(string) {
+				return true, nil
+			}
+		}
+		return false, nil
+	}
 	factNum, err := assertIsNumber(dataValue)
 	if err == nil {
 		valueNum, err := assertIsNumber(value)

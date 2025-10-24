@@ -1,0 +1,67 @@
+{
+  "metadata": {
+    "ruleType": "ALERT_RULES",
+    "alertType": "anomaly",
+    "action": "CREATE_ALERT_RULE"
+  },
+  "alertRulePayload": [
+    {
+      "uuid": "RULE-UUID-VPC-ONE-lEG-1",
+      "name": "rule_vpc_one_leg_down",
+      "priority": 1758000000,
+      "description": "Alert when one leg of the VPC is down on a switch",
+      "state": "true",
+      "customizeAnomaly": {
+        "customMessage": "explicit message: one leg of the VPC is down"
+      },
+      "associatedInsightGroupUuids": [
+        "group-123",
+        "group-456"
+      ],
+      "applyActionsToActiveAnomalies": "true",
+      "overrideSeverity": "critical",
+      "alertRuleActions": [
+        { "action": "CUSTOMIZE_ANOMALY" },
+        { "action": "ACKNOWLEDGE" },
+        { "action": "OVERRIDE_SEVERITY"}
+      ],
+      "alertRuleMatchCriteria": [
+        {
+          "categoryMatchCriteria": [
+            {
+              "valueEquals": "CONNECTIVITY"
+            }
+          ],
+          "affectedObjectMatchCriteria": [
+            {
+              "resourceType": "leaf",
+              "valueEquals": "ifav7-leaf3"
+            },
+            {
+              "resourceType": "leaf",
+              "valueEquals": "ifav7-leaf4"
+            },
+            {
+              "resourceType": "interface",
+              "valueEquals": "po1"
+            },
+            {
+              "resourceType": "vpc",
+              "valueEquals": "2"
+            }
+          ],
+          "eventNameMatchCriteria": [
+            {
+              "valueEquals": "VPC_ONE_LEG_DOWN"
+            }
+          ],
+          "uuid": "RULE-UUID-VPC-ONE-lEG-1-CRITERIA-1",
+          "alertRuleId": "RULE-UUID-VPC-ONE-lEG-1",
+          "siteId": "scale-ms10"
+        }
+      ],
+      "lastModifiedTime": 1758106206000,
+      "links": []
+    }
+  ]
+}

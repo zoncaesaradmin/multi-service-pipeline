@@ -3,6 +3,7 @@ package processing
 import (
 	"context"
 	"fmt"
+	"runtime/debug"
 	"servicegomodule/internal/metrics"
 	"servicegomodule/internal/models"
 	"servicegomodule/internal/rules"
@@ -65,7 +66,12 @@ func (p *Processor) Stop() error {
 func (p *Processor) processLoop() {
 	defer func() {
 		if r := recover(); r != nil {
-			p.logger.Errorw("Processor panic recovered", "panic", r)
+			panicStr := fmt.Sprintf("%v", r)
+			stack := string(debug.Stack())
+			p.logger.Errorw("Processor panic recovered",
+				"panic", panicStr,
+				"stack", stack,
+			)
 		}
 	}()
 

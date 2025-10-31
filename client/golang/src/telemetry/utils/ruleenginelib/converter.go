@@ -241,7 +241,9 @@ func convertObjIdentifier(objectType string) string {
 		return MatchKeySwitch
 	case "ip", "ipv4", "ipv6", "address":
 		return MatchKeyIp
-	case "vni":
+	// a rule will have either l2_vni or l3_vni, but not both
+	// so we map both to "vni" for simplicity within rule engine
+	case "vni", "l2vni", "l3vni", "l2_vni", "l3_vni":
 		return MatchKeyVni
 	case "vrf":
 		return MatchKeyVrf
@@ -249,6 +251,8 @@ func convertObjIdentifier(objectType string) string {
 		return MatchKeyTenant
 	case "subnet", "network":
 		return MatchKeySubnet
+	case "route":
+		return MatchKeyRoute
 	}
 	return objectType
 }

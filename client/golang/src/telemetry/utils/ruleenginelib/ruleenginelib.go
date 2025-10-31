@@ -21,6 +21,7 @@ const (
 	MatchKeySubnet     = "subnet"
 	MatchKeyTenant     = "tenant"
 	MatchKeyVpc        = "vpc"
+	MatchKeyRoute      = "route"
 )
 
 // Constants for rule types

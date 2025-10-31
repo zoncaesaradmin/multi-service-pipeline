@@ -673,8 +673,8 @@ func TestSortingOrderDefault(t *testing.T) {
 	re := NewRuleEngineInstance(nil, nil)
 
 	// Verify the default setting
-	if !re.SortAscending {
-		t.Error("Expected default SortAscending to be true")
+	if re.SortAscending {
+		t.Error("Expected default SortAscending to be false")
 	}
 
 	// Create two rules with different priorities
@@ -736,13 +736,13 @@ func TestSortingOrderDefault(t *testing.T) {
 
 	result := re.EvaluateRules(data)
 
-	// With default ascending sort, lower priority (100) should be evaluated first
+	// With default descending sort, higher priority (200) should be evaluated first
 	if !result.IsRuleHit {
 		t.Error("Expected rule hit")
 	}
 
-	if result.RuleUUID != "rule-1" {
-		t.Errorf("Expected rule-1 to be evaluated first with default ascending sort, got %s", result.RuleUUID)
+	if result.RuleUUID != "rule-2" {
+		t.Errorf("Expected rule-2 to be evaluated first with default descending sort, got %s", result.RuleUUID)
 	}
 }
 

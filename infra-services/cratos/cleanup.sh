@@ -5,6 +5,9 @@
 
 set -e
 
+echo "🧹 Starting make clean ..."
+make clean
+
 echo "🧹 Starting comprehensive cleanup..."
 
 # Navigate to project root

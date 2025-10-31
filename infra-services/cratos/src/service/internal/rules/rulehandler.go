@@ -3,7 +3,6 @@ package rules
 import (
 	"context"
 	"crypto/tls"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"servicegomodule/internal/metrics"
@@ -176,7 +175,7 @@ func (rh *RuleEngineHandler) handleRuleMessage(message *messagebus.Message) {
 	// Use trace-aware logger for this message
 	msgLogger := utils.WithTraceLoggerFromID(rh.rlogger, traceID)
 
-	msgLogger.Debugw("RULE HANDLER - Received message", "size", len(message.Value))
+	msgLogger.Debugw("KAFKAIN - RULE HANDLER - Received message", "size", len(message.Value))
 
 	userMeta := relib.TransactionMetadata{TraceId: traceID}
 
@@ -188,29 +187,13 @@ func (rh *RuleEngineHandler) handleRuleMessage(message *messagebus.Message) {
 			"result", res, "oldRulesCount", len(oldRuleDefinitions))
 		rh.processRuleEvent(msgLogger, traceID, res, oldRuleDefinitions)
 	} else {
-		msgLogger.Debugw("RULE HANDLER - Skipped rule event processing",
+		msgLogger.Debugw("RULE HANDLER - skipped rule event processing",
 			"result", res, "oldRulesCount", len(oldRuleDefinitions))
 	}
 
 	if err := rh.ruleconsumer.Commit(context.Background(), message); err != nil {
 		msgLogger.Errorw("RULE HANDLER - Failed to commit message", "error", err)
 	}
-}
-
-// getOldRuleDefinitions extracts rule UUIDs from incoming message and fetches old rule definitions
-func (rh *RuleEngineHandler) getOldRuleDefinitions(msgBytes []byte) (map[string]*relib.RuleDefinition, error) {
-	var rInput relib.AlertRuleMsg
-	if err := json.Unmarshal(msgBytes, &rInput); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal rule message: %w", err)
-	}
-
-	oldRules := make(map[string]*relib.RuleDefinition)
-	for _, alertRule := range rInput.AlertRules {
-		if rule, exists := rh.reInst.GetRule(alertRule.UUID); exists {
-			oldRules[alertRule.UUID] = &rule
-		}
-	}
-	return oldRules, nil
 }
 
 // processRuleEvent handles rule event processing with old rule definitions
@@ -221,24 +204,43 @@ func (rh *RuleEngineHandler) processRuleEvent(l logging.Logger, traceID string, 
 		"oldRulesCount", len(oldRules))
 
 	if rh.ruleTaskHandler.Leader() {
+		startTime := time.Now()
 		operationLabels := map[string]string{
 			"event_type":    res.RuleEvent,
 			"rule_count":    fmt.Sprintf("%d", len(res.Rules)),
 			"trace_id":      traceID,
 			"has_old_rules": fmt.Sprintf("%v", len(oldRules) > 0),
 		}
-		if rh.metricsHelper != nil && rh.metricsHelper.GetCollector() != nil {
-			defer rh.metricsHelper.GetCollector().Timer("flow1_rule_event_processing", operationLabels)()
-		}
+
+		defer func() {
+			duration := time.Since(startTime)
+			l.Infow("PERF flow1_rule_event_processing completed",
+				"durationMs", duration.Microseconds(),
+				"durationSeconds", float64(duration.Milliseconds())/1000.0,
+				"eventType", res.RuleEvent,
+				"ruleCount", len(res.Rules))
+
+			if rh.metricsHelper != nil && rh.metricsHelper.GetCollector() != nil {
+				defer rh.metricsHelper.GetCollector().Timer("flow1_rule_event_processing", operationLabels)()
+			}
+		}()
 
 		for _, rule := range res.Rules {
+			// Get per-rule event type from rule engine (handles UPDATE->CREATE conversions)
+			ruleEventType := res.RuleEvent // Default to overal event type
+			if res.RuleEvents != nil {
+				if perRuleEvent, exists := res.RuleEvents[rule.AlertRuleUUID]; exists {
+					ruleEventType = perRuleEvent
+				}
+			}
+
 			// rule event can have multiple rules, treat each rule as one task
 			// For CREATE operations, proceed even if no old rule (new rule creation)
 			// For UPDATE/DELETE operations, only process if we have the old rule
-			if res.RuleEvent != relib.RuleEventCreate {
+			if ruleEventType != relib.InternalEventCreate {
 				if _, exists := oldRules[rule.AlertRuleUUID]; !exists {
 					l.Debugw("RULE HANDLER - No old rule definition found for task, skipping",
-						"ruleEvent", res.RuleEvent,
+						"ruleEvent", ruleEventType,
 						"ruleUUID", rule.AlertRuleUUID)
 					continue
 				}
@@ -249,8 +251,8 @@ func (rh *RuleEngineHandler) processRuleEvent(l logging.Logger, traceID string, 
 			if oldRuleRef, exists := oldRules[rule.AlertRuleUUID]; exists {
 				oldRule = oldRuleRef
 			}
-			if rh.distributeRuleTask(l, traceID, res.RuleEvent, &rule, oldRule) {
-				l.Debugw("RULE HANDLER - Successfully distributed rule task with old rules", "ruleEvent", res.RuleEvent)
+			if rh.distributeRuleTask(l, traceID, ruleEventType, &rule, oldRule) {
+				l.Debugw("RULE HANDLER - Successfully distributed rule task with old rules", "ruleEvent", ruleEventType)
 			}
 		}
 	} else {
@@ -258,7 +260,7 @@ func (rh *RuleEngineHandler) processRuleEvent(l logging.Logger, traceID string, 
 	}
 }
 
-// distributeRuleTask distributes rule task with old rule definitions included
+// distributeRuleTask distributes rule task with enhanced rule change logic
 func (rh *RuleEngineHandler) distributeRuleTask(l logging.Logger, traceID string,
 	eventType string, rule *relib.RuleDefinition, oldRule *relib.RuleDefinition) bool {
 

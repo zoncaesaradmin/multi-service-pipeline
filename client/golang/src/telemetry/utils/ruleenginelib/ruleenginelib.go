@@ -34,7 +34,7 @@ const (
 	PrimaryKeySystem  = "PRIMARY_KEY_SYSTEM"
 )
 
-// External event types - these are the actual message types received from config-service
+// External event types - these are the actual message types received from config service
 const (
 	RuleEventCreate  = "CREATE_ALERT_RULE"
 	RuleEventUpdate  = "UPDATE_ALERT_RULE"
@@ -43,7 +43,7 @@ const (
 	RuleEventDisable = "DISABLE_ALERT_RULE"
 )
 
-// Constants for CRUD operations on rule
+// Internal event types - these are the 3 core operations the rule engine supports
 const (
 	InternalEventCreate = "CREATE_RULE"
 	InternalEventUpdate = "UPDATE_RULE"
@@ -97,9 +97,9 @@ type RuleHitCriteria struct {
 // payload). It is nil for delete operations (rule UUID is still carried in
 // the payload) or when the action is invalid / irrelevant
 type RuleMsgResult struct {
-	RuleEvent  string
-	Rules      []RuleDefinition
-	RuleEvents map[string]string // map of rule UUID to effective event type processed
+	RuleEvent  string            `json:"ruleEvent"`  // Original message event type
+	Rules      []RuleDefinition  `json:"rules"`      // Processed rules
+	RuleEvents map[string]string `json:"ruleEvents"` // Per-rule event types: ruleUUID -> eventType
 }
 
 type TransactionMetadata struct {
@@ -168,6 +168,8 @@ func (re *RuleEngine) HandleAlertRuleEvent(msgBytes []byte, userMeta Transaction
 		return &RuleMsgResult{RuleEvent: originalMsgType}, nil, nil
 	}
 
+	// For DELETE operations, capture old rule definitions BEFORE rule engine update
+	// because HandleAlertRuleEvent will remove the rule from cache
 	oldRules := make(map[string]*RuleDefinition)
 	for _, alertRule := range rInput.AlertRules {
 		if rule, exists := re.GetRule(alertRule.UUID); exists {
@@ -216,13 +218,13 @@ func (re *RuleEngine) HandleAlertRuleEvent(msgBytes []byte, userMeta Transaction
 
 	if processedCount == 0 {
 		trLogger.Info("RELIB - no rules processed (all dropped or failed)")
-		return nil, oldRules, nil
+		return nil, oldRules, fmt.Errorf("no rules processed")
 	}
 
 	result := &RuleMsgResult{
 		RuleEvent:  originalMsgType, // Original message event type
 		Rules:      allProcessedRules,
-		RuleEvents: ruleEvents, // Per-fule event types
+		RuleEvents: ruleEvents, // Per-rule event types
 	}
 
 	trLogger.Infof("RELIB - successfully processed %d rules with original event type: %s", processedCount, originalMsgType)
@@ -232,7 +234,7 @@ func (re *RuleEngine) HandleAlertRuleEvent(msgBytes []byte, userMeta Transaction
 // determineEffectiveEventType determines what event type to use based on original event and state
 func (re *RuleEngine) determineEffectiveEventType(logger *Logger, originalEventType string, alertRule AlertRuleConfig, index int) (string, bool) {
 	// Extract state from the alert rule - need to handle the state field properly
-	// Since your JSON shows boolena, but struct has string, we need to parse appropriately
+	// Since your JSON shows boolean, but struct has string, we need to parse appropriately
 	ruleState := re.extractRuleState(alertRule)
 
 	logger.Debugf("RELIB - rule %d: originalEvent=%s, state=%v", index, originalEventType, ruleState)
@@ -256,7 +258,7 @@ func (re *RuleEngine) determineEffectiveEventType(logger *Logger, originalEventT
 			logger.Debugf("RELIB - processing UPDATE rule %d (state=true, rule exists)", index)
 			return InternalEventUpdate, true // Rule exists, normal update
 		} else {
-			logger.Debugf("RELIB - converting UPDATE rule %d to CREATE (state=true, rule missing - re-enablement)", index)
+			logger.Infof("RELIB - converting UPDATE rule %d to CREATE (state=true, rule missing - re-enablement)", index)
 			return InternalEventCreate, true // Rule missing, treat as create for re-enablement
 		}
 
@@ -266,7 +268,7 @@ func (re *RuleEngine) determineEffectiveEventType(logger *Logger, originalEventT
 		return InternalEventCreate, true
 
 	case RuleEventDisable:
-		// DISABLE always converts to CREATE (simple rule: enable = remove from engine)
+		// DISABLE always converts to DELETE (simple rule: disable = remove from engine)
 		logger.Debugf("RELIB - converting DISABLE rule %d to DELETE", index)
 		return InternalEventDelete, true
 
@@ -275,7 +277,7 @@ func (re *RuleEngine) determineEffectiveEventType(logger *Logger, originalEventT
 		return InternalEventDelete, true // DELETE events are always processed
 
 	default:
-		logger.Debugf("RELIB - unknonwn event type %s for rule %d", originalEventType, index)
+		logger.Infof("RELIB - unknonwn event type %s for rule %d", originalEventType, index)
 		return "", false
 	}
 }
@@ -309,19 +311,19 @@ func (re *RuleEngine) handleRuleMsgEvents(l *Logger, rmsg []byte, msgType string
 	switch msgType {
 	case InternalEventCreate:
 		// Handle create rule event
-		l.Debugf("RELIB - handling create rule msg event")
+		l.Debugf("RELIB - handling internal create rule msg event")
 		return re.AddRule(string(rmsg))
 	case InternalEventUpdate:
 		// Handle update rule event
-		l.Debugf("RELIB - handling update rule msg event")
+		l.Debugf("RELIB - handling internal update rule msg event")
 		return re.AddRule(string(rmsg))
 	case InternalEventDelete:
 		// Handle delete rule event
-		l.Debugf("RELIB - handling delete rule msg event")
+		l.Debugf("RELIB - handling internal delete rule msg event")
 		return re.DeleteRule(string(rmsg))
 	}
-	l.Infof("RELIB - unknown rule msg event type: %s", msgType)
-	return []RuleDefinition{}, errors.New("unknown rule msg event type")
+	l.Infof("RELIB - unknown internal rule event type: %s", msgType)
+	return []RuleDefinition{}, errors.New("unknown internal rule event type")
 }
 
 // initAlertRules initializes the rules from already existing rules configured

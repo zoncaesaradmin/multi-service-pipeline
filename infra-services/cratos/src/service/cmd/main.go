@@ -167,6 +167,7 @@ func loadEnvFile() {
 	// Try to load .env file from workspace root for local development
 	envPaths := []string{
 		".env",             // Current directory
+		"../../.env",       // From service back to cratos root
 		"../../../.env",    // From service/cmd back to workspace root
 		"../../../../.env", // Alternative path
 		filepath.Join(os.Getenv("SERVICE_HOME"), ".env"), // Using SERVICE_HOME if set
@@ -182,9 +183,6 @@ func loadEnvFile() {
 			}
 		}
 	}
-
-	// If no .env file found, that's fine for production
-	log.Println("ℹ️  No .env file found - using system environment variables")
 }
 
 // isRunningInContainer detects if the application is running in a container

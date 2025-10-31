@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 )
 
 // Constants for rule engine match keys
@@ -28,16 +29,25 @@ const (
 const (
 	RuleTypeMgmt      = "ALERT_RULES"
 	RuleTypeSource    = "GLOBAL_CATEGORY_RULES"
-	ScopeSystem       = "platform-system"
+	ScopeSystem       = "system"
 	PrimaryKeyDefault = "PRIMARY_KEY_DEFAULT"
 	PrimaryKeySystem  = "PRIMARY_KEY_SYSTEM"
 )
 
+// External event types - these are the actual message types received from config-service
+const (
+	RuleEventCreate  = "CREATE_ALERT_RULE"
+	RuleEventUpdate  = "UPDATE_ALERT_RULE"
+	RuleEventDelete  = "DELETE_ALERT_RULE"
+	RuleEventEnable  = "ENABLE_ALERT_RULE"
+	RuleEventDisable = "DISABLE_ALERT_RULE"
+)
+
 // Constants for CRUD operations on rule
 const (
-	RuleEventCreate = "CREATE_ALERT_RULE"
-	RuleEventUpdate = "UPDATE_ALERT_RULE"
-	RuleEventDelete = "DELETE_ALERT_RULE"
+	InternalEventCreate = "CREATE_RULE"
+	InternalEventUpdate = "UPDATE_RULE"
+	InternalEventDelete = "DELETE_RULE"
 )
 
 // action types supported and used in RuleAction.ActionType
@@ -87,8 +97,9 @@ type RuleHitCriteria struct {
 // payload). It is nil for delete operations (rule UUID is still carried in
 // the payload) or when the action is invalid / irrelevant
 type RuleMsgResult struct {
-	RuleEvent string
-	Rules     []RuleDefinition
+	RuleEvent  string
+	Rules      []RuleDefinition
+	RuleEvents map[string]string // map of rule UUID to effective event type processed
 }
 
 type TransactionMetadata struct {
@@ -114,7 +125,7 @@ func CreateRuleEngineInstance(lInfo LoggerInfo, ruleTypes []string) *RuleEngine 
 
 func isValidEventType(msgType string) bool {
 	switch msgType {
-	case RuleEventCreate, RuleEventUpdate, RuleEventDelete:
+	case RuleEventCreate, RuleEventUpdate, RuleEventDelete, RuleEventEnable, RuleEventDisable:
 		return true
 	default:
 		return false
@@ -140,59 +151,171 @@ func isRelevantRule(meta AlertRuleMetadata, validTypes []string) bool {
 	return true
 }
 
-func (re *RuleEngine) HandleRuleEvent(msgBytes []byte, userMeta TransactionMetadata) (*RuleMsgResult, error) {
+func (re *RuleEngine) HandleAlertRuleEvent(msgBytes []byte, userMeta TransactionMetadata) (*RuleMsgResult, map[string]*RuleDefinition, error) {
 	var rInput AlertRuleMsg
 	trLogger := re.Logger.WithField("traceId", userMeta.TraceId)
 	if err := json.Unmarshal(msgBytes, &rInput); err != nil {
 		trLogger.Infof("Failed to unmarshal rule message: %v", err.Error())
 		// log and ignore invalid messages
-		return nil, err
+		return nil, nil, err
 	}
 
 	trLogger.Debugf("RELIB - received msg unmarshalled: %+v", rInput)
 
-	msgType := rInput.Metadata.RuleEventType
-	result := &RuleMsgResult{RuleEvent: msgType}
-
+	originalMsgType := rInput.Metadata.RuleEventType
 	if !isRelevantRule(rInput.Metadata, re.RuleTypes) {
 		trLogger.Debug("RELIB - ignore invalid/non-relevant rule")
-		return result, nil
+		return &RuleMsgResult{RuleEvent: originalMsgType}, nil, nil
 	}
 
-	trLogger.Infof("RELIB - processing valid rule for operation: %s", msgType)
+	oldRules := make(map[string]*RuleDefinition)
+	for _, alertRule := range rInput.AlertRules {
+		if rule, exists := re.GetRule(alertRule.UUID); exists {
+			oldRules[alertRule.UUID] = &rule
+		}
+	}
 
-	ruleJsonBytes, err := ConvertToRuleEngineFormat(rInput.AlertRules)
+	trLogger.Infof("RELIB - processing valid rule for operation: %s", originalMsgType)
+
+	// Process each payload item individually based on state
+	var allProcessedRules []RuleDefinition
+	ruleEvents := make(map[string]string)
+	processedCount := 0
+
+	for i, alertRule := range rInput.AlertRules {
+		// Determine effective event type based on original event and state
+		effectiveEventType, shouldProcess := re.determineEffectiveEventType(trLogger, originalMsgType, alertRule, i)
+
+		if !shouldProcess {
+			continue // Skip this payload item (e.g., CREATE with state=false)
+		}
+
+		// Create individual message for this payload item
+		singleRuleInput := AlertRuleMsg{
+			Metadata:   rInput.Metadata,
+			AlertRules: []AlertRuleConfig{alertRule},
+		}
+
+		// Update metadata to reflect effective event type
+		singleRuleInput.Metadata.RuleEventType = effectiveEventType
+
+		// Process this individual rule
+		rule, err := re.processSingleRule(trLogger, singleRuleInput, effectiveEventType)
+		if err != nil {
+			trLogger.Infof("RELIB - failed to process rule %d: %v", i, err)
+			continue
+		}
+
+		allProcessedRules = append(allProcessedRules, rule)
+
+		// Track event type per rule UUID
+		ruleEvents[rule.AlertRuleUUID] = effectiveEventType
+
+		processedCount++
+	}
+
+	if processedCount == 0 {
+		trLogger.Info("RELIB - no rules processed (all dropped or failed)")
+		return nil, oldRules, nil
+	}
+
+	result := &RuleMsgResult{
+		RuleEvent:  originalMsgType, // Original message event type
+		Rules:      allProcessedRules,
+		RuleEvents: ruleEvents, // Per-fule event types
+	}
+
+	trLogger.Infof("RELIB - successfully processed %d rules with original event type: %s", processedCount, originalMsgType)
+	return result, oldRules, nil
+}
+
+// determineEffectiveEventType determines what event type to use based on original event and state
+func (re *RuleEngine) determineEffectiveEventType(logger *Logger, originalEventType string, alertRule AlertRuleConfig, index int) (string, bool) {
+	// Extract state from the alert rule - need to handle the state field properly
+	// Since your JSON shows boolena, but struct has string, we need to parse appropriately
+	ruleState := re.extractRuleState(alertRule)
+
+	logger.Debugf("RELIB - rule %d: originalEvent=%s, state=%v", index, originalEventType, ruleState)
+
+	switch originalEventType {
+	case RuleEventCreate:
+		if !ruleState {
+			logger.Infof("RELIB - dropping CREATE rule %d (state=false)", index)
+			return "", false // Drop CREATE with state=false
+		}
+		logger.Debugf("RELIB - processing CREATE rule %d (state=true)", index)
+		return InternalEventCreate, true
+
+	case RuleEventUpdate:
+		if !ruleState {
+			logger.Infof("RELIB - converting UPDATE rule %d to DELETE (state=false)", index)
+			return InternalEventDelete, true // Convert UPDATE with state=false to DELETE
+		}
+		// For re-enablement scenario: Check if rule exists in engine
+		if _, exists := re.GetRule(alertRule.UUID); exists {
+			logger.Debugf("RELIB - processing UPDATE rule %d (state=true, rule exists)", index)
+			return InternalEventUpdate, true // Rule exists, normal update
+		} else {
+			logger.Debugf("RELIB - converting UPDATE rule %d to CREATE (state=true, rule missing - re-enablement)", index)
+			return InternalEventCreate, true // Rule missing, treat as create for re-enablement
+		}
+
+	case RuleEventEnable:
+		// ENABLE always converts to CREATE (simple rule: enable = add to engine)
+		logger.Debugf("RELIB - converting ENABLE rule %d to CREATE", index)
+		return InternalEventCreate, true
+
+	case RuleEventDisable:
+		// DISABLE always converts to CREATE (simple rule: enable = remove from engine)
+		logger.Debugf("RELIB - converting DISABLE rule %d to DELETE", index)
+		return InternalEventDelete, true
+
+	case RuleEventDelete:
+		logger.Debugf("RELIB - processing DELETE rule %d", index)
+		return InternalEventDelete, true // DELETE events are always processed
+
+	default:
+		logger.Debugf("RELIB - unknonwn event type %s for rule %d", originalEventType, index)
+		return "", false
+	}
+}
+
+// extractRuleState extracts the boolean state from AlertRuleConfig
+func (re *RuleEngine) extractRuleState(alertRule AlertRuleConfig) bool {
+	return strings.ToLower(alertRule.State) == "true"
+}
+
+// processSingleRule processes a single rule with the determined event type
+func (re *RuleEngine) processSingleRule(logger *Logger, ruleInput AlertRuleMsg, eventType string) (RuleDefinition, error) {
+	ruleJsonBytes, err := ConvertToRuleEngineFormat(ruleInput.AlertRules)
 	if err != nil {
-		trLogger.Infof("RELIB - failed to convert rule format: %v", err.Error())
-		return result, err
+		return RuleDefinition{}, fmt.Errorf("failed to convert rule format: %w", err)
 	}
+
 	if len(ruleJsonBytes) == 0 {
-		trLogger.Info("RELIB - invalid empty rule to process, ignored")
-		return result, fmt.Errorf("empty rule after conversion")
+		return RuleDefinition{}, fmt.Errorf("empty rule after conversion")
 	}
 
-	trLogger.Infof("RELIB - converted rule: %s", string(ruleJsonBytes))
-	rules, err := re.handleRuleMsgEvents(trLogger, ruleJsonBytes, msgType)
-	if err != nil {
-		return result, err
+	logger.Debugf("RELIB - processing single rule with event type %s: %s", eventType, string(ruleJsonBytes))
+	handledRules, err := re.handleRuleMsgEvents(logger, ruleJsonBytes, eventType)
+	if len(handledRules) >= 0 {
+		return handledRules[0], nil
 	}
-
-	result.Rules = rules
-	return result, nil
+	return RuleDefinition{}, err
 }
 
 func (re *RuleEngine) handleRuleMsgEvents(l *Logger, rmsg []byte, msgType string) ([]RuleDefinition, error) {
 	l.Debugf("RELIB - handleRuleMsgEvents called with msgType: %s, ruleData: %s", msgType, string(rmsg))
 	switch msgType {
-	case RuleEventCreate:
+	case InternalEventCreate:
 		// Handle create rule event
 		l.Debugf("RELIB - handling create rule msg event")
 		return re.AddRule(string(rmsg))
-	case RuleEventUpdate:
+	case InternalEventUpdate:
 		// Handle update rule event
 		l.Debugf("RELIB - handling update rule msg event")
 		return re.AddRule(string(rmsg))
-	case RuleEventDelete:
+	case InternalEventDelete:
 		// Handle delete rule event
 		l.Debugf("RELIB - handling delete rule msg event")
 		return re.DeleteRule(string(rmsg))
@@ -269,11 +392,11 @@ func ProcessRuleChangeRequest(req RuleChangeRequest) RuleChangeResponse {
 	}
 
 	switch req.RuleEvent {
-	case RuleEventDelete:
+	case InternalEventDelete:
 		return processDeleteRequest(req)
-	case RuleEventUpdate:
+	case InternalEventUpdate:
 		return processUpdateRequest(req)
-	case RuleEventCreate:
+	case InternalEventCreate:
 		return processCreateRequest(req)
 	default:
 		response.ProcessingReason = fmt.Sprintf("Unknown rule event: %s", req.RuleEvent)
@@ -283,15 +406,10 @@ func ProcessRuleChangeRequest(req RuleChangeRequest) RuleChangeResponse {
 
 // processDeleteRequest handles DELETE rule events
 func processDeleteRequest(req RuleChangeRequest) RuleChangeResponse {
-	response := RuleChangeResponse{ShouldProcess: false, Conditions: []map[string]interface{}{}, NeedsCleanup: false}
+	// DELETE always processes existing records to clean up rule effects
+	response := RuleChangeResponse{ShouldProcess: true, Conditions: []map[string]interface{}{}, NeedsCleanup: false}
 
-	if !req.ApplyToExisting {
-		response.ProcessingReason = "DELETE rule - skipping existing anomalies (applyToExisting=false)"
-		return response
-	}
-
-	response.ShouldProcess = true
-	response.ProcessingReason = "DELETE rule - processing existing anomalies"
+	response.ProcessingReason = "DELETE rule - always process existing anomalies to clean up rule effects"
 	if req.NewRule != nil {
 		response.Conditions = ExtractConditions(req.NewRule)
 	}
@@ -426,7 +544,7 @@ func extractFromConditionArray(condition map[string]interface{}, arrayKey, ident
 }
 
 type RuleEngineType interface {
-	HandleRuleEvent([]byte, TransactionMetadata) (*RuleMsgResult, error)
+	HandleAlertRuleEvent([]byte, TransactionMetadata) (*RuleMsgResult, map[string]*RuleDefinition, error)
 	EvaluateRules(Data) RuleLookupResult
 	GetRule(string) (RuleDefinition, bool)
 	AddRule(string) ([]RuleDefinition, error)

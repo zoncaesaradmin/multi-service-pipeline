@@ -71,7 +71,7 @@ func (i *InputHandler) Start() error {
 
 			// Use trace-aware logger for this message
 			msgLogger := utils.WithTraceLogger(i.logger, traceCtx)
-			msgLogger.Debugw("Received kafka data message", "size", len(message.Value))
+			msgLogger.Debugw("KAFKAIN - RECORD HANDLER: Received message", "size", len(message.Value))
 
 			// Create commit callback that will be called after successful processing
 			commitCallback := func(ctx context.Context) error {

@@ -136,7 +136,7 @@ func processRuleMatchCriteria(rule AlertRuleConfig) map[string][]*RuleMatchCondi
 			conditionals = append(conditionals, AstConditional{
 				Identifier: id,
 				Operator:   "eq",
-				Value:      convertObjIdentifierValue(id, objMatch.ValueEquals),
+				Value:      NormalizeObjIdentifierValue(id, objMatch.ValueEquals),
 			})
 		}
 
@@ -267,10 +267,12 @@ func convertObjIdentifier(objectType string) string {
 	return objectType
 }
 
-func convertObjIdentifierValue(objectType string, value string) string {
-	switch strings.ToLower(objectType) {
-	case "interface":
+func NormalizeObjIdentifierValue(objectType string, value string) string {
+	switch objectType {
+	case MatchKeyInterface:
 		return NormalizeInterfaceName(value)
+	case MatchKeyBd, MatchKeyVrf, MatchKeyTenant:
+		return strings.ToLower(value)
 	}
 	return value
 }

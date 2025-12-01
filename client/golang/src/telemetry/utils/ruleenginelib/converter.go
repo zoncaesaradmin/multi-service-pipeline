@@ -301,6 +301,8 @@ func NormalizeInterfaceName(intfName string) string {
 	return intfName
 }
 
-func GetAllConfiguredAlertRules() [][]byte {
+// GetAllConfiguredAlertRules returns pre-configured rule JSON blobs.
+// This is a package-level var so tests can override it when needed.
+var GetAllConfiguredAlertRules = func() [][]byte {
 	return nil
 }

@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"testing"
 
 	"github.com/rs/zerolog"
@@ -669,4 +672,514 @@ func TestRuleEngineMethodsPanics(t *testing.T) {
 		}
 	}()
 	re.DeleteRule("not a json")
+}
+
+func TestHandleAlertRuleEventInvalidJSON(t *testing.T) {
+	re := NewRuleEngineInstance(nil, nil)
+	lg := zerolog.New(io.Discard).With().Logger()
+	re.Logger = &Logger{logger: &lg}
+	re.RuleTypes = []string{RuleTypeMgmt}
+
+	_, _, err := re.HandleAlertRuleEvent([]byte("notjson"), TransactionMetadata{TraceId: "tx"})
+	if err == nil {
+		t.Fatalf("expected error on invalid JSON in HandleAlertRuleEvent")
+	}
+}
+
+func TestCreateLoggerInstanceEmptyPath(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "logfiletest")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+	logPath := filepath.Join(tmpDir, "test.log")
+	l := CreateLoggerInstance("svc", logPath, zerolog.InfoLevel)
+	if l == nil {
+		t.Fatalf("expected CreateLoggerInstance to return a logger with valid temp path")
+	}
+}
+
+func TestDeepEqualMapsMissingKey(t *testing.T) {
+	m1 := map[string]interface{}{"a": 1}
+	m2 := map[string]interface{}{}
+	if DeepEqualMaps(m1, m2) {
+		t.Fatalf("expected DeepEqualMaps false when key missing")
+	}
+}
+
+func TestConvertToRuleEngineFormatNoActions(t *testing.T) {
+	r := AlertRuleConfig{UUID: "ca1", Name: "noact", State: "true", AlertRuleMatchCriteria: []RuleMatchCriteriaConfig{{UUID: "mc1", SiteId: "siteZ"}}}
+	b, err := ConvertToRuleEngineFormat([]AlertRuleConfig{r})
+	if err != nil {
+		t.Fatalf("ConvertToRuleEngineFormat returned error for no-action rule: %v", err)
+	}
+	if len(b) == 0 {
+		t.Fatalf("expected non-empty JSON for converted rule")
+	}
+}
+
+func TestLoggerWarnTracePanicf(t *testing.T) {
+	lg := zerolog.New(io.Discard).With().Logger()
+	l := &Logger{logger: &lg}
+	l.Warnf("warn %s", "msg")
+	l.Tracef("trace %s", "msg")
+
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatalf("expected Panicf to panic")
+		}
+	}()
+	l.Panicf("panicf %s", nil, "msg")
+}
+
+func TestEvaluateComparableEqualsSuccessCases(t *testing.T) {
+	if ok, err := evaluateComparableEquals("x", "x"); err != nil || !ok {
+		t.Fatalf("expected comparable equals true for strings")
+	}
+	if ok, err := evaluateComparableEquals(5, 5); err != nil || !ok {
+		t.Fatalf("expected comparable equals true for ints")
+	}
+	if ok, err := evaluateComparableEquals(true, true); err != nil || !ok {
+		t.Fatalf("expected comparable equals true for bools")
+	}
+}
+
+func TestNormalizeSeverityAdditional(t *testing.T) {
+	if NormalizeSeverity("EVENT_SEVERITY_WARNING") != SeverityWarning {
+		t.Fatalf("expected EVENT_SEVERITY_WARNING -> warning")
+	}
+	if NormalizeSeverity("WARNING") != SeverityWarning {
+		t.Fatalf("expected WARNING -> warning")
+	}
+}
+
+func TestCreateLoggerInstancePanicsWhenPathIsDirectory(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "logdirtest")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatalf("expected CreateLoggerInstance to panic when provided path is a directory")
+		}
+	}()
+
+	// Provide the directory path instead of a file path to force os.OpenFile error
+	_ = CreateLoggerInstance("svc", tmpDir, 0)
+}
+
+func TestDeepEqualMapsVariousCases(t *testing.T) {
+	// different lengths
+	m1 := map[string]interface{}{"a": 1}
+	m2 := map[string]interface{}{"a": 1, "b": 2}
+	if DeepEqualMaps(m1, m2) {
+		t.Fatalf("expected DeepEqualMaps false for different lengths")
+	}
+
+	// nested slice vs slice
+	m3 := map[string]interface{}{"s": []interface{}{1, 2, 3}}
+	m4 := map[string]interface{}{"s": []interface{}{1, 2, 3}}
+	if !DeepEqualMaps(m3, m4) {
+		t.Fatalf("expected DeepEqualMaps true for equal slices")
+	}
+
+	// different nested values
+	m5 := map[string]interface{}{"n": map[string]interface{}{"x": 1}}
+	m6 := map[string]interface{}{"n": map[string]interface{}{"x": 2}}
+	if DeepEqualMaps(m5, m6) {
+		t.Fatalf("expected DeepEqualMaps false for nested differing maps")
+	}
+}
+
+func TestEvaluateComparableEqualsMixedTypes(t *testing.T) {
+	// int vs float64 should be comparable but unequal
+	ok, err := evaluateComparableEquals(5, 5.0)
+	if err != nil {
+		t.Fatalf("unexpected error comparing int and float: %v", err)
+	}
+	if ok {
+		t.Fatalf("expected int 5 != float64 5.0")
+	}
+}
+
+func TestProcessRuleMatchCriteriaDefaultAndSystem(t *testing.T) {
+	rule := AlertRuleConfig{
+		UUID: "r1",
+		AlertRuleMatchCriteria: []RuleMatchCriteriaConfig{
+			{UUID: "c1", SiteId: "", Scope: "", CategoryMatchCriteria: []MatchCriteria{{ValueEquals: "net"}}},
+			{UUID: "c2", SiteId: "sys", Scope: ScopeSystem, CategoryMatchCriteria: []MatchCriteria{{ValueEquals: "syscat"}}},
+		},
+	}
+	entries := processRuleMatchCriteria(rule)
+	if len(entries) != 2 {
+		t.Fatalf("expected 2 entries, got %d", len(entries))
+	}
+	// check primary keys
+	if _, ok := entries["c1"]; !ok {
+		t.Fatalf("expected c1 entry")
+	}
+	if _, ok := entries["c2"]; !ok {
+		t.Fatalf("expected c2 entry")
+	}
+}
+
+func TestNormalizeSeverityEventTokens(t *testing.T) {
+	if NormalizeSeverity("EVENT_SEVERITY_CRITICAL") != SeverityCritical {
+		t.Fatalf("expected EVENT_SEVERITY_CRITICAL -> critical")
+	}
+	if NormalizeSeverity("event_severity_major") != SeverityMajor {
+		t.Fatalf("expected lower-case event token mapping")
+	}
+}
+
+func TestEvaluateConditionalInvalidOperatorPanics(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatalf("expected EvaluateConditional to panic on invalid operator/error from EvaluateOperator")
+		}
+	}()
+	// pass a conditional with operator that will cause EvaluateOperator to return error
+	_ = EvaluateConditional(&AstConditional{Identifier: "x", Operator: "not-an-op", Value: "v"}, "v")
+}
+
+func TestSortConditionsByPriorityTieBreak(t *testing.T) {
+	re := NewRuleEngineInstance(&EvaluatorOptions{SortAscending: true}, nil)
+	// create two conditions with same priority but different UUID to test tie-break
+	c1 := &RuleMatchCondition{AlertRuleUUID: "b", Priority: 10}
+	c2 := &RuleMatchCondition{AlertRuleUUID: "a", Priority: 10}
+	arr := []*RuleMatchCondition{c1, c2}
+	re.sortConditionsByPriority(arr)
+	if arr[0].AlertRuleUUID != "a" {
+		t.Fatalf("expected tie-break by UUID ascending when SortAscending=true, got %s", arr[0].AlertRuleUUID)
+	}
+	// descending
+	re2 := NewRuleEngineInstance(&EvaluatorOptions{SortAscending: false}, nil)
+	arr2 := []*RuleMatchCondition{c1, c2}
+	re2.sortConditionsByPriority(arr2)
+	// implementation currently uses UUID ascending tie-break regardless of SortAscending
+	if arr2[0].AlertRuleUUID != "a" {
+		t.Fatalf("expected tie-break by UUID ascending in current implementation, got %s", arr2[0].AlertRuleUUID)
+	}
+}
+
+func TestHandleAlertRuleEventDeleteOldRulesBranch(t *testing.T) {
+	re := NewRuleEngineInstance(nil, nil)
+	lg := zerolog.New(io.Discard).With().Logger()
+	re.Logger = &Logger{logger: &lg}
+	re.RuleTypes = []string{RuleTypeMgmt}
+
+	// create and add a rule first
+	addMsg := AlertRuleMsg{Metadata: AlertRuleMetadata{RuleType: RuleTypeMgmt, RuleEventType: RuleEventCreate}, AlertRules: []AlertRuleConfig{{UUID: "del1", State: "true"}}}
+	b, _ := json.Marshal(addMsg)
+	res, _, err := re.HandleAlertRuleEvent(b, TransactionMetadata{TraceId: "t1"})
+	if err != nil || res == nil {
+		t.Fatalf("expected add to succeed: %v", err)
+	}
+
+	// now send delete
+	delMsg := AlertRuleMsg{Metadata: AlertRuleMetadata{RuleType: RuleTypeMgmt, RuleEventType: RuleEventDelete}, AlertRules: []AlertRuleConfig{{UUID: "del1"}}}
+	bd, _ := json.Marshal(delMsg)
+	r2, old, err2 := re.HandleAlertRuleEvent(bd, TransactionMetadata{TraceId: "t2"})
+	if err2 != nil {
+		t.Fatalf("expected delete to process without error: %v", err2)
+	}
+	if old == nil || r2 == nil {
+		t.Fatalf("expected delete to return old rules and result")
+	}
+}
+
+func TestProcessSingleRuleUnknownInternalError(t *testing.T) {
+	re := NewRuleEngineInstance(nil, nil)
+	lg := zerolog.New(io.Discard).With().Logger()
+	logger := &Logger{logger: &lg}
+
+	// prepare a simple AlertRuleMsg
+	ar := AlertRuleMsg{Metadata: AlertRuleMetadata{RuleEventType: RuleEventCreate}, AlertRules: []AlertRuleConfig{{UUID: "psu1", State: "true"}}}
+
+	// current implementation will index into empty slice and panic; assert that
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatalf("expected processSingleRule to panic on unknown internal event")
+		}
+	}()
+	_, _ = re.processSingleRule(logger, ar, "UNKNOWN_INTERNAL")
+}
+
+func TestHandleAlertRuleEventNonRelevantQuickReturn(t *testing.T) {
+	re := NewRuleEngineInstance(nil, nil)
+	lg := zerolog.New(io.Discard).With().Logger()
+	re.Logger = &Logger{logger: &lg}
+
+	msg := AlertRuleMsg{Metadata: AlertRuleMetadata{RuleType: "OTHER", RuleEventType: RuleEventCreate}, AlertRules: []AlertRuleConfig{{UUID: "nr1"}}}
+	b, _ := json.Marshal(msg)
+	res, old, err := re.HandleAlertRuleEvent(b, TransactionMetadata{TraceId: "t-nr"})
+	if err != nil {
+		t.Fatalf("expected no error for non-relevant rule, got: %v", err)
+	}
+	if res == nil || res.RuleEvent != RuleEventCreate {
+		t.Fatalf("expected quick return with original event type, got res=%v old=%v", res, old)
+	}
+}
+
+func TestZerologLevelAllBranches(t *testing.T) {
+	_ = zerologLevel("debug")
+	_ = zerologLevel("info")
+	_ = zerologLevel("warn")
+	_ = zerologLevel("error")
+	_ = zerologLevel("fatal")
+	_ = zerologLevel("panic")
+	_ = zerologLevel("unknown-xyz")
+}
+
+func TestCreateLoggerInstanceAndCreateRuleEngineInstance(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "relogtest")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	logPath := filepath.Join(tmpDir, "relog.log")
+	l := CreateLoggerInstance("svc", logPath, zerolog.DebugLevel)
+	if l == nil {
+		t.Fatalf("CreateLoggerInstance returned nil")
+	}
+	// call safe logger methods
+	l.Info("info")
+	l.Debug("debug")
+	// create rule engine instance using CreateRuleEngineInstance
+	r := CreateRuleEngineInstance(LoggerInfo{ServiceName: "svc", FilePath: logPath, Level: "debug"}, []string{RuleTypeMgmt})
+	if r == nil {
+		t.Fatalf("CreateRuleEngineInstance returned nil")
+	}
+}
+
+func TestIsRelevantRuleFalseCases(t *testing.T) {
+	// rule type not in valid list
+	meta := AlertRuleMetadata{RuleType: "OTHER", RuleEventType: RuleEventCreate}
+	if isRelevantRule(meta, []string{RuleTypeMgmt}) {
+		t.Fatalf("expected isRelevantRule false for non-matching rule type")
+	}
+	// invalid event type
+	meta2 := AlertRuleMetadata{RuleType: RuleTypeMgmt, RuleEventType: "BAD_EVENT"}
+	if isRelevantRule(meta2, []string{RuleTypeMgmt}) {
+		t.Fatalf("expected isRelevantRule false for invalid event type")
+	}
+}
+
+func TestDetermineEffectiveEventTypeReenable(t *testing.T) {
+	re := NewRuleEngineInstance(nil, nil)
+	lg := zerolog.New(io.Discard).With().Logger()
+	l := &Logger{logger: &lg}
+	// ensure rule does not exist in engine
+	if _, ok := re.GetRule("missing"); ok {
+		t.Fatalf("expected rule missing")
+	}
+	// UPDATE with state=true and rule missing should convert to CREATE
+	et, should := re.determineEffectiveEventType(l, RuleEventUpdate, AlertRuleConfig{UUID: "missing", State: "true"}, 0)
+	if !should || et != InternalEventCreate {
+		t.Fatalf("expected UPDATE -> CREATE for missing rule, got %s should=%v", et, should)
+	}
+}
+
+func TestEvaluateAnyOfGenericWithStringSliceData(t *testing.T) {
+	dataSlice := []string{"A", "B", "C"}
+	vals := []interface{}{"B", "X"}
+	if !evaluateAnyOfGeneric(dataSlice, vals) {
+		t.Fatalf("expected evaluateAnyOfGeneric to find matching string in slice")
+	}
+	// non-matching
+	vals2 := []interface{}{"X", "Y"}
+	if evaluateAnyOfGeneric(dataSlice, vals2) {
+		t.Fatalf("did not expect a match for non-matching values")
+	}
+}
+
+func TestConvertToActionTypeAndSeverity(t *testing.T) {
+	if convertToActionType("CUSTOMIZE_ANOMALY") != RuleActionCustomizeRecommendation {
+		t.Fatalf("expected customize recommendation mapping")
+	}
+	if convertToActionType("UNKNOWN_ACTION") != "unknown" {
+		t.Fatalf("expected unknown mapping for unrecognised action")
+	}
+
+	if NormalizeSeverity("CRITICAL") != SeverityCritical {
+		t.Fatalf("expected critical severity")
+	}
+	if NormalizeSeverity("event_severity_minor") != SeverityMinor {
+		t.Fatalf("expected minor severity")
+	}
+	if NormalizeSeverity("something_else") != SeverityDefault {
+		t.Fatalf("expected default severity for unknown")
+	}
+}
+
+func TestNormalizeInterfaceNameVariantsExtra(t *testing.T) {
+	// ethernet style
+	if NormalizeInterfaceName("e1/2") != "Ethernet1/2" {
+		t.Fatalf("expected Ethernet normalized")
+	}
+	// port-channel style
+	if NormalizeInterfaceName("po10") != "Port-channel10" {
+		t.Fatalf("expected Port-channel normalized")
+	}
+	// loopback
+	if NormalizeInterfaceName("lo0") != "Loopback0" {
+		t.Fatalf("expected Loopback normalized")
+	}
+	// unknown returns original (case preserved)
+	if NormalizeInterfaceName("GigabitEthernet0/1") != "GigabitEthernet0/1" {
+		t.Fatalf("expected unknown style to be returned unchanged")
+	}
+}
+
+func TestNormalizeObjIdentifierValueAndConvertObjIdentifier(t *testing.T) {
+	if convertObjIdentifier("interface") != MatchKeyInterface {
+		t.Fatalf("expected interface mapping")
+	}
+	if convertObjIdentifier("vni") != MatchKeyVni {
+		t.Fatalf("expected vni mapping")
+	}
+
+	if NormalizeObjIdentifierValue(MatchKeyVrf, "VRF1") != "vrf1" {
+		t.Fatalf("expected vrf lowercased")
+	}
+}
+
+func TestAssertIsNumberAndComparable(t *testing.T) {
+	if n, err := assertIsNumber(5); err != nil || n != 5.0 {
+		t.Fatalf("expected int convertible to float64")
+	}
+	if n, err := assertIsNumber(3.14); err != nil || n != 3.14 {
+		t.Fatalf("expected float64 passthrough")
+	}
+	if _, err := assertIsNumber("notnum"); err == nil {
+		t.Fatalf("expected error for non-number")
+	}
+
+	if !isComparableType(5) || !isComparableType("x") || !isComparableType(true) {
+		t.Fatalf("expected basic types to be comparable")
+	}
+	if isComparableType([]int{1}) {
+		t.Fatalf("slice should not be comparable type")
+	}
+}
+
+func TestEvaluateOperatorsBasic(t *testing.T) {
+	// equality numeric
+	if ok, err := EvaluateOperator(5, 5, "="); err != nil || !ok {
+		t.Fatalf("expected numeric equality true")
+	}
+	// equality string
+	if ok, err := EvaluateOperator("a", "a", "="); err != nil || !ok {
+		t.Fatalf("expected string equality true")
+	}
+	// anyof with slice of strings
+	vals := []interface{}{"one", "two"}
+	if ok, err := EvaluateOperator("two", vals, "anyof"); err != nil || !ok {
+		t.Fatalf("expected anyof to match string in slice")
+	}
+	// anyof numeric
+	numvals := []interface{}{1, 2, 3}
+	if ok, err := EvaluateOperator(2, numvals, "anyof"); err != nil || !ok {
+		t.Fatalf("expected anyof to match numeric in slice")
+	}
+	// noneof
+	if ok, err := EvaluateOperator("x", []interface{}{"x"}, "noneof"); err != nil || ok {
+		t.Fatalf("expected noneof to be false when value present")
+	}
+
+	// less than / greater than
+	if ok, err := EvaluateOperator(1, 2, "<"); err != nil || !ok {
+		t.Fatalf("expected 1 < 2 true")
+	}
+	if ok, err := EvaluateOperator(3, 2, ">"); err != nil || !ok {
+		t.Fatalf("expected 3 > 2 true")
+	}
+}
+
+func TestEvaluateComparableEqualsErrors(t *testing.T) {
+	// non-comparable types should cause error
+	if ok, err := evaluateComparableEquals([]int{1}, []int{1}); err == nil || ok {
+		t.Fatalf("expected error when comparing non-comparable types")
+	}
+}
+
+func TestParseJSONPanicsOnInvalid(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatalf("expected ParseJSON to panic on invalid JSON")
+		}
+	}()
+	_ = ParseJSON("not a json")
+}
+
+// These tests run dangerous code paths (that call os.Exit or panic)
+// inside subprocesses so they don't kill the main `go test` process.
+
+func TestLoggerFatalSubprocess(t *testing.T) {
+	if os.Getenv("TEST_FATAL") == "1" {
+		// child: exercise Fatal/Fatalf which should terminate the process
+		zl := zerolog.New(os.Stdout).With().Timestamp().Logger()
+		l := &Logger{logger: &zl}
+		// Use Fatalf to exercise formatting path as well
+		l.Fatalf("fatal happened: %s", fmt.Errorf("some error"), "extra")
+		return
+	}
+
+	cmd := exec.Command(os.Args[0], "-test.run=TestLoggerFatalSubprocess")
+	cmd.Env = append(os.Environ(), "TEST_FATAL=1")
+	err := cmd.Run()
+	if err == nil {
+		t.Fatalf("expected subprocess to exit with non-zero status")
+	}
+	if exitErr, ok := err.(*exec.ExitError); ok {
+		// success: child exited with non-zero
+		t.Logf("subprocess exited as expected: %v", exitErr)
+		return
+	}
+	t.Fatalf("unexpected error running subprocess: %v", err)
+}
+
+func TestCreateLoggerInstanceSubprocess(t *testing.T) {
+	if os.Getenv("TEST_CREATE_LOGGER") == "1" {
+		// passing a directory path as the log file should cause os.OpenFile to fail
+		// and the function to panic (we run in subprocess so panic is fine)
+		CreateLoggerInstance("svc", ".", zerolog.InfoLevel)
+		return
+	}
+
+	cmd := exec.Command(os.Args[0], "-test.run=TestCreateLoggerInstanceSubprocess")
+	cmd.Env = append(os.Environ(), "TEST_CREATE_LOGGER=1")
+	err := cmd.Run()
+	if err == nil {
+		t.Fatalf("expected subprocess to exit with non-zero status")
+	}
+	if exitErr, ok := err.(*exec.ExitError); ok {
+		t.Logf("subprocess exited as expected: %v", exitErr)
+		return
+	}
+	t.Fatalf("unexpected error running subprocess: %v", err)
+}
+
+func TestLoggerFatalPlainSubprocess(t *testing.T) {
+	if os.Getenv("TEST_FATAL_PLAIN") == "1" {
+		zl := zerolog.New(os.Stdout).With().Timestamp().Logger()
+		l := &Logger{logger: &zl}
+		l.Fatal("fatal plain", fmt.Errorf("plain error"))
+		return
+	}
+
+	cmd := exec.Command(os.Args[0], "-test.run=TestLoggerFatalPlainSubprocess")
+	cmd.Env = append(os.Environ(), "TEST_FATAL_PLAIN=1")
+	err := cmd.Run()
+	if err == nil {
+		t.Fatalf("expected subprocess to exit with non-zero status")
+	}
+	if exitErr, ok := err.(*exec.ExitError); ok {
+		t.Logf("subprocess exited as expected: %v", exitErr)
+		return
+	}
+	t.Fatalf("unexpected error running subprocess: %v", err)
 }

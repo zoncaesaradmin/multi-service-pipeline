@@ -135,6 +135,7 @@ func TestConvertObjIdentifier(t *testing.T) {
 		{"EPG", MatchKeyEpg},
 		{"unknown", "unknown"},
 	}
+
 	for _, tt := range tests {
 		result := convertObjIdentifier(tt.input)
 		if result != tt.expected {

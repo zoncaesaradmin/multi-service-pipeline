@@ -256,7 +256,7 @@ func (re *RuleEngine) determineEffectiveEventType(logger *Logger, originalEventT
 	case RuleEventUpdate:
 		if !ruleState {
 			if _, exists := re.GetRule(alertRule.UUID); !exists {
-				logger.Infof("RELIB - dropping UPDATE rule %d (state=false, rule missing)", index)
+				logger.Infof("RELIB - dropping UPDATE rule %d (state=false, rule missing", index)
 				return "", false // Drop if rule doesn't exist
 			}
 			logger.Infof("RELIB - converting UPDATE rule %d to DELETE (state=false)", index)

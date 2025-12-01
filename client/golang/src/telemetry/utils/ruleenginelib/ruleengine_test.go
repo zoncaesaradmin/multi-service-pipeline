@@ -127,3 +127,53 @@ func TestDeepCopyActions(t *testing.T) {
 		t.Error("Modifying original action should not affect copied actions")
 	}
 }
+
+func TestEvaluateGlobalRules(t *testing.T) {
+	re := NewRuleEngineInstance(nil, nil)
+	// Create a test rule definition manually
+	ruleDefinition := &RuleDefinition{
+		AlertRuleUUID: testRuleUUID,
+		Name:          "Test Rule",
+		Priority:      100, // Add priority for proper indexing
+		Enabled:       true,
+		MatchCriteriaEntries: map[string][]*RuleMatchCondition{
+			"default": {
+				{
+					AlertRuleUUID:     testRuleUUID,
+					Priority:          100,
+					CriteriaUUID:      "condition-1",
+					PrimaryMatchValue: "PRIMARY_KEY_DEFAULT", // Add primary key for indexing
+					Condition: AstCondition{
+						All: []AstConditional{
+							{Identifier: "planet", Operator: "eq", Value: "Earth"},
+						},
+					},
+				},
+			},
+		},
+		Actions: []*RuleAction{
+			{ActionType: "TEST_ACTION", ActionValueStr: "test-value"},
+		},
+	}
+
+	// Add the rule to the engine using the new method that rebuilds indexes
+	re.AddRuleDefinition(ruleDefinition)
+
+	// Test with matching data
+	data := Data{"planet": "Earth"}
+	result := re.EvaluateRules(data)
+
+	if !result.IsRuleHit {
+		t.Error("EvaluateRules should return IsRuleHit=true for matching data")
+	}
+
+	if result.RuleUUID != testRuleUUID {
+		t.Errorf("EvaluateRules should return correct UUID, got %s", result.RuleUUID)
+	}
+
+	if len(result.Actions) != 1 {
+		t.Errorf("EvaluateRules should return one action, got %d", len(result.Actions))
+	} else if result.Actions[0].ActionType != "TEST_ACTION" {
+		t.Errorf("EvaluateRules should return correct action type, got %s", result.Actions[0].ActionType)
+	}
+}

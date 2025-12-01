@@ -10,19 +10,23 @@ import (
 
 // Constants for rule engine match keys
 const (
-	MatchKeyFabricName = "fabricName"
-	MatchKeyCategory   = "category"
-	MatchKeyTitle      = "title"
-	MatchKeySeverity   = "severity"
-	MatchKeySwitch     = "switch"
-	MatchKeyInterface  = "interface"
-	MatchKeyIp         = "ip"
-	MatchKeyVrf        = "vrf"
-	MatchKeyVni        = "vni"
-	MatchKeySubnet     = "subnet"
-	MatchKeyTenant     = "tenant"
-	MatchKeyVpc        = "vpc"
-	MatchKeyRoute      = "route"
+	MatchKeyFabricName     = "fabricName"
+	MatchKeyCategory       = "category"
+	MatchKeyTitle          = "title"
+	MatchKeySeverity       = "severity"
+	MatchKeySwitch         = "switch"
+	MatchKeyInterface      = "interface"
+	MatchKeyIp             = "ip"
+	MatchKeyVrf            = "vrf"
+	MatchKeyVni            = "vni"
+	MatchKeySubnet         = "subnet"
+	MatchKeyTenant         = "tenant"
+	MatchKeyVpc            = "vpc"
+	MatchKeyRoute          = "route"
+	MatchKeyBd             = "bd"
+	MatchKeyComplianceRule = "compliance rule"
+	MatchKeyMac            = "mac"
+	MatchKeyEpg            = "epg"
 )
 
 // Constants for rule types
@@ -277,7 +281,7 @@ func (re *RuleEngine) determineEffectiveEventType(logger *Logger, originalEventT
 		return InternalEventDelete, true // DELETE events are always processed
 
 	default:
-		logger.Infof("RELIB - unknonwn event type %s for rule %d", originalEventType, index)
+		logger.Infof("RELIB - unknown event type %s for rule %d", originalEventType, index)
 		return "", false
 	}
 }
@@ -311,15 +315,15 @@ func (re *RuleEngine) handleRuleMsgEvents(l *Logger, rmsg []byte, msgType string
 	switch msgType {
 	case InternalEventCreate:
 		// Handle create rule event
-		l.Debugf("RELIB - handling internal create rule msg event")
+		l.Debugf("RELIB - handling internal create rule event")
 		return re.AddRule(string(rmsg))
 	case InternalEventUpdate:
 		// Handle update rule event
-		l.Debugf("RELIB - handling internal update rule msg event")
+		l.Debugf("RELIB - handling internal update rule event")
 		return re.AddRule(string(rmsg))
 	case InternalEventDelete:
 		// Handle delete rule event
-		l.Debugf("RELIB - handling internal delete rule msg event")
+		l.Debugf("RELIB - handling internal delete rule event")
 		return re.DeleteRule(string(rmsg))
 	}
 	l.Infof("RELIB - unknown internal rule event type: %s", msgType)

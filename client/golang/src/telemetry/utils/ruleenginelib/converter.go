@@ -82,11 +82,13 @@ func processRuleMatchCriteria(rule AlertRuleConfig) map[string][]*RuleMatchCondi
 		conditionals := make([]AstConditional, 0)
 
 		// fabricName
-		conditionals = append(conditionals, AstConditional{
-			Identifier: MatchKeyFabricName,
-			Operator:   "anyof",
-			Value:      []string{criteria.SiteId},
-		})
+		if len(criteria.SiteId) > 0 {
+			conditionals = append(conditionals, AstConditional{
+				Identifier: MatchKeyFabricName,
+				Operator:   "anyof",
+				Value:      []string{criteria.SiteId},
+			})
+		}
 
 		// Category
 		categories := make([]string, 0)
@@ -251,8 +253,16 @@ func convertObjIdentifier(objectType string) string {
 		return MatchKeyTenant
 	case "subnet", "network":
 		return MatchKeySubnet
+	case "bd", "bridge_domain":
+		return MatchKeyBd
 	case "route":
 		return MatchKeyRoute
+	case "configuration_compliance", "communication_compliance":
+		return MatchKeyComplianceRule
+	case "mac":
+		return MatchKeyMac
+	case "epg":
+		return MatchKeyEpg
 	}
 	return objectType
 }

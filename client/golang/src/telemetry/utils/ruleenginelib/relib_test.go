@@ -138,7 +138,7 @@ func TestConvertObjIdentifier(t *testing.T) {
 	for _, tt := range tests {
 		result := convertObjIdentifier(tt.input)
 		if result != tt.expected {
-			t.Errorf("convertObjIdentifier(%q) = %q; want %q", tt.input, result, tt.expected)
+			t.Errorf("convertObjIdentifier(%q) = %q, want %q", tt.input, result, tt.expected)
 		}
 	}
 }

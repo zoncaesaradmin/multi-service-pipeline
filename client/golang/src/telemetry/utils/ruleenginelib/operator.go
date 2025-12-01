@@ -70,6 +70,7 @@ func evaluateAnyOfGeneric(dataValue interface{}, valSlice []interface{}) bool {
 				}
 			}
 		}
+		return false
 	}
 
 	// Non-string types use exact equality

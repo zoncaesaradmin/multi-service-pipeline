@@ -59,6 +59,20 @@ func evaluateAnyOfNumeric(factNum float64, valSlice []interface{}) bool {
 
 // evaluateAnyOfGeneric checks generic values against slice
 func evaluateAnyOfGeneric(dataValue interface{}, valSlice []interface{}) bool {
+	// Handle string slice dataValue (e.g., bd: ["BD1-VRF2", "BD2-VRF2"])
+	if dataSlice, ok := dataValue.([]string); ok {
+		for _, dval := range dataSlice {
+			for _, val := range valSlice {
+				if valStr, ok := val.(string); ok {
+					if dval == valStr {
+						return true
+					}
+				}
+			}
+		}
+	}
+
+	// Non-string types use exact equality
 	for _, val := range valSlice {
 		if dataValue == val {
 			return true

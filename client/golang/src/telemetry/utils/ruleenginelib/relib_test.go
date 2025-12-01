@@ -99,3 +99,46 @@ func TestConvertFunc(t *testing.T) {
 
 	//fmt.Printf("converted rules - %s\n", string(ruleJsonBytes))
 }
+
+func TestConvertObjIdentifier(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"interface", MatchKeyInterface},
+		{"switch", MatchKeySwitch},
+		{"node", MatchKeySwitch},
+		{"leaf", MatchKeySwitch},
+		{"vni", MatchKeyVni},
+		{"ip", MatchKeyIp},
+		{"ipv4", MatchKeyIp},
+		{"ipv6", MatchKeyIp},
+		{"address", MatchKeyIp},
+		{"vni", MatchKeyVni},
+		{"l2vni", MatchKeyVni},
+		{"l3vni", MatchKeyVni},
+		{"l2_vni", MatchKeyVni},
+		{"l3_vni", MatchKeyVni},
+		{"vrf", MatchKeyVrf},
+		{"tenant", MatchKeyTenant},
+		{"subnet", MatchKeySubnet},
+		{"network", MatchKeySubnet},
+		{"bd", MatchKeyBd},
+		{"bridge_domain", MatchKeyBd},
+		{"route", MatchKeyRoute},
+		{"configuration_compliance", MatchKeyComplianceRule},
+		{"communication_compliance", MatchKeyComplianceRule},
+		{"CONFIGURATION_COMPLIANCE", MatchKeyComplianceRule},
+		{"mac", MatchKeyMac},
+		{"MAC", MatchKeyMac},
+		{"epg", MatchKeyEpg},
+		{"EPG", MatchKeyEpg},
+		{"unknown", "unknown"},
+	}
+	for _, tt := range tests {
+		result := convertObjIdentifier(tt.input)
+		if result != tt.expected {
+			t.Errorf("convertObjIdentifier(%q) = %q; want %q", tt.input, result, tt.expected)
+		}
+	}
+}

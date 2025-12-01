@@ -40,11 +40,12 @@ const (
 
 // External event types - these are the actual message types received from config service
 const (
-	RuleEventCreate  = "CREATE_ALERT_RULE"
-	RuleEventUpdate  = "UPDATE_ALERT_RULE"
-	RuleEventDelete  = "DELETE_ALERT_RULE"
-	RuleEventEnable  = "ENABLE_ALERT_RULE"
-	RuleEventDisable = "DISABLE_ALERT_RULE"
+	RuleEventCreate     = "CREATE_ALERT_RULE"
+	RuleEventUpdate     = "UPDATE_ALERT_RULE"
+	RuleEventDelete     = "DELETE_ALERT_RULE"
+	RuleEventEnable     = "ENABLE_ALERT_RULE"
+	RuleEventDisable    = "DISABLE_ALERT_RULE"
+	RuleEventSiteDelete = "SITE_DELETE_ALERT_RULE"
 )
 
 // Internal event types - these are the 3 core operations the rule engine supports
@@ -254,6 +255,10 @@ func (re *RuleEngine) determineEffectiveEventType(logger *Logger, originalEventT
 
 	case RuleEventUpdate:
 		if !ruleState {
+			if _, exists := re.GetRule(alertRule.UUID); !exists {
+				logger.Infof("RELIB - dropping UPDATE rule %d (state=false, rule missing)", index)
+				return "", false // Drop if rule doesn't exist
+			}
 			logger.Infof("RELIB - converting UPDATE rule %d to DELETE (state=false)", index)
 			return InternalEventDelete, true // Convert UPDATE with state=false to DELETE
 		}

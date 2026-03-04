@@ -33,20 +33,20 @@ func NewApplication(cfg *config.RawConfig, logger logging.Logger) *Application {
 	logger.Info("Datastore initialized")
 
 	// Create metrics collector with default config
-	metricsConfig := metrics.DefaultMetricsConfig(cfg)
-	metricsCollector := metrics.NewMetricsCollector(logger.WithField("component", "metrics"), metricsConfig)
+	//metricsConfig := metrics.DefaultMetricsConfig(cfg)
+	//metricsCollector := metrics.NewMetricsCollector(logger.WithField("component", "metrics"), metricsConfig)
 
 	// Create processing pipeline with configuration from config file
 	processingConfig := processing.DefaultProcConfig(cfg)
-	processingPipeline := processing.NewPipeline(processingConfig, logger.WithField("component", "processing"), metricsCollector)
+	processingPipeline := processing.NewPipeline(processingConfig, logger.WithField("component", "processing"), nil)
 
 	return &Application{
 		rawconfig:          cfg,
 		logger:             logger,
 		processingPipeline: processingPipeline,
-		metricsCollector:   metricsCollector,
-		ctx:                ctx,
-		cancel:             cancel,
+		//metricsCollector:   metricsCollector,
+		ctx:    ctx,
+		cancel: cancel,
 	}
 }
 

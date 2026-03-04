@@ -123,12 +123,6 @@ func (h *Handler) GetRules(w http.ResponseWriter, r *http.Request) {
 	defer h.logger.Infow("GetRules handler exit", "method", r.Method, "path", r.URL.Path)
 
 	var rBytes []byte
-	if h.pipeline != nil {
-		rBytes = h.pipeline.GetRuleInfo()
-	} else {
-		rBytes = []byte("pipeline not initialized")
-	}
-
 	writeJSON(w, http.StatusOK, models.SuccessResponse{
 		Message: MsgStatsRetrieved,
 		Data:    string(rBytes),

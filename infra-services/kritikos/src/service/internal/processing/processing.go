@@ -6,7 +6,6 @@ import (
 	"servicegomodule/internal/config"
 	"servicegomodule/internal/metrics"
 	"servicegomodule/internal/models"
-	"servicegomodule/internal/rules"
 	"sharedgomodule/logging"
 	"sharedgomodule/utils"
 )
@@ -118,10 +117,6 @@ func (p *Pipeline) GetStatus() map[string]interface{} {
 	}
 }
 
-func (p *Pipeline) GetRuleInfo() []byte {
-	return p.processor.GetRuleInfo()
-}
-
 func DefaultProcConfig(cfg *config.RawConfig) ProcConfig {
 	processing := cfg.Processing
 	// Convert config processing configuration to ProcConfig
@@ -134,15 +129,6 @@ func DefaultProcConfig(cfg *config.RawConfig) ProcConfig {
 		Processor: ProcessorConfig{
 			ProcessingDelay: processing.Processor.ProcessingDelay,
 			BatchSize:       processing.Processor.BatchSize,
-			RuleEngine: rules.RuleEngineConfig{
-				RulesTopic:                  processing.Processor.RuleProcConfig.RulesTopic,
-				RuleEngLibLogging:           processing.Processor.RuleProcConfig.RelibLogging.ConvertToLoggerConfig(),
-				RulesKafkaConfigMap:         utils.LoadConfigMap(processing.Processor.RuleProcConfig.RulesKafkaConfFile),
-				RuleTasksTopic:              processing.Processor.RuleProcConfig.RuleTasksTopic,
-				RuleHandlerLogging:          processing.Processor.RuleProcConfig.RuleHandlerLogging.ConvertToLoggerConfig(),
-				RuleTasksConsKafkaConfigMap: utils.LoadConfigMap(processing.Processor.RuleProcConfig.RuleTasksConsKafkaFile),
-				RuleTasksProdKafkaConfigMap: utils.LoadConfigMap(processing.Processor.RuleProcConfig.RuleTasksProdKafkaFile),
-			},
 		},
 		Output: OutputConfig{
 			OutputTopic:       processing.Output.OutputTopic,

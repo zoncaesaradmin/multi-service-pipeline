@@ -73,47 +73,13 @@ func (i *InputHandler) Start() error {
 			msgLogger := utils.WithTraceLogger(i.logger, traceCtx)
 			msgLogger.Debugw("KAFKAIN - RECORD HANDLER: Received message", "size", len(message.Value))
 
-			// Create commit callback that will be called after successful processing
-			commitCallback := func(ctx context.Context) error {
-				if err := i.consumer.Commit(ctx, message); err != nil {
-					msgLogger.Warnw("Failed to commit message", "error", err, "key", message.Key)
-					return err
-				}
-				msgLogger.Debugw("Message committed successfully", "key", message.Key, "offset", message.Offset)
-				return nil
+			if err := i.consumer.Commit(context.Background(), message); err != nil {
+				msgLogger.Warnw("Failed to commit message after successful send", "error", err, "key", message.Key)
 			}
-
-			channelMsg := models.NewDataMessage(message.Value, message.Key, message.Partition)
-			channelMsg.CommitCallback = commitCallback
-			channelMsg.Origin = models.ChannelMessageOriginKafka
-			channelMsg.Context = traceCtx // Attach trace context to message
-
-			// Set timing information
-			channelMsg.EntryTimestamp = time.Now()
-			channelMsg.ProcessingStage = "input"
-			channelMsg.Size = int64(len(message.Value))
-
-			// Ensure trace ID is in message headers for downstream processing
-			if channelMsg.Meta == nil {
-				channelMsg.Meta = make(map[string]string)
-			}
-			for k, v := range message.Headers {
-				channelMsg.Meta[k] = v
-			}
-			channelMsg.Meta[utils.TraceIDHeader] = traceID // Ensure trace ID is propagated
-
-			// Record metrics if available
-			if i.metricsHelper != nil {
-				i.metricsHelper.RecordMessageReceived(channelMsg)
-			}
-
-			i.inputCh <- channelMsg
-			msgLogger.Debugw("Input message received", "key", message.Key, "headers", message.Headers, "size", len(message.Value))
-
 			// Record message processed at input stage with timing
 			if i.metricsHelper != nil {
-				processingDuration := time.Since(channelMsg.EntryTimestamp)
-				i.metricsHelper.RecordStageCompleted(channelMsg, processingDuration)
+				//processingDuration := time.Since(channelMsg.EntryTimestamp)
+				//i.metricsHelper.RecordStageCompleted(channelMsg, processingDuration)
 			}
 		}
 	})

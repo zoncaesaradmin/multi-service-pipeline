@@ -37,7 +37,7 @@ The testrunner loads configuration using the `SERVICE_HOME` environment variable
 # Server configuration
 server:
   host: "localhost"              # SERVER_HOST
-  port: 4477                     # SERVER_PORT
+  port: 4577                     # SERVER_PORT
   read_timeout: 10               # SERVER_READ_TIMEOUT
   write_timeout: 10              # SERVER_WRITE_TIMEOUT
 
@@ -53,7 +53,7 @@ logging:
 # Service settings for testing
 service:
   binary_path: "../service/bin/service.bin"
-  port: 4477
+  port: 4577
   timeout: 30s
 
 # Message bus configuration

@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"sharedgomodule/logging"
@@ -172,7 +173,7 @@ func overrideProcessingConfig(processing *RawProcessingConfig) {
 // overrideInputConfig overrides input configuration with environment variables
 func overrideInputConfig(input *RawInputConfig) {
 	if inputTopic := utils.GetEnv("PROCESSING_INPUT_TOPIC", ""); inputTopic != "" {
-		input.Topics = []string{inputTopic}
+		input.Topics = strings.Split(inputTopic, ",")
 	}
 	if bufferSize := utils.GetEnvInt("PROCESSING_INPUT_BUFFER_SIZE", -1); bufferSize != -1 {
 		input.ChannelBufferSize = bufferSize

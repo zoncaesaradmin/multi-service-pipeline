@@ -1,0 +1,211 @@
+{
+  "alertObject": [
+    {
+      "startTs": "2025-08-20T10:00:00Z",
+      "endTs": "2025-08-20T11:00:00Z",
+      "fabricName": "scale-ms10",
+      "nodeNames": [
+        "ifav7-leaf3",
+        "ifav7-leaf4"
+      ],
+      "statSubType": "",
+      "statName": "VPC",
+      "anomalyType": "VPC_ONE_LEG_DOWN",
+      "reason": "",
+      "severity": "critical",
+      "category": "CONNECTIVITY",
+      "entityName": "leaf103_leaf104_port_31",
+      "streamingAnomaly": true,
+      "cleared": false,
+      "clearTs": "",
+      "masterClearTs": "",
+      "customData": {
+        "controllerName": "",
+        "accountName": "",
+        "applicationName": "",
+        "tierName": "",
+        "nodeName": "ifav7-leaf3",
+        "healthRuleName": "",
+        "vrfDip": "",
+        "affectedEp": {
+          "url": "http://example.com",
+          "endpointCount": 0,
+          "params": {
+            "fabricName": "scale-ms10",
+            "nodeName": "ifav7-leaf3",
+            "anomalyType": "VPC_ONE_LEG_DOWN",
+            "startTs": "2025-08-20T10:00:00Z",
+            "endTs": "2025-08-20T11:00:00Z"
+          }
+        },
+        "endpoints": [],
+        "hostName": "",
+        "vmName": "",
+        "networkName": "",
+        "dsName": "",
+        "deviceName": "",
+        "moveCount": 0,
+        "interfaces": "",
+        "events": [],
+        "adjacency": {
+          "peerDeviceName": "",
+          "peerInterfaceName": "",
+          "modTs": "",
+          "fabricName": ""
+        },
+        "vpc": {
+          "domainId": "2",
+          "nodeList": [
+            {
+              "nodeName": "ifav7-leaf4",
+              "interfaceType": "vpc",
+              "interfaceUniqueId": "domain-2/leaf103_leaf104_port_31",
+              "vpcOperSt": "up",
+              "pcId": "po1",
+              "interface": "eth1/31"
+            },
+            {
+              "nodeName": "ifav7-leaf3",
+              "interfaceType": "vpc",
+              "interfaceUniqueId": "domain-2/leaf103_leaf104_port_31",
+              "vpcOperSt": "down",
+              "pcId": "po1",
+              "interface": "eth1/31"
+            }
+          ]
+        },
+        "pc": {
+          "configuredMemberList": []
+        },
+        "bgp": {
+          "connIf": "",
+          "bgpType": "",
+          "prefixChangeType": "",
+          "peerIp": "",
+          "vrf": ""
+        },
+        "pcId": "po1",
+        "ospf": {
+          "interfaceNameFromDN": "",
+          "derivedIntf": "",
+          "peerIp": ""
+        },
+        "svi": {
+          "associatedInterface": ""
+        },
+        "rcaData": "",
+        "apicFault": {
+          "description": "",
+          "configQuals": []
+        },
+        "impactResourceType": ""
+      },
+      "alertType": "anomaly",
+      "alertId": "ALERT-VPC-VPC235828585505",
+      "title": "",
+      "recommendation": true,
+      "impact": true,
+      "extendStreamingAnomaly": true,
+      "anomalyId": "VPC235828585505",
+      "newAlert": true,
+      "epochStartTs": 1629453600,
+      "epochEndTs": 1629457200,
+      "mnemonicTitle": "VPC_ONE_LEG_DOWN",
+      "mnemonicDescription": "One leg of the VPC is down",
+      "mnemonicNum": 100087,
+      "entityNameList": [
+        {
+          "objectType": "leaf",
+          "objectValue": [
+            "ifav7-leaf4",
+            "ifav7-leaf3"
+          ]
+        }
+      ],
+      "targetIndex": "Index1",
+      "parentAnomalyIdList": [],
+      "resourceName": "VPC",
+      "resourceType": "VPC_DOWN",
+      "acknowledged": false,
+      "ackTs": "",
+      "updateAlert": false,
+      "verificationStatus": "NEW",
+      "assignee": "",
+      "tags": [],
+      "comment": "",
+      "vendor": "CISCO_ACI",
+      "offline": false,
+      "autoAck": false,
+      "manualAck": "",
+      "activeTs": "2025-08-20T10:00:00Z",
+      "epochActiveTs": 1629453600,
+      "hashKey": 123456789,
+      "updateAcknowledged": false,
+      "updateTags": false,
+      "updateVerificationStatus": false,
+      "updateAssignee": false,
+      "updateComment": false,
+      "checkCodes": [],
+      "multiFabricAlert": false,
+      "affectedObjects": [
+        {
+          "type": "leaf",
+          "identifier": "",
+          "name": "ifav7-leaf3",
+          "isPrimary": false,
+          "isHealthy": false
+        },
+        {
+          "type": "leaf",
+          "identifier": "",
+          "name": "ifav7-leaf4",
+          "isPrimary": false,
+          "isHealthy": false
+        },
+        {
+          "type": "interface",
+          "identifier": "",
+          "name": "po1",
+          "isPrimary": false,
+          "isHealthy": false
+        },
+        {
+          "type": "vpc",
+          "identifier": "",
+          "name": "2",
+          "isPrimary": false,
+          "isHealthy": false
+        }
+      ],
+      "eventSignature": "",
+      "msoPrimaryKey": "",
+      "ruleType": "",
+      "ruleId": "",
+      "ruleName": "",
+      "impactStr": "",
+      "recommendationStr": "",
+      "whatsTriggeredStr": "",
+      "appVersion": "6.7.3.14",
+      "analysisTsList": [],
+      "isCorrelated": false,
+      "isRoot": false,
+      "impactCount": 2,
+      "sender": "",
+      "anomalySource": "telemetry",
+      "device": "",
+      "switchId": "",
+      "policyName": "",
+      "customSourceData": "",
+      "manualClear": false,
+      "updateClear": false,
+      "updateDelete": false,
+      "newAnomaly": false,
+      "customRecommendation": false,
+      "cacheKey": "",
+      "compositeKey": "",
+      "remediation": [],
+      "serviceName": "",
+      "suspendedAlert": ""
+    }
+  ]
+}

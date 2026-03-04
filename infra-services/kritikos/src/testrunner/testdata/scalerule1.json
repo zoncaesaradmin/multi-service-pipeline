@@ -1,0 +1,65 @@
+{
+  "metadata": {
+    "ruleType": "ALERT_RULES",
+    "alertType": "anomaly",
+    "action": "CREATE_ALERT_RULE"
+  },
+  "alertRulePayload": [
+    {
+      "uuid": "SCALE-RULE-UUID-2",
+      "name": "scale_rule_1",
+      "priority": 1758994360,
+      "description": "Alert when CPU usage exceeds threshold",
+      "state": "true",
+      "customizeAnomaly": {
+        "customMessage": "explicit message 1"
+      },
+      "associatedInsightGroupUuids": [
+        "group-456",
+        "group-789"
+      ],
+      "applyActionsToActiveAnomalies": "true",
+      "overrideSeverity": "critical",
+      "alertRuleActions": [
+        {
+          "action": "CUSTOMIZE_ANOMALY"
+        },
+        {
+          "action": "ACKNOWLEDGE"
+        },
+        {
+          "action": "OVERRIDE_SEVERITY"
+        }
+      ],
+      "alertRuleMatchCriteria": [
+        {
+          "categoryMatchCriteria": [
+            {
+              "valueEquals": "CONNECTIVITY"
+            }
+          ],
+          "affectedObjectMatchCriteria": [
+            {
+              "resourceType": "switch",
+              "valueEquals": "leaf-1"
+            },
+            {
+              "resourceType": "interface",
+              "valueEquals": "eth1/3"
+            }
+          ],
+          "eventNameMatchCriteria": [
+            {
+              "valueEquals": "BGP_PEER_CONNECTION_DOWN"
+            }
+          ],
+          "uuid": "SCALE-RULE-UUID-1-CRITERIA-1",
+          "alertRuleId": "SCALE-RULE-UUID-2",
+          "siteId": "fabric-2"
+        }
+      ],
+      "lastModifiedTime": 1756993825056,
+      "links": []
+    }
+  ]
+}

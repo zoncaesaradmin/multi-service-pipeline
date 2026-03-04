@@ -1,0 +1,215 @@
+{
+  "alertObject": [
+    {
+      "startTs": "2025-08-20T10:00:00Z",
+      "endTs": "2025-08-20T11:00:00Z",
+      "fabricName": "scale-fabric-2",
+      "nodeNames": [
+        "leaf-1",
+        "leaf-2"
+      ],
+      "statSubType": "statSubTypeValue",
+      "statName": "statNameValue",
+      "anomalyType": "SomeAnomalyType",
+      "reason": "reason for failure",
+      "severity": "minor",
+      "category": "scale-category-2",
+      "entityName": "EntityA",
+      "streamingAnomaly": true,
+      "cleared": false,
+      "clearTs": "",
+      "masterClearTs": "",
+      "customData": {
+        "controllerName": "Controller1",
+        "accountName": "Account1",
+        "applicationName": "App1",
+        "tierName": "Tier1",
+        "nodeName": "NodeA",
+        "healthRuleName": "HealthRule1",
+        "vrfDip": "VRF1",
+        "endpoints": [
+          "Endpoint1",
+          "Endpoint2"
+        ],
+        "hostName": "HostA",
+        "vmName": "VM1",
+        "networkName": "Net1",
+        "dsName": "DS1",
+        "deviceName": "DeviceA",
+        "moveCount": 1,
+        "interfaces": "eth0",
+        "events": [
+          {
+            "code": "E1",
+            "data": "EventData1"
+          },
+          {
+            "code": "E2",
+            "data": "EventData2"
+          }
+        ],
+        "vpc": {
+          "domainId": "Domain1",
+          "nodeList": [
+            {
+              "nodeName": "NodeA",
+              "interface": "eth0",
+              "pcId": "PC1",
+              "vpcOperSt": "up",
+              "pcOperStateQual": "ok",
+              "interfaceType": "typeA",
+              "interfaceUniqueId": "unique1"
+            }
+          ]
+        },
+        "pc": {
+          "configuredMemberList": [
+            "Member1",
+            "Member2"
+          ]
+        },
+        "bgp": {
+          "connIf": "conn1",
+          "bgpType": "internal",
+          "prefixChangeType": "add",
+          "peerIp": "10.0.0.1",
+          "vrf": "VRF1"
+        },
+        "pcId": "PC1",
+        "ospf": {
+          "interfaceNameFromDN": "eth0",
+          "derivedIntf": "eth0",
+          "peerIp": "10.0.0.2"
+        },
+        "svi": {
+          "associatedInterface": "eth0"
+        },
+        "rcaData": "RCA info",
+        "apicFault": {
+          "description": "Fault description",
+          "configQuals": [
+            "qual1",
+            "qual2"
+          ]
+        },
+        "impactResourceType": "typeA"
+      },
+      "alertType": "typeA",
+      "alertId": "SCALE-ALERT-ID",
+      "title": "scale-title-2",
+      "recommendation": true,
+      "impact": true,
+      "extendStreamingAnomaly": false,
+      "anomalyId": "ANOM-123",
+      "newAlert": true,
+      "epochStartTs": 1629453600,
+      "epochEndTs": 1629457200,
+      "mnemonicTitle": "scale-title-2",
+      "mnemonicDescription": "MnemonicDescription",
+      "mnemonicNum": 42,
+      "entityNameList": [
+        {
+          "objectType": "TypeA",
+          "objectValue": [
+            "Value1",
+            "Value2"
+          ]
+        }
+      ],
+      "targetIndex": "Index1",
+      "parentAnomalyIdList": [
+        "Parent1",
+        "Parent2"
+      ],
+      "resourceName": "ResourceA",
+      "resourceType": "TypeA",
+      "acknowledged": false,
+      "ackTs": "",
+      "updateAlert": false,
+      "verificationStatus": "Verified",
+      "assignee": "UserA",
+      "tags": [
+        "tag1",
+        "tag2"
+      ],
+      "comment": "No comment",
+      "vendor": "VendorA",
+      "offline": false,
+      "autoAck": false,
+      "manualAck": "",
+      "activeTs": "2025-08-20T10:00:00Z",
+      "epochActiveTs": 1629453600,
+      "hashKey": 123456789,
+      "updateAcknowledged": false,
+      "updateTags": false,
+      "updateVerificationStatus": false,
+      "updateAssignee": false,
+      "updateComment": false,
+      "checkCodes": [
+        "C1",
+        "C2"
+      ],
+      "multiFabricAlert": false,
+      "affectedObjects": [
+        {
+          "type": "leaf",
+          "identifier": "scale-switch-2",
+          "name": "scale-switch-2",
+          "isPrimary": true,
+          "isHealthy": true
+        },
+        {
+          "type": "interface",
+          "identifier": "eth1/30",
+          "name": "eth1/30",
+          "isPrimary": true,
+          "isHealthy": true
+        }
+      ],
+      "eventSignature": "Signature1",
+      "msoPrimaryKey": "MSO1",
+      "ruleType": "RuleTypeA",
+      "ruleId": "RuleID1",
+      "ruleName": "RuleNameA",
+      "impactStr": "ImpactString",
+      "recommendationStr": "RecommendationString",
+      "whatsTriggeredStr": "TriggeredString",
+      "appVersion": "1.0.0",
+      "analysisTsList": [
+        "2025-08-20T10:00:00Z",
+        "2025-08-20T10:05:00Z"
+      ],
+      "isCorrelated": true,
+      "isRoot": false,
+      "impactCount": 1,
+      "sender": "SenderA",
+      "anomalySource": "SourceA",
+      "device": "DeviceA",
+      "switchId": "Switch1",
+      "policyName": "PolicyA",
+      "customSourceData": "CustomData",
+      "manualClear": false,
+      "updateClear": false,
+      "updateDelete": false,
+      "newAnomaly": false,
+      "customRecommendation": false,
+      "cacheKey": "CacheKeyA",
+      "compositeKey": "CompositeKeyA",
+      "remediation": [
+        {
+          "desc": "Remediation description",
+          "method": "manual",
+          "remediationPayload": "payload",
+          "uri": "http://remediation.example.com"
+        }
+      ],
+      "serviceName": "ServiceA",
+      "clusterName": "ClusterA",
+      "isCustomReco": false,
+      "customRecoStr": [
+        "Reco1",
+        "Reco2"
+      ]
+    }
+  ]
+}

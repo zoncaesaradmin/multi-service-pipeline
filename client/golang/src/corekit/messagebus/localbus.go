@@ -303,6 +303,9 @@ func (c *LocalConsumer) runWatcher(ctx context.Context) {
 	}
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
+	c.mutex.Lock()
+	c.pollTopicsForMessages()
+	c.mutex.Unlock()
 	for {
 		select {
 		case <-ctx.Done():
@@ -353,15 +356,13 @@ func (c *LocalConsumer) pollTopicsForMessages() {
 		log.Printf("[MessageBus] Consumer read message from topic %s at offset %d", topic, nextOffset)
 
 		if c.onMessage != nil {
-			go c.onMessage(&message)
+			c.onMessage(&message)
 		}
 	}
 }
 
 // Commit commits the offset (saves to persistent storage for local)
 func (c *LocalConsumer) Commit(ctx context.Context, message *Message) error {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
 
 	// Update the last read offset for this topic
 	if currentOffset, exists := c.lastRead[message.Topic]; exists && message.Offset > currentOffset {

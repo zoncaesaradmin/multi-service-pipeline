@@ -115,7 +115,7 @@ make coverage-enforce
 
 ## Directory Structure
 ```
-shared/
+sharedgomodule/
 ├── messagebus/           # Message bus implementations
 │   ├── localbus.go      # Local file-based bus
 │   ├── kafkabus.go      # Kafka production bus

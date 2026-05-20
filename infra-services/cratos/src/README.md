@@ -61,8 +61,8 @@ src/                          # Source code root
 │   ├── cmd/                 # Test runner entry point
 │   │   └── testmain.go      # Test runner main with message bus
 │
-└── shared/                  # Shared modules
-    ├── go.mod               # Module: sharedgomodule  
+└── ../../../client/golang/src/sharedgomodule/  # Shared module
+    ├── go.mod               # Module: sharedgomodule
     ├── go.sum               # Go module checksums
     ├── Makefile             # Shared module automation
     ├── README.md            # Shared module documentation
@@ -74,7 +74,7 @@ src/                          # Source code root
     │   └── README.md
     ├── messagebus/          # Message bus implementations
     │   ├── localbus.go      # File-based message bus (local dev)
-    │   ├── kafkabus.go      # Kafka message bus (production) 
+    │   ├── kafkabus.go      # Kafka message bus (production)
     │   ├── mbinterfaces.go  # Message bus interfaces
     │   ├── localbus_test.go
     │   ├── kafkabus_test.go
@@ -196,7 +196,7 @@ rm -rf /tmp/cratos-messagebus
 This project uses Go 1.18+ workspace feature:
 ```bash
 go work sync    # Sync workspace modules
-go work use ./service ./testrunner ./shared  # Add modules to workspace
+go work use ./service ./testrunner ../../../client/golang/src/sharedgomodule  # Add modules to workspace
 ```
 
 ## Message Bus Architecture
@@ -328,7 +328,7 @@ make test
 ### Shared Module Tests
 
 ```bash
-cd shared
+cd ../../../client/golang/src/sharedgomodule
 make test
 ```
 
@@ -372,7 +372,7 @@ make clean
 # Clean individual services
 cd service && make clean
 cd testrunner && make clean  
-cd shared && make clean
+cd ../../../client/golang/src/sharedgomodule && make clean
 ```
 
 ### Deep Clean (removes build artifacts, vendor, and module cache)
@@ -383,7 +383,7 @@ make deep-clean
 # Deep clean individual services
 cd service && make deep-clean
 cd testrunner && make deep-clean
-cd shared && make deep-clean
+cd ../../../client/golang/src/sharedgomodule && make deep-clean
 ```
 
 ### Message Bus Clean
@@ -449,7 +449,7 @@ make clean
 ### Shared Modules
 
 ```bash
-cd shared
+cd ../../../client/golang/src/sharedgomodule
 
 # Run tests for shared modules
 make test
@@ -507,7 +507,7 @@ make clean          # Clean build artifacts
 
 ### Shared Module Commands
 ```bash
-cd shared
+cd ../../../client/golang/src/sharedgomodule
 make help           # Show available targets
 make test           # Run shared module tests
 make clean          # Clean build artifacts
@@ -520,7 +520,7 @@ make clean          # Clean build artifacts
 - Make
 
 ### Project Architecture
-- **Multi-module workspace**: Uses Go 1.18+ workspace feature with service, testrunner, and shared modules
+- **Multi-module workspace**: Uses Go workspace with service, testrunner, and sharedgomodule modules
 - **Message Bus Communication**: File-based message bus for local development with producer/consumer pattern
 - **Processing Pipeline**: Input → Processor → Output pipeline architecture
 - **Build Tag Support**: Local development vs production message bus implementations
@@ -531,14 +531,14 @@ make clean          # Clean build artifacts
 #### Service Features
 1. Add models in `service/internal/models/`
 2. Implement processing logic in `service/internal/processing/processor.go`
-3. Update message types in `shared/types/types.go`
+3. Update message types in `../../../client/golang/src/sharedgomodule/types/types.go`
 4. Add unit tests for new processing logic
 5. Add integration tests in `testrunner/internal/tests/`
 
 #### Message Bus Features
-1. Add new interfaces in `shared/messagebus/mbinterfaces.go`
-2. Implement in `shared/messagebus/localbus.go` for local development
-3. Implement in `shared/messagebus/kafkabus.go` for production
+1. Add new interfaces in `../../../client/golang/src/sharedgomodule/messagebus/mbinterfaces.go`
+2. Implement in `../../../client/golang/src/sharedgomodule/messagebus/localbus.go` for local development
+3. Implement in `../../../client/golang/src/sharedgomodule/messagebus/kafkabus.go` for production
 4. Update build tags as needed
 
 ### Module Management
@@ -547,16 +547,16 @@ make clean          # Clean build artifacts
 go work sync                 # Sync all modules in workspace
 go work use ./service      # Add service module
 go work use ./testrunner     # Add testrunner module
-go work use ./shared         # Add shared module
+go work use ../../../client/golang/src/sharedgomodule  # Add shared module
 
 # Working with individual modules
 cd service && go mod tidy  # Manage service dependencies
 cd testrunner && go mod tidy # Manage testrunner dependencies
-cd shared && go mod tidy     # Manage shared dependencies
+cd ../../../client/golang/src/sharedgomodule && go mod tidy  # Manage shared dependencies
 ```
 
 ### Testing Strategy
-1. **Unit Tests**: Test individual functions in each module (service, testrunner, shared)
+1. **Unit Tests**: Test individual functions in each module (service, testrunner, sharedgomodule)
 2. **Integration Tests**: Test cross-process communication via message bus
 3. **Message Bus Tests**: Test producer/consumer patterns and offset management
 4. **Processing Pipeline Tests**: End-to-end processing validation
@@ -621,8 +621,8 @@ curl http://localhost:4477/health
 
 This project uses Go 1.18+ workspace feature which provides:
 
-- **Multi-module management**: Work with service, testrunner, and shared modules in a single workspace
-- **Cross-module development**: Make changes across service, testrunner, and shared modules simultaneously
+- **Multi-module management**: Work with service, testrunner, and sharedgomodule modules in a single workspace
+- **Cross-module development**: Make changes across service, testrunner, and sharedgomodule simultaneously
 - **Shared dependencies**: Efficient dependency management across modules
 - **IDE support**: Better code navigation and refactoring across modules
 
@@ -631,7 +631,7 @@ This project uses Go 1.18+ workspace feature which provides:
 go work init                 # Initialize workspace
 go work use ./service      # Add service module to workspace
 go work use ./testrunner     # Add testrunner module to workspace
-go work use ./shared         # Add shared module to workspace
+go work use ../../../client/golang/src/sharedgomodule  # Add shared module to workspace
 go work sync                 # Sync workspace modules
 go work edit                 # Edit go.work file
 ```

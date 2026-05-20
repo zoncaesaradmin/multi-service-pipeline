@@ -5,6 +5,8 @@
 SERVICE_COVERAGE_THRESHOLD = 45
 RULEENGINELIB_PATH = ../../../client/golang/src/telemetry/utils/ruleenginelib
 
+CORE_DIR = ../../../client/golang/src/sharedgomodule
+
 # Build tags (empty by default, but can be set from environment/command line/parent)
 BUILD_TAGS ?=
 
@@ -26,8 +28,8 @@ define calculate_coverage
 	if [ -f service/service_coverage.tmp ]; then \
 		tail -n +2 service/service_coverage.tmp >> coverage.out; \
 	fi; \
-	if [ -f shared/shared_coverage.tmp ]; then \
-		tail -n +2 shared/shared_coverage.tmp >> coverage.out; \
+	if [ -f $(CORE_DIR)/shared_coverage.tmp ]; then \
+		tail -n +2 $(CORE_DIR)/shared_coverage.tmp >> coverage.out; \
 	fi; \
 	if [ -f $(RULEENGINELIB_PATH)/ruleenginelib_coverage.tmp ]; then \
 		tail -n +2 $(RULEENGINELIB_PATH)/ruleenginelib_coverage.tmp >> coverage.out; \
@@ -39,7 +41,7 @@ define calculate_coverage
 	fi; \
 	export SERVICE_COV=$$(cd service && go tool cover -func=service_coverage.tmp 2>/dev/null | tail -1 | awk '{print $$3}' | sed 's/%//'); \
 	if [ -z "$$SERVICE_COV" ]; then export SERVICE_COV="0"; fi; \
-	export SHARED_COV=$$(cd shared && go tool cover -func=shared_coverage.tmp 2>/dev/null | tail -1 | awk '{print $$3}' | sed 's/%//'); \
+	export SHARED_COV=$$(cd $(CORE_DIR) && go tool cover -func=shared_coverage.tmp 2>/dev/null | tail -1 | awk '{print $$3}' | sed 's/%//'); \
 	if [ -z "$$SHARED_COV" ]; then export SHARED_COV="0"; fi; \
 	export RULEENGINELIB_COV=$$(cd $(RULEENGINELIB_PATH) && go tool cover -func=ruleenginelib_coverage.tmp 2>/dev/null | tail -1 | awk '{print $$3}' | sed 's/%//'); \
 	if [ -z "$$RULEENGINELIB_COV" ]; then export RULEENGINELIB_COV="0"; fi; \
@@ -100,7 +102,7 @@ help:
 	@echo "  BUILD_TAGS='$(BUILD_TAGS)' (current), LOCAL_BUILD_TAGS='$(LOCAL_BUILD_TAGS)'"
 	@echo "  Append -local to most targets for local development mode"
 	@echo ""
-	@echo "Coverage Scope: service/* + shared/* (excludes testrunner/*)"
+	@echo "Coverage Scope: service/* + shared module (excludes testrunner/*)"
 
 # ==============================================================================
 # MAIN WORKFLOW TARGETS
@@ -141,7 +143,7 @@ coverage: service-coverage shared-coverage ruleenginelib-coverage
 	@echo "=========================================="
 	@echo "COMBINED SERVICE COVERAGE REPORT"
 	@echo "=========================================="
-	@echo "Scope: service/* + shared/* + ruleenginelib/*"
+	@echo "Scope: service/* + shared module + ruleenginelib/*"
 	@echo "Build Tags: $(COVERAGE_BUILD_TAGS)"
 	@echo ""
 	$(call calculate_coverage)
@@ -154,7 +156,7 @@ coverage: service-coverage shared-coverage ruleenginelib-coverage
 	@echo ""
 	@echo "📁 Coverage files preserved:"
 	@echo "   • service/service_coverage.tmp"
-	@echo "   • shared/shared_coverage.tmp"
+	@echo "   • $(CORE_DIR)/shared_coverage.tmp"
 	@echo "   • coverage.out"
 
 # Enforce coverage threshold
@@ -162,7 +164,7 @@ coverage-enforce: service-coverage shared-coverage ruleenginelib-coverage
 	@echo "=========================================="
 	@echo "SERVICE COVERAGE ENFORCEMENT"
 	@echo "=========================================="
-	@echo "Scope: service/* + shared/* + ruleenginelib/*"
+	@echo "Scope: service/* + shared module + ruleenginelib/*"
 	@echo "Build Tags: $(COVERAGE_BUILD_TAGS)"
 	@echo "Threshold: $(SERVICE_COVERAGE_THRESHOLD)%"
 	@echo ""
@@ -171,8 +173,8 @@ coverage-enforce: service-coverage shared-coverage ruleenginelib-coverage
 	if [ -f service/service_coverage.tmp ]; then \
 		tail -n +2 service/service_coverage.tmp >> coverage.out; \
 	fi; \
-	if [ -f shared/shared_coverage.tmp ]; then \
-		tail -n +2 shared/shared_coverage.tmp >> coverage.out; \
+	if [ -f $(CORE_DIR)/shared_coverage.tmp ]; then \
+		tail -n +2 $(CORE_DIR)/shared_coverage.tmp >> coverage.out; \
 	fi; \
 	if [ -f $(RULEENGINELIB_PATH)/ruleenginelib_coverage.tmp ]; then \
 		tail -n +2 $(RULEENGINELIB_PATH)/ruleenginelib_coverage.tmp >> coverage.out; \
@@ -184,7 +186,7 @@ coverage-enforce: service-coverage shared-coverage ruleenginelib-coverage
 	fi; \
 	SERVICE_COV=$$(cd service && go tool cover -func=service_coverage.tmp 2>/dev/null | tail -1 | awk '{print $$3}' | sed 's/%//'); \
 	if [ -z "$$SERVICE_COV" ]; then SERVICE_COV="0"; fi; \
-	SHARED_COV=$$(cd shared && go tool cover -func=shared_coverage.tmp 2>/dev/null | tail -1 | awk '{print $$3}' | sed 's/%//'); \
+	SHARED_COV=$$(cd $(CORE_DIR) && go tool cover -func=shared_coverage.tmp 2>/dev/null | tail -1 | awk '{print $$3}' | sed 's/%//'); \
 	if [ -z "$$SHARED_COV" ]; then SHARED_COV="0"; fi; \
 	RULEENGINELIB_COV=$$(cd $(RULEENGINELIB_PATH) && go tool cover -func=ruleenginelib_coverage.tmp 2>/dev/null | tail -1 | awk '{print $$3}' | sed 's/%//'); \
 	if [ -z "$$RULEENGINELIB_COV" ]; then RULEENGINELIB_COV="0"; fi; \
@@ -208,10 +210,10 @@ coverage-enforce: service-coverage shared-coverage ruleenginelib-coverage
 		echo "❌ SERVICE COVERAGE ENFORCEMENT FAILED!"; \
 		echo "   Combined coverage $$COMBINED_COV% below $(SERVICE_COVERAGE_THRESHOLD)% threshold"; \
 		echo ""; \
-		echo "💡 Coverage includes: service/* + shared/* (excludes testrunner/*)"; \
+		echo "💡 Coverage includes: service/* + shared module (excludes testrunner/*)"; \
 		exit 1; \
 	fi; \
-	echo "📁 Coverage files preserved: coverage.out, service/service_coverage.tmp, shared/shared_coverage.tmp"
+	echo "📁 Coverage files preserved: coverage.out, service/service_coverage.tmp, $(CORE_DIR)/shared_coverage.tmp"
 
 # ==============================================================================
 # COMPONENT OPERATIONS
@@ -236,17 +238,17 @@ run-tests-local: testrunner-run-local
 
 clean: service-clean testrunner-clean shared-clean clean-all-coverage
 	@echo "Cleaning individual module coverage files..."
-	@rm -f service/service_coverage.tmp shared/shared_coverage.tmp 2>/dev/null || true
+	@rm -f service/service_coverage.tmp $(CORE_DIR)/shared_coverage.tmp 2>/dev/null || true
 	@echo "✅ All projects cleaned (main coverage.out preserved)"
 
 clean-coverage:
 	@echo "Cleaning individual module coverage files..."
-	@rm -f service/service_coverage.tmp shared/shared_coverage.tmp $(RULEENGINELIB_PATH)/ruleenginelib_coverage.tmp
+	@rm -f service/service_coverage.tmp $(CORE_DIR)/shared_coverage.tmp $(RULEENGINELIB_PATH)/ruleenginelib_coverage.tmp
 	@echo "✅ Individual coverage files cleaned (main coverage.out preserved)"
 
 clean-all-coverage: ruleenginelib-coverage-clean
 	@echo "Cleaning all coverage files including main combined coverage..."
-	@rm -f service/service_coverage.tmp shared/shared_coverage.tmp coverage.out
+	@rm -f service/service_coverage.tmp $(CORE_DIR)/shared_coverage.tmp coverage.out
 	@echo "✅ All coverage files cleaned"
 
 deep-clean: service-deep-clean testrunner-deep-clean shared-deep-clean
@@ -381,52 +383,52 @@ ruleenginelib-coverage-clean:
 
 # Shared module targets
 shared-build:
-	$(call run_module_cmd,Building,shared,build,$(BUILD_TAGS))
+	$(call run_module_cmd,Building,$(CORE_DIR),build,$(BUILD_TAGS))
 
 shared-build-local:
-	$(call run_module_cmd,Building,shared,build,$(LOCAL_BUILD_TAGS))
+	$(call run_module_cmd,Building,$(CORE_DIR),build,$(LOCAL_BUILD_TAGS))
 
 shared-test:
-	$(call run_module_cmd,Testing,shared,test,$(BUILD_TAGS))
+	$(call run_module_cmd,Testing,$(CORE_DIR),test,$(BUILD_TAGS))
 
 shared-test-local:
-	$(call run_module_cmd,Testing,shared,test,$(LOCAL_BUILD_TAGS))
+	$(call run_module_cmd,Testing,$(CORE_DIR),test,$(LOCAL_BUILD_TAGS))
 
 shared-coverage:
-	$(call run_module_cmd,Running coverage for,shared,coverage,$(COVERAGE_BUILD_TAGS))
+	$(call run_module_cmd,Running coverage for,$(CORE_DIR),coverage,$(COVERAGE_BUILD_TAGS))
 
 shared-coverage-local:
-	$(call run_module_cmd,Running coverage for,shared,coverage,$(LOCAL_BUILD_TAGS))
+	$(call run_module_cmd,Running coverage for,$(CORE_DIR),coverage,$(LOCAL_BUILD_TAGS))
 
 shared-coverage-enforce:
 	@echo "Enforcing shared module coverage..."
-	@cd shared && $(MAKE) coverage-enforce
+	@cd $(CORE_DIR) && $(MAKE) coverage-enforce
 
 shared-clean:
-	$(call run_module_cmd,Cleaning,shared,clean,)
+	$(call run_module_cmd,Cleaning,$(CORE_DIR),clean,)
 
 shared-deep-clean:
-	$(call run_module_cmd,Deep cleaning,shared,clean,) # shared module doesn't have vendor/
+	$(call run_module_cmd,Deep cleaning,$(CORE_DIR),clean,) # shared module doesn't have vendor/
 
 shared-deps:
-	$(call run_module_cmd,Installing dependencies for,shared,deps,)
+	$(call run_module_cmd,Installing dependencies for,$(CORE_DIR),deps,)
 
 shared-fmt:
-	$(call run_module_cmd,Formatting,shared,fmt,)
+	$(call run_module_cmd,Formatting,$(CORE_DIR),fmt,)
 
 shared-vet:
-	$(call run_module_cmd,Vetting,shared,vet,)
+	$(call run_module_cmd,Vetting,$(CORE_DIR),vet,)
 
 shared-lint:
-	$(call run_module_cmd,Linting,shared,lint,)
+	$(call run_module_cmd,Linting,$(CORE_DIR),lint,)
 
 shared-benchmark:
 	@echo "Running shared module benchmarks..."
-	@cd shared && $(MAKE) benchmark
+	@cd $(CORE_DIR) && $(MAKE) benchmark
 
 shared-race:
 	@echo "Running shared module race detection..."
-	@cd shared && $(MAKE) race
+	@cd $(CORE_DIR) && $(MAKE) race
 
 # ==============================================================================
 # INTEGRATION TESTING

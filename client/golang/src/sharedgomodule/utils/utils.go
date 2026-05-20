@@ -51,7 +51,7 @@ func ResolveConfFilePath(configPath string) string {
 	homeDir := os.Getenv("SERVICE_HOME")
 	if homeDir == "" {
 		// Default to the conf directory relative to the workspace root
-		homeDir = "../../../" // From src/shared/messagebus back to workspace root
+		homeDir = "../../../" // Default fallback for local workspace layouts
 	}
 
 	// Build path: SERVICE_HOME/conf/configPath

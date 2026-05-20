@@ -54,9 +54,10 @@ if [ -d "src/testrunner" ]; then
     cd ../..
 fi
 
-if [ -d "src/shared" ]; then
-    cd src/shared && make clean 2>/dev/null || true
-    cd ../..
+if [ -d "../../client/golang/src/sharedgomodule" ]; then
+    (
+        cd ../../client/golang/src/sharedgomodule && make clean 2>/dev/null || true
+    )
 fi
 
 # 7. Git cleanup
@@ -77,4 +78,6 @@ echo "2. If issues persist, restart VS Code completely"
 echo "3. Run this script again if old files reappear"
 echo ""
 echo "📁 Current clean state:"
-ls -la src/ | grep -E "(service|testrunner|shared|README\.md|Makefile|go\.work)" | echo "Basic files present"
+printf '%s\n' "src/service" "src/testrunner" "../../client/golang/src/sharedgomodule" | while read -r path; do
+    [ -e "$path" ] && echo "$path"
+done

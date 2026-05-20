@@ -27,6 +27,14 @@ type Producer interface {
 
 	// Close closes the producer
 	Close() error
+
+	// ProduceAsync sends a message asynchronously taking the sender context info
+	// and passing it back over a channel retrievable by GetDelieryNotifChannel
+	ProduceAsync(context.Context, *Message, WriteConfirmNotif) error
+
+	// GetDeliveryNotifChannel returns the channel used by this producer to read
+	// delivery confirmation notification of each message written using ProduceAsync
+	GetDeliveryNotifChannel() <-chan WriteConfirmNotif
 }
 
 // SendResult represents the result of an asynchronous send operation
@@ -64,4 +72,13 @@ type Consumer interface {
 type PartitionAssignment struct {
 	Topic     string
 	Partition int32
+}
+
+type WriteConfirmNotif struct {
+	Context        context.Context
+	WriteError     error
+	InputTopic     string
+	InputPartition int32
+	InputOffset    int64
+	InputMsgKey    string
 }

@@ -89,6 +89,15 @@ func (p *LocalProducer) Send(ctx context.Context, message *Message) (int32, int6
 	return message.Partition, message.Offset, nil
 }
 
+func (p *LocalProducer) ProduceAsync(ctx context.Context, message *Message, inputCorrData WriteConfirmNotif) error {
+	_, _, err := p.Send(ctx, message)
+	return err
+}
+
+func (p *LocalProducer) GetDeliveryNotifChannel() <-chan WriteConfirmNotif {
+	return nil
+}
+
 // SendAsync sends a message to file storage asynchronously
 func (p *LocalProducer) SendAsync(ctx context.Context, message *Message) <-chan SendResult {
 	resultChan := make(chan SendResult, 1)

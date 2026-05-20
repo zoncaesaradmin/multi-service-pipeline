@@ -25,7 +25,8 @@ const (
 
 // KafkaProducer Kafka implementation for production (default)
 type KafkaProducer struct {
-	producer *kafka.Producer
+	producer          *kafka.Producer
+	deliveryNotifChan chan WriteConfirmNotif
 }
 
 // Helper to check if error is transient (network, broker, etc)
@@ -75,6 +76,8 @@ func NewProducer(configMap map[string]any, clientId string) Producer {
 	//config.SetKey("compression.type", GetStringValue(configMap, "compression.type", "none"))
 	//config.SetKey("max.in.flight.requests.per.connection", GetIntValue(configMap, "max.in.flight.requests.per.connection", 5))
 	//config.SetKey("enable.idempotence", GetBoolValue(configMap, "enable.idempotence", false))
+	config.SetKey("go.events.channel.size", GetIntValue(configMap, "go.events.channel.size", 100000))
+	config.SetKey("go.produce.channel.size", GetIntValue(configMap, "go.produce.channel.size", 100000))
 	config.SetKey(kafkaSecurityProtocol, GetStringValue(configMap, kafkaSecurityProtocol, "PLAINTEXT"))
 	config.SetKey(kafkaSSLCALocation, GetStringValue(configMap, kafkaSSLCALocation, ""))
 	config.SetKey(kafkaSSLCertLocation, GetStringValue(configMap, kafkaSSLCertLocation, ""))
@@ -86,9 +89,42 @@ func NewProducer(configMap map[string]any, clientId string) Producer {
 		panic(fmt.Sprintf("Failed to create Kafka producer: %v", err))
 	}
 
-	return &KafkaProducer{
-		producer: producer,
+	kp := &KafkaProducer{
+		producer:          producer,
+		deliveryNotifChan: make(chan WriteConfirmNotif, 2000),
 	}
+
+	kp.deliveryReportDrainer(producer)
+	return kp
+}
+
+func (kp *KafkaProducer) deliveryReportDrainer(p *kafka.Producer) {
+	go func() {
+		for ev := range p.Events() {
+			switch e := ev.(type) {
+			case *kafka.Message:
+				inputMetaData, ok := e.Opaque.(*WriteConfirmNotif)
+				if !ok {
+					fmt.Printf("Error: Opaque field not WriteConfirmNotif type, or missing: %v\n", e.Opaque)
+					continue
+				}
+				// Send confirmation back to the main consumer loop
+				dc := *inputMetaData
+				dc.WriteError = e.TopicPartition.Error
+				kp.deliveryNotifChan <- dc
+
+			case kafka.Error:
+				// Producer errors
+				fmt.Printf("Producer kafka error: %v\n", e)
+
+			case kafka.Stats:
+				// Optional: stats event
+
+			default:
+				// Drain everything else
+			}
+		}
+	}()
 }
 
 // Send sends a message to Kafka
@@ -162,6 +198,24 @@ func (p *KafkaProducer) Send(ctx context.Context, message *Message) (int32, int6
 	return 0, 0, fmt.Errorf("Kafka Send failed after retries: %w", lastErr)
 }
 
+func (p *KafkaProducer) ProduceAsync(ctx context.Context, message *Message, inputCorrData WriteConfirmNotif) error {
+	message.Timestamp = time.Now()
+	kafkaMessage := p.createKafkaMessage(message)
+	kafkaMessage.Opaque = &inputCorrData // Store correlation data here
+
+	// produce without a specific delivery channel.
+	// Delivery reports will go too the produceer.Events() channel
+	err := p.producer.Produce(kafkaMessage, nil)
+	if err != nil {
+		return fmt.Errorf("failed to produce message asynchronously: %w", err)
+	}
+	return nil
+}
+
+func (p *KafkaProducer) GetDeliveryNotifChannel() <-chan WriteConfirmNotif {
+	return p.deliveryNotifChan
+}
+
 // SendAsync sends a message to Kafka asynchronously
 // sendAsyncWithRetries handles the async send logic with retries
 func (p *KafkaProducer) sendAsyncWithRetries(ctx context.Context, message *Message, resultChan chan SendResult) {
@@ -233,6 +287,7 @@ func (p *KafkaProducer) SendAsync(ctx context.Context, message *Message) <-chan 
 // Close closes the Kafka producer
 func (p *KafkaProducer) Close() error {
 	p.producer.Close()
+	close(p.deliveryNotifChan)
 	return nil
 }
 
@@ -323,6 +378,7 @@ func NewConsumer(configMap map[string]any, cgroup string) Consumer {
 	config.SetKey("go.events.channel.enable", GetBoolValue(configMap, "go.events.channel.enable", true))
 	config.SetKey("enable.auto.commit", GetBoolValue(configMap, "enable.auto.commit", false))
 	config.SetKey("go.events.channel.size", GetIntValue(configMap, "go.events.channel.size", 100000))
+	config.SetKey("queued.max.messages.kbytes", GetIntValue(configMap, "queued.max.messages.kbytes", 65536))
 	config.SetKey("session.timeout.ms", GetIntValue(configMap, "session.timeout.ms", 6000))
 	config.SetKey("fetch.max.bytes", GetIntValue(configMap, "fetch.max.bytes", 1048576))
 	//config.SetKey("session.timeout.ms", GetIntValue(configMap, "session.timeout.ms", 30000))
@@ -413,6 +469,10 @@ func (c *KafkaConsumer) handleEvents() {
 			c.handlePartitionAssignment(e.Partitions)
 		case kafka.RevokedPartitions:
 			c.handlePartitionRevocation(e.Partitions)
+		case kafka.OffsetsCommitted:
+			// Must drain this or memory can accumulate
+		case kafka.Stats:
+			// Stats event from librdkafka
 		case *kafka.Message:
 			msg := c.convertKafkaMessage(e)
 			if c.onMessage != nil {

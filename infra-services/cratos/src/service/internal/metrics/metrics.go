@@ -2,10 +2,10 @@ package metrics
 
 import (
 	"context"
+	"corekit/logging"
 	"fmt"
 	"servicegomodule/internal/config"
 	"servicegomodule/internal/models"
-	"sharedgomodule/logging"
 	"sort"
 	"sync"
 	"time"

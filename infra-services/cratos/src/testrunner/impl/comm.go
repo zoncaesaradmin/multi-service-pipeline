@@ -2,11 +2,11 @@ package impl
 
 import (
 	"context"
+	"corekit/logging"
+	"corekit/messagebus"
+	"corekit/utils"
 	"fmt"
 	"os"
-	"sharedgomodule/logging"
-	"sharedgomodule/messagebus"
-	"sharedgomodule/utils"
 	"strconv"
 	"sync"
 	"telemetry/utils/alert"

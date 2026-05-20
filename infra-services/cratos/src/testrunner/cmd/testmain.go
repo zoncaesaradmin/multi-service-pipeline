@@ -2,14 +2,14 @@ package main
 
 import (
 	"context"
+	"corekit/logging"
+	"corekit/utils"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
-	"sharedgomodule/logging"
-	"sharedgomodule/utils"
 	"strconv"
 	"strings"
 	"sync"

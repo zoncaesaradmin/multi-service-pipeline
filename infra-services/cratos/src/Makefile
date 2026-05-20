@@ -5,7 +5,7 @@
 SERVICE_COVERAGE_THRESHOLD = 45
 RULEENGINELIB_PATH = ../../../client/golang/src/telemetry/utils/ruleenginelib
 
-CORE_DIR = ../../../client/golang/src/sharedgomodule
+CORE_DIR = ../../../client/golang/src/corekit
 
 # Build tags (empty by default, but can be set from environment/command line/parent)
 BUILD_TAGS ?=

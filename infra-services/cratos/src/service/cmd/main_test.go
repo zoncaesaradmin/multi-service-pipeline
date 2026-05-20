@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
+	"corekit/logging"
 	"servicegomodule/internal/api"
 	"servicegomodule/internal/app"
 	"servicegomodule/internal/config"
-	"sharedgomodule/logging"
 )
 
 const (

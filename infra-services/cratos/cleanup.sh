@@ -54,9 +54,9 @@ if [ -d "src/testrunner" ]; then
     cd ../..
 fi
 
-if [ -d "../../client/golang/src/sharedgomodule" ]; then
+if [ -d "../../client/golang/src/corekit" ]; then
     (
-        cd ../../client/golang/src/sharedgomodule && make clean 2>/dev/null || true
+        cd ../../client/golang/src/corekit && make clean 2>/dev/null || true
     )
 fi
 
@@ -78,6 +78,6 @@ echo "2. If issues persist, restart VS Code completely"
 echo "3. Run this script again if old files reappear"
 echo ""
 echo "📁 Current clean state:"
-printf '%s\n' "src/service" "src/testrunner" "../../client/golang/src/sharedgomodule" | while read -r path; do
+printf '%s\n' "src/service" "src/testrunner" "../../client/golang/src/corekit" | while read -r path; do
     [ -e "$path" ] && echo "$path"
 done

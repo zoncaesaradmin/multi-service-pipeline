@@ -4,7 +4,7 @@
 package datastore
 
 import (
-	"sharedgomodule/logging"
+	"corekit/logging"
 	"testing"
 )
 

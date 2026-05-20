@@ -6,10 +6,10 @@ import (
 	"strconv"
 	"time"
 
+	"corekit/logging"
 	"servicegomodule/internal/metrics"
 	"servicegomodule/internal/models"
 	"servicegomodule/internal/processing"
-	"sharedgomodule/logging"
 )
 
 // Error message constants

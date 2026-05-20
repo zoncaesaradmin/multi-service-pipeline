@@ -11,11 +11,11 @@ import (
 	"syscall"
 	"time"
 
+	"corekit/logging"
+	"corekit/utils"
 	"servicegomodule/internal/api"
 	"servicegomodule/internal/app"
 	"servicegomodule/internal/config"
-	"sharedgomodule/logging"
-	"sharedgomodule/utils"
 
 	"github.com/joho/godotenv"
 )

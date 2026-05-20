@@ -2,13 +2,13 @@ package processing
 
 import (
 	"context"
+	"corekit/logging"
+	"corekit/utils"
 	"fmt"
 	"runtime/debug"
 	"servicegomodule/internal/metrics"
 	"servicegomodule/internal/models"
 	"servicegomodule/internal/rules"
-	"sharedgomodule/logging"
-	"sharedgomodule/utils"
 	"time"
 
 	"telemetry/utils/alert"

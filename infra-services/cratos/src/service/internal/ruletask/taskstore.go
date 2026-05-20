@@ -2,10 +2,10 @@ package ruletask
 
 import (
 	"context"
+	"corekit/datastore"
+	"corekit/logging"
 	"fmt"
 	"os"
-	"sharedgomodule/datastore"
-	"sharedgomodule/logging"
 )
 
 const (

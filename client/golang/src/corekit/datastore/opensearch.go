@@ -5,14 +5,14 @@ package datastore
 
 import (
 	"context"
+	"corekit/logging"
+	"corekit/utils"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
-	"sharedgomodule/logging"
-	"sharedgomodule/utils"
 	"strings"
 	"sync"
 	"time"

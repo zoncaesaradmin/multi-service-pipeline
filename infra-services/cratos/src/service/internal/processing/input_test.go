@@ -2,7 +2,7 @@ package processing
 
 import (
 	"context"
-	"sharedgomodule/messagebus"
+	"corekit/messagebus"
 	"testing"
 	"time"
 )

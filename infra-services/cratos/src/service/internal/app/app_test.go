@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"corekit/logging"
 	"servicegomodule/internal/config"
-	"sharedgomodule/logging"
 )
 
 const testKafkaConfigPath = "/path/to/kafka-config.yaml"

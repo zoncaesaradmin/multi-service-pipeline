@@ -2,12 +2,12 @@ package ruletask
 
 import (
 	"context"
+	"corekit/logging"
+	"corekit/messagebus"
+	"corekit/utils"
 	"fmt"
 	"servicegomodule/internal/metrics"
 	"servicegomodule/internal/models"
-	"sharedgomodule/logging"
-	"sharedgomodule/messagebus"
-	"sharedgomodule/utils"
 	"sync"
 	relib "telemetry/utils/ruleenginelib"
 	"time"

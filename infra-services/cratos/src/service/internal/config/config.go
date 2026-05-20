@@ -5,8 +5,8 @@ import (
 	"os"
 	"time"
 
-	"sharedgomodule/logging"
-	"sharedgomodule/utils"
+	"corekit/logging"
+	"corekit/utils"
 
 	"gopkg.in/yaml.v3"
 )

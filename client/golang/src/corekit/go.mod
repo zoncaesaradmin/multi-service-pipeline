@@ -1,4 +1,4 @@
-module sharedgomodule
+module corekit
 
 go 1.24
 

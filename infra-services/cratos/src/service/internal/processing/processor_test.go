@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"corekit/logging"
 	"servicegomodule/internal/models"
 	"servicegomodule/internal/rules"
-	"sharedgomodule/logging"
 	"telemetry/utils/alert"
 
 	"google.golang.org/protobuf/proto"

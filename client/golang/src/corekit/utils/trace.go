@@ -2,10 +2,10 @@ package utils
 
 import (
 	"context"
+	"corekit/logging"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"sharedgomodule/logging"
 	"strconv"
 	"time"
 )

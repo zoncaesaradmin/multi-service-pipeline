@@ -1,8 +1,8 @@
 package datastore
 
 import (
+	"corekit/utils"
 	"os"
-	"sharedgomodule/utils"
 	"strings"
 )
 

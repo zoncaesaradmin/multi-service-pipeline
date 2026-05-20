@@ -1,8 +1,8 @@
 package processing
 
 import (
+	"corekit/logging"
 	"servicegomodule/internal/models"
-	"sharedgomodule/logging"
 	"testing"
 	"time"
 )

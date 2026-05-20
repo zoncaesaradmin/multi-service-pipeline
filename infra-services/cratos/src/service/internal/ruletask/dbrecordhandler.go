@@ -1,9 +1,9 @@
 package ruletask
 
 import (
+	"corekit/logging"
 	"servicegomodule/internal/metrics"
 	"servicegomodule/internal/models"
-	"sharedgomodule/logging"
 )
 
 type DbRecordHandler struct {

@@ -3,7 +3,7 @@ package logging_test
 import (
 	"testing"
 
-	"sharedgomodule/logging"
+	"corekit/logging"
 )
 
 // TestMockLoggerUsage demonstrates how to use MockLogger in your tests

@@ -7,8 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"corekit/logging"
 	"servicegomodule/internal/models"
-	"sharedgomodule/logging"
 )
 
 const (

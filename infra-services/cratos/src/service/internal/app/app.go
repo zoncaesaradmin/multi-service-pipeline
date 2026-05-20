@@ -4,11 +4,11 @@ import (
 	"context"
 	"sync"
 
+	"corekit/datastore"
+	"corekit/logging"
 	"servicegomodule/internal/config"
 	"servicegomodule/internal/metrics"
 	"servicegomodule/internal/processing"
-	"sharedgomodule/datastore"
-	"sharedgomodule/logging"
 )
 
 // Application represents the main application instance that holds configuration and dependencies

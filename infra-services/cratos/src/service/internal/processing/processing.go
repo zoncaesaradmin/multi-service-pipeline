@@ -1,14 +1,14 @@
 package processing
 
 import (
+	"corekit/logging"
+	"corekit/utils"
 	"fmt"
 	"log"
 	"servicegomodule/internal/config"
 	"servicegomodule/internal/metrics"
 	"servicegomodule/internal/models"
 	"servicegomodule/internal/rules"
-	"sharedgomodule/logging"
-	"sharedgomodule/utils"
 )
 
 type ProcConfig struct {

@@ -1,7 +1,7 @@
 package steps
 
 import (
-	"sharedgomodule/utils"
+	"corekit/utils"
 	"testgomodule/impl"
 	"time"
 

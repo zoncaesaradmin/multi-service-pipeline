@@ -1,8 +1,8 @@
 package extapi
 
 import (
+	"corekit/logging"
 	"encoding/json"
-	"sharedgomodule/logging"
 	"strconv"
 	"strings"
 	"telemetry/utils/alert"

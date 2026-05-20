@@ -2,9 +2,9 @@ package metrics
 
 import (
 	"context"
+	"corekit/logging"
 	"encoding/json"
 	"servicegomodule/internal/models"
-	"sharedgomodule/logging"
 	"sync"
 	"testing"
 	"time"

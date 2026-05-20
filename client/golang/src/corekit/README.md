@@ -36,10 +36,10 @@ This module provides common functionality shared between the service and testrun
 ### Importing
 ```go
 import (
-    "sharedgomodule/messagebus"
-    "sharedgomodule/logging"
-    "sharedgomodule/utils"
-    "sharedgomodule/types"
+    "corekit/messagebus"
+    "corekit/logging"
+    "corekit/utils"
+    "corekit/types"
 )
 ```
 
@@ -115,7 +115,7 @@ make coverage-enforce
 
 ## Directory Structure
 ```
-sharedgomodule/
+corekit/
 ├── messagebus/           # Message bus implementations
 │   ├── localbus.go      # Local file-based bus
 │   ├── kafkabus.go      # Kafka production bus

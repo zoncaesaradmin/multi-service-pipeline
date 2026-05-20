@@ -2,11 +2,11 @@ package processing
 
 import (
 	"context"
+	"corekit/logging"
 	"os"
 	"path/filepath"
 	"servicegomodule/internal/models"
 	"servicegomodule/internal/rules"
-	"sharedgomodule/logging"
 	"testing"
 	"time"
 )

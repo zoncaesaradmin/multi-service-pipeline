@@ -19,7 +19,7 @@ A comprehensive, interface-based logging package for Go applications with suppor
 ### Creating and Using Logger Instances
 
 ```go
-import "sharedgomodule/logging"
+import "corekit/logging"
 
 func main() {
     logger := logging.NewLogger(&logging.LoggerConfig{
@@ -36,7 +36,7 @@ func main() {
 ### Using Default Configuration
 
 ```go
-import "sharedgomodule/logging"
+import "corekit/logging"
 
 func main() {
     logger := logging.NewLogger(logging.DefaultLoggerConfig())

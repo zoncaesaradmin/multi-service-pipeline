@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -19,6 +20,9 @@ const (
 
 	// TraceIDHeader is the header name for trace ID in Kafka messages
 	TraceIDHeader = "X-Trace-Id"
+
+	// DebugEnabledHeader is the canonical header name for enabling per-flow debug logs.
+	DebugEnabledHeader = "X-Enable-Debug"
 )
 
 // GenerateTraceID creates a new random trace ID
@@ -50,8 +54,47 @@ func GetTraceID(ctx context.Context) (string, bool) {
 	return traceID, ok
 }
 
+// ExtractDebugEnabled parses the external per-flow debug flag from headers.
+// Missing or invalid values default to false.
+func ExtractDebugEnabled(headers map[string]string) bool {
+	if len(headers) == 0 {
+		return false
+	}
+
+	for key, value := range headers {
+		switch {
+		case strings.EqualFold(key, DebugEnabledHeader):
+			return parseDebugEnabled(value)
+		case key == "enableDebug", key == "enable_debug", key == "debug":
+			return parseDebugEnabled(value)
+		}
+	}
+	return false
+}
+
+// WithDebugEnabled stores the per-flow debug override in the context.
+func WithDebugEnabled(ctx context.Context, enabled bool) context.Context {
+	return logging.WithDebugEnabled(ctx, enabled)
+}
+
+// GetDebugEnabled returns the per-flow debug override from context.
+func GetDebugEnabled(ctx context.Context) (bool, bool) {
+	return logging.GetDebugEnabled(ctx)
+}
+
+// BuildFlowContext creates a context carrying both trace ID and per-flow debug settings.
+func BuildFlowContext(ctx context.Context, headers map[string]string) (context.Context, string) {
+	traceID := ExtractTraceID(headers)
+	ctx = WithTraceID(ctx, traceID)
+	ctx = WithDebugEnabled(ctx, ExtractDebugEnabled(headers))
+	return ctx, traceID
+}
+
 // WithTraceLogger returns a logger with trace ID field
 func WithTraceLogger(logger logging.Logger, ctx context.Context) logging.Logger {
+	if ctx != nil {
+		logger = logger.WithContext(ctx)
+	}
 	if traceID, ok := GetTraceID(ctx); ok {
 		return logger.WithField("traceId", traceID)
 	}
@@ -139,4 +182,22 @@ func WithTraceLoggerFromID(logger logging.Logger, traceID string) logging.Logger
 		return logger.WithField("traceId", traceID)
 	}
 	return logger
+}
+
+func parseDebugEnabled(raw string) bool {
+	value := strings.TrimSpace(strings.ToLower(raw))
+	if value == "" {
+		return false
+	}
+
+	if parsed, err := strconv.ParseBool(value); err == nil {
+		return parsed
+	}
+
+	switch value {
+	case "1", "y", "yes", "on", "debug":
+		return true
+	default:
+		return false
+	}
 }

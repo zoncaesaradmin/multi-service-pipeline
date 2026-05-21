@@ -8,11 +8,11 @@ import (
 	"testing"
 )
 
-// ContextKey is a type for context keys to avoid collisions
-type contextKey string
+// testContextKey is a type for test-only context keys to avoid collisions.
+type testContextKey string
 
 const (
-	traceIDKey contextKey = "trace_id"
+	traceIDKey testContextKey = "trace_id"
 
 	debugMessage = "Debug message"
 )
@@ -108,6 +108,45 @@ func TestZerologLoggerSetLevel(t *testing.T) {
 
 	if !logger.IsLevelEnabled(ErrorLevel) {
 		t.Error("Error level should be enabled after setting level to Error")
+	}
+
+	os.Remove(logFile)
+}
+
+func TestZerologLoggerContextDebugOverride(t *testing.T) {
+	logFile := "/tmp/test_context_debug_override.log"
+	os.Remove(logFile)
+
+	config := &LoggerConfig{
+		Level:         InfoLevel,
+		FilePath:      logFile,
+		LoggerName:    testLoggerName,
+		ComponentName: testComponentName,
+		ServiceName:   testServiceName,
+	}
+
+	logger, err := NewLoggerWithConfig(config)
+	if err != nil {
+		t.Fatalf(newLoggerErrorFmt, err)
+	}
+	defer logger.Close()
+
+	logger.Debug("filtered debug")
+
+	ctxLogger := logger.WithContext(WithDebugEnabled(context.Background(), true))
+	ctxLogger.Debug("override debug")
+
+	data, err := os.ReadFile(logFile)
+	if err != nil {
+		t.Fatalf("failed to read log file: %v", err)
+	}
+
+	logs := string(data)
+	if strings.Contains(logs, "filtered debug") {
+		t.Fatal("debug log without override should not be written at info level")
+	}
+	if !strings.Contains(logs, "override debug") {
+		t.Fatal("debug log with context override should be written")
 	}
 
 	os.Remove(logFile)

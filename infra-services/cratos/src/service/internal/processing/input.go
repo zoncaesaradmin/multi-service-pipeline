@@ -65,9 +65,9 @@ func (i *InputHandler) Start() error {
 	// Register OnMessage callback
 	i.consumer.OnMessage(func(message *messagebus.Message) {
 		if message != nil {
-			// Extract or generate trace ID from message headers
-			traceID := utils.ExtractTraceID(message.Headers)
-			traceCtx := utils.WithTraceID(context.Background(), traceID)
+			// Build flow context once at ingress so downstream loggers can honor
+			// trace ID and any per-message debug override consistently.
+			traceCtx, traceID := utils.BuildFlowContext(context.Background(), message.Headers)
 
 			// Use trace-aware logger for this message
 			msgLogger := utils.WithTraceLogger(i.logger, traceCtx)
@@ -101,6 +101,9 @@ func (i *InputHandler) Start() error {
 				channelMsg.Meta[k] = v
 			}
 			channelMsg.Meta[utils.TraceIDHeader] = traceID // Ensure trace ID is propagated
+			if debugEnabled, ok := utils.GetDebugEnabled(traceCtx); ok && debugEnabled {
+				channelMsg.Meta[utils.DebugEnabledHeader] = "true"
+			}
 
 			// Record metrics if available
 			if i.metricsHelper != nil {

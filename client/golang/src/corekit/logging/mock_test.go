@@ -112,6 +112,27 @@ func TestMockLogger_LevelControl(t *testing.T) {
 	}
 }
 
+func TestMockLogger_ContextDebugOverride(t *testing.T) {
+	logger := NewMockLogger()
+	logger.SetLevel(InfoLevel)
+
+	logger.Debug("base debug")
+	if len(logger.GetLogEntries()) != 0 {
+		t.Fatal("debug log should be filtered out at info level without override")
+	}
+
+	ctxLogger := logger.WithContext(WithDebugEnabled(context.Background(), true))
+	ctxLogger.Debug("debug with override")
+
+	entries := ctxLogger.(*MockLogger).GetLogEntries()
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 log entry with debug override, got %d", len(entries))
+	}
+	if entries[0].Level != DebugLevel {
+		t.Fatalf("expected debug level entry, got %v", entries[0].Level)
+	}
+}
+
 func TestMockLogger_WithFields(t *testing.T) {
 	logger := NewMockLogger()
 

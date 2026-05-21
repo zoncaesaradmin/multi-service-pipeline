@@ -80,8 +80,10 @@ func (z *ZerologLogger) GetLevel() Level {
 // IsLevelEnabled checks if the given level is enabled
 func (z *ZerologLogger) IsLevelEnabled(level Level) bool {
 	z.mu.RLock()
-	defer z.mu.RUnlock()
-	return level >= z.level
+	currentLevel := z.level
+	ctx := z.context
+	z.mu.RUnlock()
+	return level >= effectiveLevel(currentLevel, ctx)
 }
 
 // levelToZerolog converts our Level to zerolog.Level
@@ -106,31 +108,42 @@ func levelToZerolog(level Level) zerolog.Level {
 
 // getEvent creates a zerolog event with current fields
 func (z *ZerologLogger) getEvent(level Level) *zerolog.Event {
+	z.mu.RLock()
+	logger := z.logger
+	fields := make(Fields, len(z.fields))
+	for key, value := range z.fields {
+		fields[key] = value
+	}
+	currentLevel := z.level
+	ctx := z.context
+	z.mu.RUnlock()
+
+	if activeLevel := effectiveLevel(currentLevel, ctx); activeLevel != currentLevel {
+		logger = logger.Level(levelToZerolog(activeLevel))
+	}
+
 	var event *zerolog.Event
 
 	switch level {
 	case DebugLevel:
-		event = z.logger.Debug()
+		event = logger.Debug()
 	case InfoLevel:
-		event = z.logger.Info()
+		event = logger.Info()
 	case WarnLevel:
-		event = z.logger.Warn()
+		event = logger.Warn()
 	case ErrorLevel:
-		event = z.logger.Error()
+		event = logger.Error()
 	case FatalLevel:
-		event = z.logger.Fatal()
+		event = logger.Fatal()
 	case PanicLevel:
-		event = z.logger.Panic()
+		event = logger.Panic()
 	default:
-		event = z.logger.Info()
+		event = logger.Info()
 	}
 
-	// Add fields
-	z.mu.RLock()
-	for key, value := range z.fields {
+	for key, value := range fields {
 		event = event.Interface(key, value)
 	}
-	z.mu.RUnlock()
 
 	return event
 }
@@ -261,7 +274,9 @@ func (z *ZerologLogger) WithContext(ctx context.Context) Logger {
 	newLogger := z.Clone().(*ZerologLogger)
 	newLogger.context = ctx
 	// Update the underlying zerolog logger with context
-	newLogger.logger = newLogger.logger.With().Ctx(ctx).Logger()
+	if ctx != nil {
+		newLogger.logger = newLogger.logger.With().Ctx(ctx).Logger()
+	}
 	return newLogger
 }
 

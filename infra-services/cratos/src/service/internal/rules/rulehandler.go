@@ -170,10 +170,8 @@ func (rh *RuleEngineHandler) handleRuleMessage(message *messagebus.Message) {
 		return
 	}
 
-	// Extract or generate trace ID from message headers
-	traceID := utils.ExtractTraceID(message.Headers)
-	// Use trace-aware logger for this message
-	msgLogger := utils.WithTraceLoggerFromID(rh.rlogger, traceID)
+	traceCtx, traceID := utils.BuildFlowContext(context.Background(), message.Headers)
+	msgLogger := utils.WithTraceLogger(rh.rlogger, traceCtx)
 
 	msgLogger.Debugw("KAFKAIN - RULE HANDLER - Received message", "size", len(message.Value))
 

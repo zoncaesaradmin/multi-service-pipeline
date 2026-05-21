@@ -203,10 +203,8 @@ func (rh *RuleTasksHandler) handleRuleTaskMessage(message *messagebus.Message) {
 		return
 	}
 
-	// Extract or generate trace ID from message headers
-	traceID := utils.ExtractTraceID(message.Headers)
-	// Use trace-aware logger for this message
-	msgLogger := utils.WithTraceLoggerFromID(rh.rlogger, traceID)
+	traceCtx, _ := utils.BuildFlowContext(context.Background(), message.Headers)
+	msgLogger := utils.WithTraceLogger(rh.rlogger, traceCtx)
 
 	msgLogger.Debugw("RULE TASK HANDLER - Received task", "size", len(message.Value))
 

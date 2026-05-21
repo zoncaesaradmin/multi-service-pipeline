@@ -20,6 +20,7 @@ type MockLogger struct {
 	componentName string
 	serviceName   string
 	fields        Fields
+	context       context.Context
 
 	// Captured logs for verification
 	LogEntries []LogEntry
@@ -79,8 +80,10 @@ func (m *MockLogger) GetLevel() Level {
 
 func (m *MockLogger) IsLevelEnabled(level Level) bool {
 	m.mu.RLock()
-	defer m.mu.RUnlock()
-	return level >= m.level
+	currentLevel := m.level
+	ctx := m.context
+	m.mu.RUnlock()
+	return level >= effectiveLevel(currentLevel, ctx)
 }
 
 // Basic logging methods
@@ -195,6 +198,7 @@ func (m *MockLogger) WithFields(fields Fields) Logger {
 		componentName: m.componentName,
 		serviceName:   m.serviceName,
 		fields:        newFields,
+		context:       m.context,
 		LogEntries:    make([]LogEntry, 0),
 		ShouldPanic:   m.ShouldPanic,
 		ShouldFatal:   m.ShouldFatal,
@@ -226,6 +230,7 @@ func (m *MockLogger) WithError(err error) Logger {
 // Context-aware logging
 func (m *MockLogger) WithContext(ctx context.Context) Logger {
 	newLogger := m.Clone().(*MockLogger)
+	newLogger.context = ctx
 	if ctx != nil {
 		// Extract common context values for testing
 		contextFields := make(Fields)
@@ -279,6 +284,7 @@ func (m *MockLogger) Clone() Logger {
 		componentName: m.componentName,
 		serviceName:   m.serviceName,
 		fields:        newFields,
+		context:       m.context,
 		LogEntries:    make([]LogEntry, 0),
 		ShouldPanic:   m.ShouldPanic,
 		ShouldFatal:   m.ShouldFatal,

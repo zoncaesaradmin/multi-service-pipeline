@@ -224,6 +224,9 @@ func (o *OutputHandler) sendMessage(channelMsg *models.ChannelMessage) error {
 		if traceID, ok := utils.GetTraceID(channelMsg.Context); ok {
 			headers[utils.TraceIDHeader] = traceID
 		}
+		if debugEnabled, ok := utils.GetDebugEnabled(channelMsg.Context); ok && debugEnabled {
+			headers[utils.DebugEnabledHeader] = "true"
+		}
 	}
 
 	message := &messagebus.Message{

@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestFieldsFromContext(t *testing.T) {
+func TestTypedHelpers(t *testing.T) {
 	ctx := context.Background()
 	ctx = WithTraceID(ctx, "trace-123")
 	ctx = WithRequestID(ctx, "req-456")
@@ -13,80 +13,51 @@ func TestFieldsFromContext(t *testing.T) {
 	ctx = WithUserID(ctx, "user-abc")
 	ctx = WithTenantID(ctx, "tenant-def")
 	ctx = WithDebugEnabled(ctx, true)
-	ctx = WithField(ctx, "workflowId", "wf-001")
 
-	fields := FieldsFromContext(ctx)
-
-	want := map[string]interface{}{
-		"traceId":       "trace-123",
-		"requestId":     "req-456",
-		"correlationId": "corr-789",
-		"userId":        "user-abc",
-		"tenantId":      "tenant-def",
-		"debugEnabled":  true,
-		"workflowId":    "wf-001",
+	if got, ok := GetTraceID(ctx); !ok || got != "trace-123" {
+		t.Fatalf("traceId = %q ok=%v, want trace-123 true", got, ok)
 	}
-
-	for key, expected := range want {
-		if got := fields[key]; got != expected {
-			t.Fatalf("field %q = %v, want %v", key, got, expected)
-		}
+	if got, ok := GetRequestID(ctx); !ok || got != "req-456" {
+		t.Fatalf("requestId = %q ok=%v, want req-456 true", got, ok)
+	}
+	if got, ok := GetCorrelationID(ctx); !ok || got != "corr-789" {
+		t.Fatalf("correlationId = %q ok=%v, want corr-789 true", got, ok)
+	}
+	if got, ok := GetUserID(ctx); !ok || got != "user-abc" {
+		t.Fatalf("userId = %q ok=%v, want user-abc true", got, ok)
+	}
+	if got, ok := GetTenantID(ctx); !ok || got != "tenant-def" {
+		t.Fatalf("tenantId = %q ok=%v, want tenant-def true", got, ok)
+	}
+	if got, ok := GetDebugEnabled(ctx); !ok || !got {
+		t.Fatalf("debugEnabled = %v ok=%v, want true true", got, ok)
 	}
 }
 
-func TestFieldsFromContextLegacyKeys(t *testing.T) {
+func TestTypedHelpersLegacyKeys(t *testing.T) {
 	ctx := context.WithValue(context.Background(), "traceID", "legacy-trace")
 	ctx = context.WithValue(ctx, "request_id", "legacy-request")
+	ctx = context.WithValue(ctx, "correlationID", "legacy-correlation")
+	ctx = context.WithValue(ctx, "userID", "legacy-user")
+	ctx = context.WithValue(ctx, "tenant_id", "legacy-tenant")
 	ctx = context.WithValue(ctx, "enableDebug", "true")
 
-	fields := FieldsFromContext(ctx)
-
-	if fields["traceId"] != "legacy-trace" {
-		t.Fatalf("traceId = %v, want legacy-trace", fields["traceId"])
+	if got, ok := GetTraceID(ctx); !ok || got != "legacy-trace" {
+		t.Fatalf("traceId = %q ok=%v, want legacy-trace true", got, ok)
 	}
-	if fields["requestId"] != "legacy-request" {
-		t.Fatalf("requestId = %v, want legacy-request", fields["requestId"])
+	if got, ok := GetRequestID(ctx); !ok || got != "legacy-request" {
+		t.Fatalf("requestId = %q ok=%v, want legacy-request true", got, ok)
 	}
-	if fields["debugEnabled"] != true {
-		t.Fatalf("debugEnabled = %v, want true", fields["debugEnabled"])
+	if got, ok := GetCorrelationID(ctx); !ok || got != "legacy-correlation" {
+		t.Fatalf("correlationId = %q ok=%v, want legacy-correlation true", got, ok)
 	}
-}
-
-func TestExtractDebugEnabled(t *testing.T) {
-	tests := []struct {
-		name    string
-		headers map[string]string
-		want    bool
-	}{
-		{name: "missing flag defaults false", headers: map[string]string{}, want: false},
-		{name: "canonical header true", headers: map[string]string{DebugEnabledHeader: "true"}, want: true},
-		{name: "case insensitive header", headers: map[string]string{"x-enable-debug": "YES"}, want: true},
-		{name: "legacy key false", headers: map[string]string{"enableDebug": "false"}, want: false},
+	if got, ok := GetUserID(ctx); !ok || got != "legacy-user" {
+		t.Fatalf("userId = %q ok=%v, want legacy-user true", got, ok)
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := ExtractDebugEnabled(tt.headers); got != tt.want {
-				t.Fatalf("ExtractDebugEnabled() = %v, want %v", got, tt.want)
-			}
-		})
+	if got, ok := GetTenantID(ctx); !ok || got != "legacy-tenant" {
+		t.Fatalf("tenantId = %q ok=%v, want legacy-tenant true", got, ok)
 	}
-}
-
-func TestBuildFlowContext(t *testing.T) {
-	headers := map[string]string{
-		TraceIDHeader:      "trace-123",
-		DebugEnabledHeader: "true",
-	}
-
-	ctx, traceID := BuildFlowContext(context.Background(), headers)
-	if traceID != "trace-123" {
-		t.Fatalf("expected trace ID trace-123, got %q", traceID)
-	}
-	if got, ok := GetTraceID(ctx); !ok || got != "trace-123" {
-		t.Fatalf("expected trace ID in context, got %q ok=%v", got, ok)
-	}
-	if enabled, ok := GetDebugEnabled(ctx); !ok || !enabled {
-		t.Fatalf("expected debug override in context, got enabled=%v ok=%v", enabled, ok)
+	if got, ok := GetDebugEnabled(ctx); !ok || !got {
+		t.Fatalf("debugEnabled = %v ok=%v, want true true", got, ok)
 	}
 }

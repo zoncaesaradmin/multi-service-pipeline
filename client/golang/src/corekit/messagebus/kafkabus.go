@@ -5,8 +5,11 @@ package messagebus
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
@@ -21,61 +24,151 @@ const (
 	kafkaSSLCertLocation     = "ssl.certificate.location"
 	kafkaSSLKeyLocation      = "ssl.key.location"
 	kafkaSSLCertVerification = "enable.ssl.certificate.verification"
+
+	defaultMaxSendRetries   = 5
+	defaultReconnectBackoff = 500 * time.Millisecond
+	maxReconnectBackoff     = 5 * time.Second
+	defaultDeliveryChanSize = 2000
 )
 
 // KafkaProducer Kafka implementation for production (default)
 type KafkaProducer struct {
-	producer          *kafka.Producer
+	configMap map[string]any
+	clientID  string
+
+	producerMu sync.RWMutex
+	producer   *kafka.Producer
+
 	deliveryNotifChan chan WriteConfirmNotif
+	closeDone         chan struct{}
+	closeOnce         sync.Once
+	drainWG           sync.WaitGroup
 }
 
-// Helper to check if error is transient (network, broker, etc)
-func isTransientKafkaError(err error) bool {
+func cloneConfigMap(configMap map[string]any) map[string]any {
+	if configMap == nil {
+		return map[string]any{}
+	}
+
+	cloned := make(map[string]any, len(configMap))
+	for k, v := range configMap {
+		cloned[k] = v
+	}
+	return cloned
+}
+
+func isClosed(done <-chan struct{}) bool {
+	select {
+	case <-done:
+		return true
+	default:
+		return false
+	}
+}
+
+func sleepWithContext(ctx context.Context, wait time.Duration) error {
+	timer := time.NewTimer(wait)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
+}
+
+func sleepUntilClosed(done <-chan struct{}, wait time.Duration) bool {
+	timer := time.NewTimer(wait)
+	defer timer.Stop()
+
+	select {
+	case <-done:
+		return false
+	case <-timer.C:
+		return true
+	}
+}
+
+func retryBackoff(attempt int) time.Duration {
+	backoff := time.Duration(attempt+1) * defaultReconnectBackoff
+	if backoff > maxReconnectBackoff {
+		return maxReconnectBackoff
+	}
+	return backoff
+}
+
+func kafkaErrorOf(err error) (kafka.Error, bool) {
+	if err == nil {
+		return kafka.Error{}, false
+	}
+
+	var kafkaErr kafka.Error
+	if errors.As(err, &kafkaErr) {
+		return kafkaErr, true
+	}
+	return kafka.Error{}, false
+}
+
+func isRetryableKafkaError(err error) bool {
 	if err == nil {
 		return false
 	}
-	if kafkaErr, ok := err.(kafka.Error); ok {
+
+	kafkaErr, ok := kafkaErrorOf(err)
+	if !ok {
+		return false
+	}
+
+	if kafkaErr.IsRetriable() || kafkaErr.IsTimeout() {
+		return true
+	}
+
+	switch kafkaErr.Code() {
+	case kafka.ErrTransport, kafka.ErrAllBrokersDown, kafka.ErrTimedOut,
+		kafka.ErrTimedOutQueue, kafka.ErrQueueFull, kafka.ErrUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+func shouldRecreateKafkaClient(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	kafkaErr, ok := kafkaErrorOf(err)
+	if ok {
+		if kafkaErr.IsFatal() {
+			return true
+		}
+
 		switch kafkaErr.Code() {
-		case kafka.ErrTransport, kafka.ErrAllBrokersDown, kafka.ErrTimedOut, kafka.ErrQueueFull, kafka.ErrUnknown:
+		case kafka.ErrSsl, kafka.ErrAuthentication:
 			return true
 		}
 	}
-	return false
+
+	lower := strings.ToLower(err.Error())
+	return strings.Contains(lower, "ssl") ||
+		strings.Contains(lower, "certificate") ||
+		strings.Contains(lower, "x509") ||
+		strings.Contains(lower, "authentication")
 }
 
-// Helper to recreate producer on error
-func (p *KafkaProducer) reconnectProducer(configMap map[string]any) error {
+func buildProducerConfig(configMap map[string]any, clientID string) *kafka.ConfigMap {
 	config := &kafka.ConfigMap{}
-	for k, v := range configMap {
-		config.SetKey(k, v)
-	}
-	prod, err := kafka.NewProducer(config)
-	if err != nil {
-		return err
-	}
-	p.producer = prod
-	return nil
-}
-
-// NewProducer creates a new Kafka producer with configuration from YAML file
-func NewProducer(configMap map[string]any, clientId string) Producer {
-
-	config := &kafka.ConfigMap{}
-	if clientId == "" {
-		clientId = GetStringValue(configMap, kafkaClientID, os.Getenv("HOSTNAME"))
+	if clientID == "" {
+		clientID = GetStringValue(configMap, kafkaClientID, os.Getenv("HOSTNAME"))
 	}
 
-	// Set values from config file, with fallback defaults
 	config.SetKey(kafkaBootstrapServers, GetStringValue(configMap, kafkaBootstrapServers, "localhost:9092"))
-	config.SetKey(kafkaClientID, clientId)
+	config.SetKey(kafkaClientID, clientID)
 	config.SetKey("acks", GetStringValue(configMap, "acks", "1"))
 	config.SetKey("retries", GetIntValue(configMap, "retries", 3))
 	config.SetKey("batch.size", GetIntValue(configMap, "batch.size", 16384))
 	config.SetKey("linger.ms", GetIntValue(configMap, "linger.ms", 1))
-	//config.SetKey("buffer.memory", GetIntValue(configMap, "buffer.memory", 33554432))
-	//config.SetKey("compression.type", GetStringValue(configMap, "compression.type", "none"))
-	//config.SetKey("max.in.flight.requests.per.connection", GetIntValue(configMap, "max.in.flight.requests.per.connection", 5))
-	//config.SetKey("enable.idempotence", GetBoolValue(configMap, "enable.idempotence", false))
 	config.SetKey("go.events.channel.size", GetIntValue(configMap, "go.events.channel.size", 100000))
 	config.SetKey("go.produce.channel.size", GetIntValue(configMap, "go.produce.channel.size", 100000))
 	config.SetKey(kafkaSecurityProtocol, GetStringValue(configMap, kafkaSecurityProtocol, "PLAINTEXT"))
@@ -83,24 +176,60 @@ func NewProducer(configMap map[string]any, clientId string) Producer {
 	config.SetKey(kafkaSSLCertLocation, GetStringValue(configMap, kafkaSSLCertLocation, ""))
 	config.SetKey(kafkaSSLKeyLocation, GetStringValue(configMap, kafkaSSLKeyLocation, ""))
 	config.SetKey(kafkaSSLCertVerification, GetBoolValue(configMap, kafkaSSLCertVerification, false))
-
-	producer, err := kafka.NewProducer(config)
-	if err != nil {
-		panic(fmt.Sprintf("Failed to create Kafka producer: %v", err))
-	}
-
-	kp := &KafkaProducer{
-		producer:          producer,
-		deliveryNotifChan: make(chan WriteConfirmNotif, 2000),
-	}
-
-	kp.deliveryReportDrainer(producer)
-	return kp
+	return config
 }
 
-func (kp *KafkaProducer) deliveryReportDrainer(p *kafka.Producer) {
+func buildConsumerConfig(configMap map[string]any, cgroup string) *kafka.ConfigMap {
+	config := &kafka.ConfigMap{}
+	groupID := GetStringValue(configMap, kafkaGroupID, "default-group")
+	if cgroup != "" {
+		groupID = cgroup
+	}
+
+	config.SetKey(kafkaBootstrapServers, GetStringValue(configMap, kafkaBootstrapServers, "localhost:9092"))
+	config.SetKey(kafkaGroupID, groupID)
+	config.SetKey("auto.offset.reset", GetStringValue(configMap, "auto.offset.reset", "earliest"))
+	config.SetKey("go.application.rebalance.enable", GetBoolValue(configMap, "go.application.rebalance.enable", true))
+	config.SetKey("go.events.channel.enable", GetBoolValue(configMap, "go.events.channel.enable", true))
+	config.SetKey("enable.auto.commit", GetBoolValue(configMap, "enable.auto.commit", false))
+	config.SetKey("go.events.channel.size", GetIntValue(configMap, "go.events.channel.size", 100000))
+	config.SetKey("queued.max.messages.kbytes", GetIntValue(configMap, "queued.max.messages.kbytes", 65536))
+	config.SetKey("session.timeout.ms", GetIntValue(configMap, "session.timeout.ms", 6000))
+	config.SetKey("fetch.max.bytes", GetIntValue(configMap, "fetch.max.bytes", 1048576))
+	config.SetKey(kafkaClientID, GetStringValue(configMap, kafkaClientID, cgroup+os.Getenv("HOSTNAME")))
+	config.SetKey(kafkaSecurityProtocol, GetStringValue(configMap, kafkaSecurityProtocol, "PLAINTEXT"))
+	config.SetKey(kafkaSSLCALocation, GetStringValue(configMap, kafkaSSLCALocation, ""))
+	config.SetKey(kafkaSSLCertLocation, GetStringValue(configMap, kafkaSSLCertLocation, ""))
+	config.SetKey(kafkaSSLKeyLocation, GetStringValue(configMap, kafkaSSLKeyLocation, ""))
+	config.SetKey(kafkaSSLCertVerification, GetBoolValue(configMap, kafkaSSLCertVerification, false))
+	return config
+}
+
+func createKafkaProducer(configMap map[string]any, clientID string) (*kafka.Producer, error) {
+	return kafka.NewProducer(buildProducerConfig(configMap, clientID))
+}
+
+func createKafkaConsumer(configMap map[string]any, cgroup string) (*kafka.Consumer, error) {
+	return kafka.NewConsumer(buildConsumerConfig(configMap, cgroup))
+}
+
+// NewProducer creates a new Kafka producer with configuration from YAML file.
+// The underlying Kafka client is created lazily so transient startup issues do
+// not panic the process before the first actual write.
+func NewProducer(configMap map[string]any, clientID string) Producer {
+	return &KafkaProducer{
+		configMap:         cloneConfigMap(configMap),
+		clientID:          clientID,
+		deliveryNotifChan: make(chan WriteConfirmNotif, defaultDeliveryChanSize),
+		closeDone:         make(chan struct{}),
+	}
+}
+
+func (p *KafkaProducer) startDeliveryReportDrainer(producer *kafka.Producer) {
+	p.drainWG.Add(1)
 	go func() {
-		for ev := range p.Events() {
+		defer p.drainWG.Done()
+		for ev := range producer.Events() {
 			switch e := ev.(type) {
 			case *kafka.Message:
 				inputMetaData, ok := e.Opaque.(*WriteConfirmNotif)
@@ -108,27 +237,87 @@ func (kp *KafkaProducer) deliveryReportDrainer(p *kafka.Producer) {
 					fmt.Printf("Error: Opaque field not WriteConfirmNotif type, or missing: %v\n", e.Opaque)
 					continue
 				}
-				// Send confirmation back to the main consumer loop
+
 				dc := *inputMetaData
 				dc.WriteError = e.TopicPartition.Error
-				kp.deliveryNotifChan <- dc
+				select {
+				case p.deliveryNotifChan <- dc:
+				case <-p.closeDone:
+					return
+				}
 
 			case kafka.Error:
-				// Producer errors
 				fmt.Printf("Producer kafka error: %v\n", e)
-
-			case kafka.Stats:
-				// Optional: stats event
-
-			default:
-				// Drain everything else
 			}
 		}
 	}()
 }
 
-// Send sends a message to Kafka
-// createKafkaMessage converts a Message to a kafka.Message with headers
+func (p *KafkaProducer) ensureProducer() (*kafka.Producer, error) {
+	p.producerMu.RLock()
+	if p.producer != nil {
+		producer := p.producer
+		p.producerMu.RUnlock()
+		return producer, nil
+	}
+	p.producerMu.RUnlock()
+
+	p.producerMu.Lock()
+	defer p.producerMu.Unlock()
+
+	if p.producer != nil {
+		return p.producer, nil
+	}
+	if isClosed(p.closeDone) {
+		return nil, fmt.Errorf("kafka producer is closed")
+	}
+
+	producer, err := createKafkaProducer(p.configMap, p.clientID)
+	if err != nil {
+		return nil, err
+	}
+
+	p.producer = producer
+	p.startDeliveryReportDrainer(producer)
+	return producer, nil
+}
+
+func (p *KafkaProducer) reconnectProducer() error {
+	if isClosed(p.closeDone) {
+		return fmt.Errorf("kafka producer is closed")
+	}
+
+	newProducer, err := createKafkaProducer(p.configMap, p.clientID)
+	if err != nil {
+		return err
+	}
+
+	p.producerMu.Lock()
+	if isClosed(p.closeDone) {
+		p.producerMu.Unlock()
+		newProducer.Close()
+		return fmt.Errorf("kafka producer is closed")
+	}
+	oldProducer := p.producer
+	p.producer = newProducer
+	p.producerMu.Unlock()
+
+	p.startDeliveryReportDrainer(newProducer)
+	if oldProducer != nil {
+		oldProducer.Close()
+	}
+	return nil
+}
+
+func (p *KafkaProducer) recreateProducerIfNeeded(err error) {
+	if !shouldRecreateKafkaClient(err) && !isRetryableKafkaError(err) {
+		return
+	}
+	if reconnectErr := p.reconnectProducer(); reconnectErr != nil {
+		fmt.Printf("Producer reconnect failed after error %v: %v\n", err, reconnectErr)
+	}
+}
+
 func (p *KafkaProducer) createKafkaMessage(message *Message) *kafka.Message {
 	kafkaMessage := &kafka.Message{
 		TopicPartition: kafka.TopicPartition{
@@ -148,10 +337,12 @@ func (p *KafkaProducer) createKafkaMessage(message *Message) *kafka.Message {
 	return kafkaMessage
 }
 
-// waitForDelivery waits for message delivery confirmation
 func (p *KafkaProducer) waitForDelivery(ctx context.Context, deliveryChan chan kafka.Event) (int32, int64, error) {
 	select {
-	case event := <-deliveryChan:
+	case event, ok := <-deliveryChan:
+		if !ok {
+			return 0, 0, fmt.Errorf("delivery channel closed before confirmation")
+		}
 		if msg, ok := event.(*kafka.Message); ok {
 			if msg.TopicPartition.Error != nil {
 				return 0, 0, msg.TopicPartition.Error
@@ -172,246 +363,301 @@ func (p *KafkaProducer) Send(ctx context.Context, message *Message) (int32, int6
 	defer close(deliveryChan)
 
 	var lastErr error
-	maxRetries := 5
-	for attempt := 0; attempt < maxRetries; attempt++ {
-		err := p.producer.Produce(kafkaMessage, deliveryChan)
-		if err != nil {
-			if isTransientKafkaError(err) {
-				lastErr = err
-				time.Sleep(time.Duration(500*(attempt+1)) * time.Millisecond)
-				continue
-			}
-			return 0, 0, fmt.Errorf("failed to produce message: %w", err)
+	for attempt := 0; attempt < defaultMaxSendRetries; attempt++ {
+		if err := ctx.Err(); err != nil {
+			return 0, 0, err
 		}
 
-		partition, offset, err := p.waitForDelivery(ctx, deliveryChan)
+		producer, err := p.ensureProducer()
 		if err != nil {
-			if isTransientKafkaError(err) {
-				lastErr = err
-				time.Sleep(time.Duration(500*(attempt+1)) * time.Millisecond)
-				continue
+			lastErr = err
+		} else {
+			err = producer.Produce(kafkaMessage, deliveryChan)
+			if err == nil {
+				partition, offset, deliveryErr := p.waitForDelivery(ctx, deliveryChan)
+				if deliveryErr == nil {
+					return partition, offset, nil
+				}
+				err = deliveryErr
 			}
-			return 0, 0, fmt.Errorf("delivery failed: %w", err)
+			lastErr = err
+			p.recreateProducerIfNeeded(err)
+			if !isRetryableKafkaError(err) && !shouldRecreateKafkaClient(err) {
+				return 0, 0, fmt.Errorf("failed to produce message: %w", err)
+			}
 		}
-		return partition, offset, nil
+
+		if attempt == defaultMaxSendRetries-1 {
+			break
+		}
+		if err := sleepWithContext(ctx, retryBackoff(attempt)); err != nil {
+			return 0, 0, err
+		}
 	}
+
 	return 0, 0, fmt.Errorf("Kafka Send failed after retries: %w", lastErr)
 }
 
 func (p *KafkaProducer) ProduceAsync(ctx context.Context, message *Message, inputCorrData WriteConfirmNotif) error {
 	message.Timestamp = time.Now()
 	kafkaMessage := p.createKafkaMessage(message)
-	kafkaMessage.Opaque = &inputCorrData // Store correlation data here
+	kafkaMessage.Opaque = &inputCorrData
 
-	// produce without a specific delivery channel.
-	// Delivery reports will go too the produceer.Events() channel
-	err := p.producer.Produce(kafkaMessage, nil)
-	if err != nil {
-		return fmt.Errorf("failed to produce message asynchronously: %w", err)
+	var lastErr error
+	for attempt := 0; attempt < defaultMaxSendRetries; attempt++ {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+
+		producer, err := p.ensureProducer()
+		if err != nil {
+			lastErr = err
+		} else {
+			err = producer.Produce(kafkaMessage, nil)
+			if err == nil {
+				return nil
+			}
+			lastErr = err
+			p.recreateProducerIfNeeded(err)
+			if !isRetryableKafkaError(err) && !shouldRecreateKafkaClient(err) {
+				return fmt.Errorf("failed to produce message asynchronously: %w", err)
+			}
+		}
+
+		if attempt == defaultMaxSendRetries-1 {
+			break
+		}
+		if err := sleepWithContext(ctx, retryBackoff(attempt)); err != nil {
+			return err
+		}
 	}
-	return nil
+
+	return fmt.Errorf("Kafka ProduceAsync failed after retries: %w", lastErr)
 }
 
 func (p *KafkaProducer) GetDeliveryNotifChannel() <-chan WriteConfirmNotif {
 	return p.deliveryNotifChan
 }
 
-// SendAsync sends a message to Kafka asynchronously
-// sendAsyncWithRetries handles the async send logic with retries
-func (p *KafkaProducer) sendAsyncWithRetries(ctx context.Context, message *Message, resultChan chan SendResult) {
-	defer close(resultChan)
-	message.Timestamp = time.Now()
-	kafkaMessage := p.createKafkaMessage(message)
-
-	deliveryChan := make(chan kafka.Event, 1)
-	defer close(deliveryChan)
-
-	var lastErr error
-	maxRetries := 5
-	for attempt := 0; attempt < maxRetries; attempt++ {
-		err := p.producer.Produce(kafkaMessage, deliveryChan)
-		if err != nil {
-			if isTransientKafkaError(err) {
-				lastErr = err
-				time.Sleep(time.Duration(500*(attempt+1)) * time.Millisecond)
-				continue
-			}
-			resultChan <- SendResult{
-				Partition: 0,
-				Offset:    0,
-				Error:     fmt.Errorf("failed to produce message: %w", err),
-			}
-			return
-		}
-
-		partition, offset, err := p.waitForDelivery(ctx, deliveryChan)
-		if err != nil {
-			if ctx.Err() != nil {
-				resultChan <- SendResult{Partition: 0, Offset: 0, Error: ctx.Err()}
-				return
-			}
-			if isTransientKafkaError(err) {
-				lastErr = err
-				time.Sleep(time.Duration(500*(attempt+1)) * time.Millisecond)
-				continue
-			}
-			resultChan <- SendResult{
-				Partition: 0,
-				Offset:    0,
-				Error:     fmt.Errorf("delivery failed: %w", err),
-			}
-			return
-		}
-
-		resultChan <- SendResult{
-			Partition: partition,
-			Offset:    offset,
-			Error:     nil,
-		}
-		return
-	}
-
-	resultChan <- SendResult{
-		Partition: 0,
-		Offset:    0,
-		Error:     fmt.Errorf("Kafka SendAsync failed after retries: %w", lastErr),
-	}
-}
-
 func (p *KafkaProducer) SendAsync(ctx context.Context, message *Message) <-chan SendResult {
 	resultChan := make(chan SendResult, 1)
-	go p.sendAsyncWithRetries(ctx, message, resultChan)
+	go func() {
+		defer close(resultChan)
+		partition, offset, err := p.Send(ctx, message)
+		resultChan <- SendResult{Partition: partition, Offset: offset, Error: err}
+	}()
 	return resultChan
 }
 
-// Close closes the Kafka producer
+// Close closes the Kafka producer.
 func (p *KafkaProducer) Close() error {
-	p.producer.Close()
-	close(p.deliveryNotifChan)
+	p.closeOnce.Do(func() {
+		close(p.closeDone)
+
+		p.producerMu.Lock()
+		producer := p.producer
+		p.producer = nil
+		p.producerMu.Unlock()
+
+		if producer != nil {
+			producer.Close()
+		}
+
+		p.drainWG.Wait()
+		close(p.deliveryNotifChan)
+	})
 	return nil
 }
 
 type KafkaConsumer struct {
+	configMap map[string]any
+	cgroup    string
+
+	consumerMu         sync.RWMutex
 	consumer           *kafka.Consumer
+	topics             []string
 	assignedPartitions []PartitionAssignment
-	onAssign           func([]PartitionAssignment)
-	onRevoke           func([]PartitionAssignment)
-	onMessage          func(*Message)
-	onError            func(error)
+
+	onAssign  func([]PartitionAssignment)
+	onRevoke  func([]PartitionAssignment)
+	onMessage func(*Message)
+	onError   func(error)
+
+	closeDone    chan struct{}
+	closeOnce    sync.Once
+	eventsWG     sync.WaitGroup
+	reconnectMu  sync.Mutex
+	reconnecting bool
 }
 
-// OnMessage sets a callback for incoming messages
+// OnMessage sets a callback for incoming messages.
 func (c *KafkaConsumer) OnMessage(fn func(*Message)) {
+	c.consumerMu.Lock()
+	defer c.consumerMu.Unlock()
 	c.onMessage = fn
 }
 
-// OnAssign sets a callback for partition assignment events
+// OnAssign sets a callback for partition assignment events.
 func (c *KafkaConsumer) OnAssign(fn func([]PartitionAssignment)) {
+	c.consumerMu.Lock()
+	defer c.consumerMu.Unlock()
 	c.onAssign = fn
 }
 
-// OnRevoke sets a callback for partition revocation events
+// OnRevoke sets a callback for partition revocation events.
 func (c *KafkaConsumer) OnRevoke(fn func([]PartitionAssignment)) {
+	c.consumerMu.Lock()
+	defer c.consumerMu.Unlock()
 	c.onRevoke = fn
 }
 
-// AssignedPartitions returns the currently assigned partitions
+// AssignedPartitions returns the currently assigned partitions.
 func (c *KafkaConsumer) AssignedPartitions() []PartitionAssignment {
-	return c.assignedPartitions
+	c.consumerMu.RLock()
+	defer c.consumerMu.RUnlock()
+
+	partitions := make([]PartitionAssignment, len(c.assignedPartitions))
+	copy(partitions, c.assignedPartitions)
+	return partitions
 }
 
-// Set callback for error events
+// Set callback for error events.
 func (c *KafkaConsumer) OnError(fn func(error)) {
+	c.consumerMu.Lock()
+	defer c.consumerMu.Unlock()
 	c.onError = fn
 }
 
-// Helper to check if error is transient for consumer
-func isTransientKafkaConsumerError(err error) bool {
-	if err == nil {
-		return false
+func (c *KafkaConsumer) emitError(err error) {
+	c.consumerMu.RLock()
+	onError := c.onError
+	c.consumerMu.RUnlock()
+
+	if onError != nil {
+		onError(err)
 	}
-	if kafkaErr, ok := err.(kafka.Error); ok {
-		switch kafkaErr.Code() {
-		case kafka.ErrTransport, kafka.ErrAllBrokersDown, kafka.ErrTimedOut, kafka.ErrUnknown:
-			return true
-		}
-	}
-	return false
 }
 
-// Helper to recreate consumer on error
-func (c *KafkaConsumer) reconnectConsumer(configMap map[string]any, cgroup string) error {
-	config := &kafka.ConfigMap{}
-	for k, v := range configMap {
-		config.SetKey(k, v)
+// NewConsumer creates a new Kafka consumer with configuration from YAML file.
+// The actual Kafka client is created lazily on Subscribe so temporary startup
+// issues do not panic the process.
+func NewConsumer(configMap map[string]any, cgroup string) Consumer {
+	return &KafkaConsumer{
+		configMap: cloneConfigMap(configMap),
+		cgroup:    cgroup,
+		closeDone: make(chan struct{}),
 	}
-	groupID := GetStringValue(configMap, kafkaGroupID, "default-group")
-	if cgroup != "" {
-		groupID = cgroup
+}
+
+func (c *KafkaConsumer) ensureConsumer() (*kafka.Consumer, error) {
+	c.consumerMu.RLock()
+	if c.consumer != nil {
+		consumer := c.consumer
+		c.consumerMu.RUnlock()
+		return consumer, nil
 	}
-	config.SetKey(kafkaGroupID, groupID)
-	cons, err := kafka.NewConsumer(config)
+	c.consumerMu.RUnlock()
+
+	consumer, err := createKafkaConsumer(c.configMap, c.cgroup)
+	if err != nil {
+		return nil, err
+	}
+
+	c.consumerMu.Lock()
+	if isClosed(c.closeDone) {
+		c.consumerMu.Unlock()
+		consumer.Close()
+		return nil, fmt.Errorf("kafka consumer is closed")
+	}
+	if c.consumer != nil {
+		existing := c.consumer
+		c.consumerMu.Unlock()
+		consumer.Close()
+		return existing, nil
+	}
+
+	c.consumer = consumer
+	c.consumerMu.Unlock()
+	c.startEventLoop(consumer)
+	return consumer, nil
+}
+
+func (c *KafkaConsumer) subscribeTopics(consumer *kafka.Consumer, topics []string) error {
+	if len(topics) == 0 {
+		return consumer.SubscribeTopics(nil, nil)
+	}
+	return consumer.SubscribeTopics(topics, nil)
+}
+
+func (c *KafkaConsumer) reconnectConsumer() error {
+	if isClosed(c.closeDone) {
+		return fmt.Errorf("kafka consumer is closed")
+	}
+
+	newConsumer, err := createKafkaConsumer(c.configMap, c.cgroup)
 	if err != nil {
 		return err
 	}
-	c.consumer = cons
+
+	c.consumerMu.RLock()
+	topics := append([]string(nil), c.topics...)
+	c.consumerMu.RUnlock()
+
+	if err := c.subscribeTopics(newConsumer, topics); err != nil {
+		newConsumer.Close()
+		return err
+	}
+
+	c.consumerMu.Lock()
+	if isClosed(c.closeDone) {
+		c.consumerMu.Unlock()
+		newConsumer.Close()
+		return fmt.Errorf("kafka consumer is closed")
+	}
+	oldConsumer := c.consumer
+	c.consumer = newConsumer
+	c.assignedPartitions = nil
+	c.consumerMu.Unlock()
+
+	c.startEventLoop(newConsumer)
+	if oldConsumer != nil {
+		oldConsumer.Close()
+	}
 	return nil
 }
 
-// NewConsumer creates a new Kafka consumer with configuration from YAML file
-// If cgroup is not empty, it overrides the group.id from config file
-func NewConsumer(configMap map[string]any, cgroup string) Consumer {
-
-	config := &kafka.ConfigMap{}
-
-	// Set values from config file, with fallback defaults
-	config.SetKey(kafkaBootstrapServers, GetStringValue(configMap, kafkaBootstrapServers, "localhost:9092"))
-
-	// Use provided cgroup if not empty, otherwise use config file value
-	groupID := GetStringValue(configMap, kafkaGroupID, "default-group")
-	if cgroup != "" {
-		groupID = cgroup
+func (c *KafkaConsumer) scheduleReconnect(triggerErr error) {
+	c.reconnectMu.Lock()
+	if c.reconnecting || isClosed(c.closeDone) {
+		c.reconnectMu.Unlock()
+		return
 	}
-	config.SetKey(kafkaGroupID, groupID)
-	config.SetKey("auto.offset.reset", GetStringValue(configMap, "auto.offset.reset", "earliest"))
-	config.SetKey("go.application.rebalance.enable", GetBoolValue(configMap, "go.application.rebalance.enable", true))
-	config.SetKey("go.events.channel.enable", GetBoolValue(configMap, "go.events.channel.enable", true))
-	config.SetKey("enable.auto.commit", GetBoolValue(configMap, "enable.auto.commit", false))
-	config.SetKey("go.events.channel.size", GetIntValue(configMap, "go.events.channel.size", 100000))
-	config.SetKey("queued.max.messages.kbytes", GetIntValue(configMap, "queued.max.messages.kbytes", 65536))
-	config.SetKey("session.timeout.ms", GetIntValue(configMap, "session.timeout.ms", 6000))
-	config.SetKey("fetch.max.bytes", GetIntValue(configMap, "fetch.max.bytes", 1048576))
-	//config.SetKey("session.timeout.ms", GetIntValue(configMap, "session.timeout.ms", 30000))
-	//config.SetKey("heartbeat.interval.ms", GetIntValue(configMap, "heartbeat.interval.ms", 10000))
-	//config.SetKey("fetch.min.bytes", GetIntValue(configMap, "fetch.min.bytes", 1))
-	//config.SetKey("fetch.max.wait.ms", GetIntValue(configMap, "fetch.max.wait.ms", 500))
-	//config.SetKey("max.partition.fetch.bytes", GetIntValue(configMap, "max.partition.fetch.bytes", 1048576))
-	config.SetKey(kafkaClientID, GetStringValue(configMap, kafkaClientID, cgroup+os.Getenv("HOSTNAME")))
-	config.SetKey(kafkaSecurityProtocol, GetStringValue(configMap, kafkaSecurityProtocol, "PLAINTEXT"))
-	config.SetKey(kafkaSSLCALocation, GetStringValue(configMap, kafkaSSLCALocation, ""))
-	config.SetKey(kafkaSSLCertLocation, GetStringValue(configMap, kafkaSSLCertLocation, ""))
-	config.SetKey(kafkaSSLKeyLocation, GetStringValue(configMap, kafkaSSLKeyLocation, ""))
-	config.SetKey(kafkaSSLCertVerification, GetBoolValue(configMap, kafkaSSLCertVerification, false))
+	c.reconnecting = true
+	c.reconnectMu.Unlock()
 
-	consumer, err := kafka.NewConsumer(config)
-	if err != nil {
-		panic(fmt.Sprintf("Failed to create Kafka consumer: %v", err))
-	}
+	go func() {
+		defer func() {
+			c.reconnectMu.Lock()
+			c.reconnecting = false
+			c.reconnectMu.Unlock()
+		}()
 
-	kc := &KafkaConsumer{
-		consumer: consumer,
-	}
-	go kc.handleEvents()
-	return kc
+		for attempt := 0; ; attempt++ {
+			if err := c.reconnectConsumer(); err == nil {
+				return
+			} else {
+				c.emitError(fmt.Errorf("kafka consumer reconnect after %v failed: %w", triggerErr, err))
+			}
+
+			if !sleepUntilClosed(c.closeDone, retryBackoff(attempt)) {
+				return
+			}
+		}
+	}()
 }
 
-// Set callback for partition assignment
-// ...existing code...
-
-// Internal: unified event handler for rebalance and messages
-// convertToPartitionAssignments converts kafka topic partitions to PartitionAssignment slice
 func convertToPartitionAssignments(partitions []kafka.TopicPartition) []PartitionAssignment {
-	var assignments []PartitionAssignment
+	assignments := make([]PartitionAssignment, 0, len(partitions))
 	for _, tp := range partitions {
 		topic := ""
 		if tp.Topic != nil {
@@ -425,27 +671,46 @@ func convertToPartitionAssignments(partitions []kafka.TopicPartition) []Partitio
 	return assignments
 }
 
-// handlePartitionAssignment processes partition assignment events
-func (c *KafkaConsumer) handlePartitionAssignment(partitions []kafka.TopicPartition) {
+func (c *KafkaConsumer) handlePartitionAssignment(consumer *kafka.Consumer, partitions []kafka.TopicPartition) {
 	assignments := convertToPartitionAssignments(partitions)
+
+	c.consumerMu.Lock()
+	if c.consumer != consumer {
+		c.consumerMu.Unlock()
+		return
+	}
 	c.assignedPartitions = assignments
-	if c.onAssign != nil {
-		c.onAssign(assignments)
+	onAssign := c.onAssign
+	c.consumerMu.Unlock()
+
+	if onAssign != nil {
+		onAssign(assignments)
 	}
-	c.consumer.Assign(partitions)
+	if err := consumer.Assign(partitions); err != nil {
+		c.emitError(err)
+	}
 }
 
-// handlePartitionRevocation processes partition revocation events
-func (c *KafkaConsumer) handlePartitionRevocation(partitions []kafka.TopicPartition) {
+func (c *KafkaConsumer) handlePartitionRevocation(consumer *kafka.Consumer, partitions []kafka.TopicPartition) {
 	revocations := convertToPartitionAssignments(partitions)
-	if c.onRevoke != nil {
-		c.onRevoke(revocations)
+
+	c.consumerMu.Lock()
+	if c.consumer != consumer {
+		c.consumerMu.Unlock()
+		return
 	}
-	c.consumer.Unassign()
 	c.assignedPartitions = nil
+	onRevoke := c.onRevoke
+	c.consumerMu.Unlock()
+
+	if onRevoke != nil {
+		onRevoke(revocations)
+	}
+	if err := consumer.Unassign(); err != nil {
+		c.emitError(err)
+	}
 }
 
-// convertKafkaMessage converts kafka.Message to internal Message format
 func (c *KafkaConsumer) convertKafkaMessage(e *kafka.Message) *Message {
 	msg := &Message{
 		Topic:     *e.TopicPartition.Topic,
@@ -462,48 +727,101 @@ func (c *KafkaConsumer) convertKafkaMessage(e *kafka.Message) *Message {
 	return msg
 }
 
-func (c *KafkaConsumer) handleEvents() {
-	for event := range c.consumer.Events() {
-		switch e := event.(type) {
-		case kafka.AssignedPartitions:
-			c.handlePartitionAssignment(e.Partitions)
-		case kafka.RevokedPartitions:
-			c.handlePartitionRevocation(e.Partitions)
-		case kafka.OffsetsCommitted:
-			// Must drain this or memory can accumulate
-		case kafka.Stats:
-			// Stats event from librdkafka
-		case *kafka.Message:
-			msg := c.convertKafkaMessage(e)
-			if c.onMessage != nil {
-				c.onMessage(msg)
-			}
-		case kafka.Error:
-			if c.onError != nil {
-				c.onError(e)
+func (c *KafkaConsumer) startEventLoop(consumer *kafka.Consumer) {
+	c.eventsWG.Add(1)
+	go func() {
+		defer c.eventsWG.Done()
+
+		for event := range consumer.Events() {
+			switch e := event.(type) {
+			case kafka.AssignedPartitions:
+				c.handlePartitionAssignment(consumer, e.Partitions)
+			case kafka.RevokedPartitions:
+				c.handlePartitionRevocation(consumer, e.Partitions)
+			case kafka.OffsetsCommitted:
+				// Drain commit events to avoid buildup.
+			case kafka.Stats:
+				// Drain stats events to avoid buildup.
+			case *kafka.Message:
+				msg := c.convertKafkaMessage(e)
+				c.consumerMu.RLock()
+				onMessage := c.onMessage
+				c.consumerMu.RUnlock()
+				if onMessage != nil {
+					onMessage(msg)
+				}
+			case kafka.Error:
+				c.emitError(e)
+				if shouldRecreateKafkaClient(e) {
+					c.scheduleReconnect(e)
+				}
 			}
 		}
-	}
+	}()
 }
 
-// Subscribe subscribes to topics
+// Subscribe subscribes to topics.
 func (c *KafkaConsumer) Subscribe(topics []string) error {
-	return c.consumer.SubscribeTopics(topics, nil)
+	c.consumerMu.Lock()
+	c.topics = append([]string(nil), topics...)
+	c.consumerMu.Unlock()
+
+	consumer, err := c.ensureConsumer()
+	if err != nil {
+		return fmt.Errorf("failed to create kafka consumer: %w", err)
+	}
+
+	if err := c.subscribeTopics(consumer, topics); err != nil {
+		if shouldRecreateKafkaClient(err) || isRetryableKafkaError(err) {
+			if reconnectErr := c.reconnectConsumer(); reconnectErr == nil {
+				return nil
+			}
+		}
+		return err
+	}
+	return nil
 }
 
-// Commit manually commits the offset
+// Commit manually commits the offset.
 func (c *KafkaConsumer) Commit(ctx context.Context, message *Message) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
+	consumer, err := c.ensureConsumer()
+	if err != nil {
+		return fmt.Errorf("failed to get kafka consumer for commit: %w", err)
+	}
+
 	topicPartition := kafka.TopicPartition{
 		Topic:     &message.Topic,
 		Partition: message.Partition,
 		Offset:    kafka.Offset(message.Offset + 1),
 	}
 
-	_, err := c.consumer.CommitOffsets([]kafka.TopicPartition{topicPartition})
+	_, err = consumer.CommitOffsets([]kafka.TopicPartition{topicPartition})
+	if err != nil && shouldRecreateKafkaClient(err) {
+		c.scheduleReconnect(err)
+	}
 	return err
 }
 
-// Close closes the Kafka consumer
+// Close closes the Kafka consumer.
 func (c *KafkaConsumer) Close() error {
-	return c.consumer.Close()
+	var closeErr error
+	c.closeOnce.Do(func() {
+		close(c.closeDone)
+
+		c.consumerMu.Lock()
+		consumer := c.consumer
+		c.consumer = nil
+		c.assignedPartitions = nil
+		c.consumerMu.Unlock()
+
+		if consumer != nil {
+			closeErr = consumer.Close()
+		}
+		c.eventsWG.Wait()
+	})
+	return closeErr
 }

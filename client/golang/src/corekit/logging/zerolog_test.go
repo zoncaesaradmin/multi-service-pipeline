@@ -3,7 +3,7 @@ package logging
 import (
 	"bytes"
 	"context"
-	"corekit/logcontext"
+	"corekit/ctxutil"
 	"errors"
 	"os"
 	"strings"
@@ -218,10 +218,10 @@ func TestZerologLoggerContextEnrichment(t *testing.T) {
 	defer logger.Close()
 
 	ctx := context.Background()
-	ctx = logcontext.WithTraceID(ctx, "trace-123")
-	ctx = logcontext.WithRequestID(ctx, "req-456")
-	ctx = logcontext.WithDebugEnabled(ctx, true)
-	ctx = logcontext.WithField(ctx, "workflowId", "wf-789")
+	ctx = ctxutil.WithTraceID(ctx, "trace-123")
+	ctx = ctxutil.WithRequestID(ctx, "req-456")
+	ctx = ctxutil.WithDebugEnabled(ctx, true)
+	ctx = ctxutil.WithField(ctx, "workflowId", "wf-789")
 
 	logger.WithContext(ctx).Info("context enriched")
 
@@ -399,7 +399,7 @@ func TestZerologLoggerWithContext(t *testing.T) {
 	defer logger.Close()
 
 	// Test WithContext
-	ctx := logcontext.WithTraceID(context.Background(), "trace-123")
+	ctx := ctxutil.WithTraceID(context.Background(), "trace-123")
 	contextLogger := logger.WithContext(ctx)
 	contextLogger.Info("Request processed")
 
@@ -794,7 +794,7 @@ func TestZerologLoggerComplexFieldCombinations(t *testing.T) {
 
 	// Test complex chaining
 	testErr := errors.New("test error")
-	ctx := logcontext.WithTraceID(context.Background(), "trace-123")
+	ctx := ctxutil.WithTraceID(context.Background(), "trace-123")
 
 	complexLogger := logger.
 		WithContext(ctx).

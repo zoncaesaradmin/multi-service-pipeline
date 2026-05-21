@@ -2,7 +2,7 @@ package logging
 
 import (
 	"context"
-	"corekit/logcontext"
+	"corekit/ctxutil"
 	"errors"
 	"testing"
 )
@@ -215,9 +215,9 @@ func TestMockLogger_WithContext(t *testing.T) {
 	logger := NewMockLogger()
 
 	ctx := context.Background()
-	ctx = logcontext.WithTraceID(ctx, "trace-123")
-	ctx = logcontext.WithUserID(ctx, "user-456")
-	ctx = logcontext.WithRequestID(ctx, "req-789")
+	ctx = ctxutil.WithTraceID(ctx, "trace-123")
+	ctx = ctxutil.WithUserID(ctx, "user-456")
+	ctx = ctxutil.WithRequestID(ctx, "req-789")
 
 	ctxLogger := logger.WithContext(ctx)
 	ctxLogger.Info("context message")

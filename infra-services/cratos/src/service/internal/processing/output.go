@@ -2,7 +2,7 @@ package processing
 
 import (
 	"context"
-	"corekit/logcontext"
+	"corekit/ctxutil"
 	"corekit/logging"
 	"corekit/messagebus"
 	"corekit/utils"
@@ -222,11 +222,11 @@ func (o *OutputHandler) sendMessage(channelMsg *models.ChannelMessage) error {
 
 	// Extract and ensure trace ID is propagated
 	if channelMsg.Context != nil {
-		if traceID, ok := logcontext.GetTraceID(channelMsg.Context); ok {
-			headers[logcontext.TraceIDHeader] = traceID
+		if traceID, ok := ctxutil.GetTraceID(channelMsg.Context); ok {
+			headers[ctxutil.TraceIDHeader] = traceID
 		}
-		if debugEnabled, ok := logcontext.GetDebugEnabled(channelMsg.Context); ok && debugEnabled {
-			headers[logcontext.DebugEnabledHeader] = "true"
+		if debugEnabled, ok := ctxutil.GetDebugEnabled(channelMsg.Context); ok && debugEnabled {
+			headers[ctxutil.DebugEnabledHeader] = "true"
 		}
 	}
 

@@ -107,7 +107,7 @@ contextLogger.Info("Request processed")
 ```go
 import (
     "context"
-    "corekit/logcontext"
+    "corekit/ctxutil"
     "corekit/logging"
 )
 
@@ -122,9 +122,9 @@ func main() {
     })
 
     ctx := context.Background()
-    ctx = logcontext.WithTraceID(ctx, "trace-123")
-    ctx = logcontext.WithRequestID(ctx, "req-456")
-    ctx = logcontext.WithField(ctx, "workflowId", "wf-789")
+    ctx = ctxutil.WithTraceID(ctx, "trace-123")
+    ctx = ctxutil.WithRequestID(ctx, "req-456")
+    ctx = ctxutil.WithField(ctx, "workflowId", "wf-789")
 
     logger.WithContext(ctx).Info("Request processed")
     logger.WithContext(ctx).Error("Request failed")

@@ -1,4 +1,4 @@
-package logcontext
+package ctxutil
 
 import (
 	"context"

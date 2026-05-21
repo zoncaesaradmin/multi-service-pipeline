@@ -2,7 +2,7 @@ package processing
 
 import (
 	"context"
-	"corekit/logcontext"
+	"corekit/ctxutil"
 	"corekit/logging"
 	"corekit/messagebus"
 	"fmt"
@@ -67,7 +67,7 @@ func (i *InputHandler) Start() error {
 		if message != nil {
 			// Build flow context once at ingress so downstream loggers can honor
 			// trace ID and any per-message debug override consistently.
-			traceCtx, traceID := logcontext.BuildFlowContext(context.Background(), message.Headers)
+			traceCtx, traceID := ctxutil.BuildFlowContext(context.Background(), message.Headers)
 
 			// Use trace-aware logger for this message
 			msgLogger := i.logger.WithContext(traceCtx)
@@ -100,9 +100,9 @@ func (i *InputHandler) Start() error {
 			for k, v := range message.Headers {
 				channelMsg.Meta[k] = v
 			}
-			channelMsg.Meta[logcontext.TraceIDHeader] = traceID // Ensure trace ID is propagated
-			if debugEnabled, ok := logcontext.GetDebugEnabled(traceCtx); ok && debugEnabled {
-				channelMsg.Meta[logcontext.DebugEnabledHeader] = "true"
+			channelMsg.Meta[ctxutil.TraceIDHeader] = traceID // Ensure trace ID is propagated
+			if debugEnabled, ok := ctxutil.GetDebugEnabled(traceCtx); ok && debugEnabled {
+				channelMsg.Meta[ctxutil.DebugEnabledHeader] = "true"
 			}
 
 			// Record metrics if available

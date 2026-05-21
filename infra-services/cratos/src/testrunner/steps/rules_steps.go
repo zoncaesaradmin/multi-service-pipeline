@@ -1,7 +1,7 @@
 package steps
 
 import (
-	"corekit/logcontext"
+	"corekit/ctxutil"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,7 +19,7 @@ type StepBindings struct {
 }
 
 func (b *StepBindings) contextualTraceID() string {
-	traceID := logcontext.CreateContextualTraceID(b.Cctx.CurrentScenario, b.Cctx.ExampleData)
+	traceID := ctxutil.CreateContextualTraceID(b.Cctx.CurrentScenario, b.Cctx.ExampleData)
 	if traceID == "" {
 		return "testrunner-default-trace"
 	}
@@ -78,8 +78,8 @@ func (b *StepBindings) SendInputDataToTopic(dataFile string, topic string) error
 	traceLogger := loggerWithTraceID(b.Cctx.L, traceID)
 
 	metaDataMap := map[string]string{
-		"testData":               "true",
-		logcontext.TraceIDHeader: traceID,
+		"testData":            "true",
+		ctxutil.TraceIDHeader: traceID,
 	}
 
 	b.Cctx.ConsHandler.SetExpectedHeaders(metaDataMap)
@@ -161,8 +161,8 @@ func (b *StepBindings) SendScaleInputDataWithFabric(dataFile string, dcount int)
 	traceLogger := loggerWithTraceID(b.Cctx.L, traceID)
 
 	metaDataMap := map[string]string{
-		"testData":               "true",
-		logcontext.TraceIDHeader: traceID,
+		"testData":            "true",
+		ctxutil.TraceIDHeader: traceID,
 	}
 
 	_, dataMeta, aStream, err := LoadAlertFromJSON(dataFile)
@@ -256,8 +256,8 @@ func (b *StepBindings) SendScaleInputDataWithCategory(dataFile string, count int
 	traceID := b.contextualTraceID()
 	traceLogger := loggerWithTraceID(b.Cctx.L, traceID)
 	metaDataMap := map[string]string{
-		"testData":               "true",
-		logcontext.TraceIDHeader: traceID,
+		"testData":            "true",
+		ctxutil.TraceIDHeader: traceID,
 	}
 
 	_, dataMeta, aStream, err := LoadAlertFromJSON(dataFile)
@@ -352,8 +352,8 @@ func (b *StepBindings) SendScaleInputDataWithInterface(dataFile string, count in
 	traceID := b.contextualTraceID()
 	traceLogger := loggerWithTraceID(b.Cctx.L, traceID)
 	metaDataMap := map[string]string{
-		"testData":               "true",
-		logcontext.TraceIDHeader: traceID,
+		"testData":            "true",
+		ctxutil.TraceIDHeader: traceID,
 	}
 
 	_, dataMeta, aStream, err := LoadAlertFromJSON(dataFile)

@@ -2,7 +2,7 @@ package logging
 
 import (
 	"context"
-	"corekit/logcontext"
+	"corekit/ctxutil"
 	"fmt"
 	"strings"
 	"sync"
@@ -290,7 +290,7 @@ func (m *MockLogger) log(level Level, msg string, additionalFields Fields, err e
 
 	// Combine fields
 	allFields := make(Fields)
-	for k, v := range logcontext.FieldsFromContext(m.context) {
+	for k, v := range ctxutil.FieldsFromContext(m.context) {
 		allFields[k] = v
 	}
 	for k, v := range m.fields {

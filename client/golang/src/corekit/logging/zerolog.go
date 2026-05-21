@@ -2,7 +2,7 @@ package logging
 
 import (
 	"context"
-	"corekit/logcontext"
+	"corekit/ctxutil"
 	"fmt"
 	"io"
 	"os"
@@ -119,7 +119,7 @@ func (z *ZerologLogger) getEvent(level Level) *zerolog.Event {
 	for key, value := range z.fields {
 		fields[key] = value
 	}
-	contextFields := logcontext.FieldsFromContext(z.context)
+	contextFields := ctxutil.FieldsFromContext(z.context)
 	currentLevel := z.level
 	ctx := z.context
 	includeCaller := z.config != nil && z.config.IncludeCallerOnError

@@ -2,7 +2,7 @@ package steps
 
 import (
 	"context"
-	"corekit/logcontext"
+	"corekit/ctxutil"
 	"corekit/logging"
 	"corekit/utils"
 	"testgomodule/impl"
@@ -19,12 +19,12 @@ func loggerWithTraceID(logger logging.Logger, traceID string) logging.Logger {
 	if traceID == "" {
 		return logger
 	}
-	return logger.WithContext(logcontext.WithTraceID(context.Background(), traceID))
+	return logger.WithContext(ctxutil.WithTraceID(context.Background(), traceID))
 }
 
 func (b *CommonStepBindings) KafkaProducerReady() error {
 	// Create trace-aware logger with contextual trace ID
-	traceID := logcontext.CreateContextualTraceID(b.SuiteCtx.CurrentScenario, b.SuiteCtx.ExampleData)
+	traceID := ctxutil.CreateContextualTraceID(b.SuiteCtx.CurrentScenario, b.SuiteCtx.ExampleData)
 	traceLogger := loggerWithTraceID(b.SuiteCtx.L, traceID)
 
 	prodHandler := impl.NewProducerHandler(traceLogger, b.SuiteCtx.ExecGroupIndex)
@@ -46,7 +46,7 @@ func (b *CommonStepBindings) KafkaConsumerReady() error {
 
 func (b *CommonStepBindings) KafkaConsumersStarted(topic string) error {
 	// Create trace-aware logger with contextual trace ID
-	traceID := logcontext.CreateContextualTraceID(b.SuiteCtx.CurrentScenario, b.SuiteCtx.ExampleData)
+	traceID := ctxutil.CreateContextualTraceID(b.SuiteCtx.CurrentScenario, b.SuiteCtx.ExampleData)
 	traceLogger := loggerWithTraceID(b.SuiteCtx.L, traceID)
 
 	consHandler := impl.NewConsumerHandler(traceLogger, b.SuiteCtx.ExecGroupIndex)

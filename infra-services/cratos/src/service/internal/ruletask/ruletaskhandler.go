@@ -2,7 +2,7 @@ package ruletask
 
 import (
 	"context"
-	"corekit/logcontext"
+	"corekit/ctxutil"
 	"corekit/logging"
 	"corekit/messagebus"
 	"corekit/utils"
@@ -204,7 +204,7 @@ func (rh *RuleTasksHandler) handleRuleTaskMessage(message *messagebus.Message) {
 		return
 	}
 
-	traceCtx, _ := logcontext.BuildFlowContext(context.Background(), message.Headers)
+	traceCtx, _ := ctxutil.BuildFlowContext(context.Background(), message.Headers)
 	msgLogger := rh.rlogger.WithContext(traceCtx)
 
 	msgLogger.Debugw("RULE TASK HANDLER - Received task", "size", len(message.Value))

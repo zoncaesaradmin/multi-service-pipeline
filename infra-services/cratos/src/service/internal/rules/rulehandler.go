@@ -2,7 +2,7 @@ package rules
 
 import (
 	"context"
-	"corekit/logcontext"
+	"corekit/ctxutil"
 	"corekit/logging"
 	"corekit/messagebus"
 	"corekit/utils"
@@ -171,7 +171,7 @@ func (rh *RuleEngineHandler) handleRuleMessage(message *messagebus.Message) {
 		return
 	}
 
-	traceCtx, traceID := logcontext.BuildFlowContext(context.Background(), message.Headers)
+	traceCtx, traceID := ctxutil.BuildFlowContext(context.Background(), message.Headers)
 	msgLogger := rh.rlogger.WithContext(traceCtx)
 
 	msgLogger.Debugw("KAFKAIN - RULE HANDLER - Received message", "size", len(message.Value))

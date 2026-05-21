@@ -2,9 +2,9 @@ package processing
 
 import (
 	"context"
+	"corekit/logcontext"
 	"corekit/logging"
 	"corekit/messagebus"
-	"corekit/utils"
 	"fmt"
 	"servicegomodule/internal/metrics"
 	"servicegomodule/internal/models"
@@ -67,10 +67,10 @@ func (i *InputHandler) Start() error {
 		if message != nil {
 			// Build flow context once at ingress so downstream loggers can honor
 			// trace ID and any per-message debug override consistently.
-			traceCtx, traceID := utils.BuildFlowContext(context.Background(), message.Headers)
+			traceCtx, traceID := logcontext.BuildFlowContext(context.Background(), message.Headers)
 
 			// Use trace-aware logger for this message
-			msgLogger := utils.WithTraceLogger(i.logger, traceCtx)
+			msgLogger := i.logger.WithContext(traceCtx)
 			msgLogger.Debugw("KAFKAIN - RECORD HANDLER: Received message", "size", len(message.Value))
 
 			// Create commit callback that will be called after successful processing
@@ -100,9 +100,9 @@ func (i *InputHandler) Start() error {
 			for k, v := range message.Headers {
 				channelMsg.Meta[k] = v
 			}
-			channelMsg.Meta[utils.TraceIDHeader] = traceID // Ensure trace ID is propagated
-			if debugEnabled, ok := utils.GetDebugEnabled(traceCtx); ok && debugEnabled {
-				channelMsg.Meta[utils.DebugEnabledHeader] = "true"
+			channelMsg.Meta[logcontext.TraceIDHeader] = traceID // Ensure trace ID is propagated
+			if debugEnabled, ok := logcontext.GetDebugEnabled(traceCtx); ok && debugEnabled {
+				channelMsg.Meta[logcontext.DebugEnabledHeader] = "true"
 			}
 
 			// Record metrics if available

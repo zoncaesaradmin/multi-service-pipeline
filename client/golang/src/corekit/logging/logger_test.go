@@ -137,6 +137,26 @@ func TestLoggerConfigValidate(t *testing.T) {
 			wantErr: true,
 			errMsg:  errServiceRequired,
 		},
+		{
+			name: "stdout output target",
+			config: LoggerConfig{
+				Level:        InfoLevel,
+				OutputTarget: OutputTargetStdout,
+				LoggerName:   testLoggerName,
+				ServiceName:  testServiceName,
+			},
+			wantErr: false,
+		},
+		{
+			name: "custom writer output target",
+			config: LoggerConfig{
+				Level:        InfoLevel,
+				LoggerName:   testLoggerName,
+				ServiceName:  testServiceName,
+				OutputWriter: &strings.Builder{},
+			},
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -179,6 +199,9 @@ func TestDefaultLoggerConfig(t *testing.T) {
 
 	if config.FilePath != "/tmp/app.log" {
 		t.Errorf("DefaultLoggerConfig() FilePath = %v, want %v", config.FilePath, "/tmp/app.log")
+	}
+	if config.OutputTarget != OutputTargetFile {
+		t.Errorf("DefaultLoggerConfig() OutputTarget = %v, want %v", config.OutputTarget, OutputTargetFile)
 	}
 
 	// Test that default config is valid

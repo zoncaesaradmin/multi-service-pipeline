@@ -2,6 +2,7 @@ package logging
 
 import (
 	"context"
+	"corekit/logcontext"
 	"errors"
 	"testing"
 )
@@ -213,9 +214,10 @@ func TestMockLogger_WithError(t *testing.T) {
 func TestMockLogger_WithContext(t *testing.T) {
 	logger := NewMockLogger()
 
-	ctx := context.WithValue(context.Background(), "traceID", "trace-123")
-	ctx = context.WithValue(ctx, "userID", "user-456")
-	ctx = context.WithValue(ctx, "requestID", "req-789")
+	ctx := context.Background()
+	ctx = logcontext.WithTraceID(ctx, "trace-123")
+	ctx = logcontext.WithUserID(ctx, "user-456")
+	ctx = logcontext.WithRequestID(ctx, "req-789")
 
 	ctxLogger := logger.WithContext(ctx)
 	ctxLogger.Info("context message")
@@ -227,14 +229,14 @@ func TestMockLogger_WithContext(t *testing.T) {
 	}
 
 	entry := entries[0]
-	if entry.Fields["traceID"] != "trace-123" {
-		t.Errorf("Expected traceID=trace-123, got %v", entry.Fields["traceID"])
+	if entry.Fields["traceId"] != "trace-123" {
+		t.Errorf("Expected traceId=trace-123, got %v", entry.Fields["traceId"])
 	}
-	if entry.Fields["userID"] != "user-456" {
-		t.Errorf("Expected userID=user-456, got %v", entry.Fields["userID"])
+	if entry.Fields["userId"] != "user-456" {
+		t.Errorf("Expected userId=user-456, got %v", entry.Fields["userId"])
 	}
-	if entry.Fields["requestID"] != "req-789" {
-		t.Errorf("Expected requestID=req-789, got %v", entry.Fields["requestID"])
+	if entry.Fields["requestId"] != "req-789" {
+		t.Errorf("Expected requestId=req-789, got %v", entry.Fields["requestId"])
 	}
 }
 

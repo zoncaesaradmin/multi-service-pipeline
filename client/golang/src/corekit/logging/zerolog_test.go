@@ -1,19 +1,16 @@
 package logging
 
 import (
+	"bytes"
 	"context"
+	"corekit/logcontext"
 	"errors"
 	"os"
 	"strings"
 	"testing"
 )
 
-// testContextKey is a type for test-only context keys to avoid collisions.
-type testContextKey string
-
 const (
-	traceIDKey testContextKey = "trace_id"
-
 	debugMessage = "Debug message"
 )
 
@@ -150,6 +147,90 @@ func TestZerologLoggerContextDebugOverride(t *testing.T) {
 	}
 
 	os.Remove(logFile)
+}
+
+func TestZerologLoggerOutputWriter(t *testing.T) {
+	var buffer bytes.Buffer
+
+	config := &LoggerConfig{
+		Level:        InfoLevel,
+		LoggerName:   testLoggerName,
+		ServiceName:  testServiceName,
+		OutputWriter: &buffer,
+	}
+
+	logger, err := NewLoggerWithConfig(config)
+	if err != nil {
+		t.Fatalf(newLoggerErrorFmt, err)
+	}
+	defer logger.Close()
+
+	logger.Info("writer output")
+
+	if !strings.Contains(buffer.String(), "writer output") {
+		t.Fatal("expected custom writer to receive log output")
+	}
+}
+
+func TestZerologLoggerErrorMetadata(t *testing.T) {
+	var buffer bytes.Buffer
+
+	config := &LoggerConfig{
+		Level:                    ErrorLevel,
+		LoggerName:               testLoggerName,
+		ServiceName:              testServiceName,
+		OutputWriter:             &buffer,
+		IncludeCallerOnError:     true,
+		IncludeStackTraceOnError: true,
+	}
+
+	logger, err := NewLoggerWithConfig(config)
+	if err != nil {
+		t.Fatalf(newLoggerErrorFmt, err)
+	}
+	defer logger.Close()
+
+	logger.Error("error metadata")
+
+	logs := buffer.String()
+	if !strings.Contains(logs, "\"caller\"") {
+		t.Fatal("expected caller field on error log")
+	}
+	if !strings.Contains(logs, "\"stack\"") {
+		t.Fatal("expected stack field on error log")
+	}
+}
+
+func TestZerologLoggerContextEnrichment(t *testing.T) {
+	var buffer bytes.Buffer
+
+	config := &LoggerConfig{
+		Level:        InfoLevel,
+		LoggerName:   testLoggerName,
+		ServiceName:  testServiceName,
+		OutputWriter: &buffer,
+	}
+
+	logger, err := NewLoggerWithConfig(config)
+	if err != nil {
+		t.Fatalf(newLoggerErrorFmt, err)
+	}
+	defer logger.Close()
+
+	ctx := context.Background()
+	ctx = logcontext.WithTraceID(ctx, "trace-123")
+	ctx = logcontext.WithRequestID(ctx, "req-456")
+	ctx = logcontext.WithDebugEnabled(ctx, true)
+	ctx = logcontext.WithField(ctx, "workflowId", "wf-789")
+
+	logger.WithContext(ctx).Info("context enriched")
+
+	logs := buffer.String()
+	for _, expected := range []string{"trace-123", "req-456", "wf-789", "\"debugEnabled\":true"} {
+		if !strings.Contains(logs, expected) {
+			t.Fatalf("expected %q in log output: %s", expected, logs)
+		}
+	}
 }
 
 func TestZerologLoggerFormattedLogging(t *testing.T) {
@@ -318,7 +399,7 @@ func TestZerologLoggerWithContext(t *testing.T) {
 	defer logger.Close()
 
 	// Test WithContext
-	ctx := context.WithValue(context.Background(), traceIDKey, "trace-123")
+	ctx := logcontext.WithTraceID(context.Background(), "trace-123")
 	contextLogger := logger.WithContext(ctx)
 	contextLogger.Info("Request processed")
 
@@ -713,7 +794,7 @@ func TestZerologLoggerComplexFieldCombinations(t *testing.T) {
 
 	// Test complex chaining
 	testErr := errors.New("test error")
-	ctx := context.WithValue(context.Background(), traceIDKey, "trace-123")
+	ctx := logcontext.WithTraceID(context.Background(), "trace-123")
 
 	complexLogger := logger.
 		WithContext(ctx).

@@ -2,6 +2,7 @@ package impl
 
 import (
 	"context"
+	"corekit/logcontext"
 	"corekit/logging"
 	"corekit/messagebus"
 	"corekit/utils"
@@ -71,10 +72,10 @@ func (i *ConsumerHandler) Start() error {
 	i.consumer.OnMessage(func(message *messagebus.Message) {
 		if message != nil {
 			// Extract trace ID from message headers for trace-aware logging
-			traceID := utils.ExtractTraceID(message.Headers)
+			traceID := logcontext.ExtractTraceID(message.Headers)
 			var msgLogger logging.Logger
 			if traceID != "" {
-				msgLogger = utils.WithTraceLoggerFromID(i.logger, traceID)
+				msgLogger = i.logger.WithContext(logcontext.WithTraceID(context.Background(), traceID))
 			} else {
 				msgLogger = i.logger
 			}

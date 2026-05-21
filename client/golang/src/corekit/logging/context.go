@@ -1,34 +1,24 @@
 package logging
 
-import "context"
-
-type contextKey string
-
-const (
-	debugEnabledContextKey contextKey = "logging.debugEnabled"
+import (
+	"context"
+	"corekit/logcontext"
 )
 
 // WithDebugEnabled stores a per-flow debug override in the context.
 // When enabled, loggers using this context honor Debug-level logs for that flow
 // without changing the process-wide logger level.
 func WithDebugEnabled(ctx context.Context, enabled bool) context.Context {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	return context.WithValue(ctx, debugEnabledContextKey, enabled)
+	return logcontext.WithDebugEnabled(ctx, enabled)
 }
 
 // GetDebugEnabled returns the per-flow debug override from the context.
 func GetDebugEnabled(ctx context.Context) (bool, bool) {
-	if ctx == nil {
-		return false, false
-	}
-	enabled, ok := ctx.Value(debugEnabledContextKey).(bool)
-	return enabled, ok
+	return logcontext.GetDebugEnabled(ctx)
 }
 
 func effectiveLevel(base Level, ctx context.Context) Level {
-	if enabled, ok := GetDebugEnabled(ctx); ok && enabled {
+	if enabled, ok := logcontext.GetDebugEnabled(ctx); ok && enabled {
 		return DebugLevel
 	}
 	return base

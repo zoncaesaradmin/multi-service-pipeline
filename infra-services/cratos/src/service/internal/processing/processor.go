@@ -3,7 +3,6 @@ package processing
 import (
 	"context"
 	"corekit/logging"
-	"corekit/utils"
 	"fmt"
 	"runtime/debug"
 	"servicegomodule/internal/metrics"
@@ -101,7 +100,7 @@ func (p *Processor) processMessage(message *models.ChannelMessage) error {
 	// Use trace-aware logger if context is available
 	msgLogger := p.logger
 	if message.Context != nil {
-		msgLogger = utils.WithTraceLogger(p.logger, message.Context)
+		msgLogger = p.logger.WithContext(message.Context)
 	}
 
 	msgLogger.Debugw("Processing message",

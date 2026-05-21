@@ -1,7 +1,7 @@
 package steps
 
 import (
-	"corekit/utils"
+	"corekit/logcontext"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,6 +18,14 @@ type StepBindings struct {
 	Cctx *impl.CustomContext
 }
 
+func (b *StepBindings) contextualTraceID() string {
+	traceID := logcontext.CreateContextualTraceID(b.Cctx.CurrentScenario, b.Cctx.ExampleData)
+	if traceID == "" {
+		return "testrunner-default-trace"
+	}
+	return traceID
+}
+
 func (b *StepBindings) SendInputConfig(configFile string) error {
 	// Capture config file as example data for trace ID generation
 	if b.Cctx.ExampleData == nil {
@@ -30,8 +38,8 @@ func (b *StepBindings) SendInputConfig(configFile string) error {
 
 func (b *StepBindings) SendInputConfigToTopic(configFile string, topic string) error {
 	// Create trace ID for config messages too (for consistency)
-	traceID := utils.CreateContextualTraceID(b.Cctx.CurrentScenario, b.Cctx.ExampleData)
-	traceLogger := utils.WithTraceLoggerFromID(b.Cctx.L, traceID)
+	traceID := b.contextualTraceID()
+	traceLogger := loggerWithTraceID(b.Cctx.L, traceID)
 
 	rBytes, configMeta, _, err := LoadRulesFromJSON(configFile)
 	if err != nil {
@@ -66,17 +74,12 @@ func (b *StepBindings) SendInputDataToTopic(dataFile string, topic string) error
 	}
 
 	// Create trace ID from current scenario name and example data
-	traceID := utils.CreateContextualTraceID(b.Cctx.CurrentScenario, b.Cctx.ExampleData)
-	if traceID == "" {
-		traceID = "testrunner-default-trace"
-	}
-
-	// Use trace-aware logging
-	traceLogger := utils.WithTraceLoggerFromID(b.Cctx.L, traceID)
+	traceID := b.contextualTraceID()
+	traceLogger := loggerWithTraceID(b.Cctx.L, traceID)
 
 	metaDataMap := map[string]string{
-		"testData":   "true",
-		"X-Trace-Id": traceID,
+		"testData":               "true",
+		logcontext.TraceIDHeader: traceID,
 	}
 
 	b.Cctx.ConsHandler.SetExpectedHeaders(metaDataMap)
@@ -120,8 +123,8 @@ func (b *StepBindings) SendScaleInputConfigWithFabric(configFile string, count i
 
 		//return b.SendInputConfigToTopic(configFile, b.Cctx.InConfigTopic)
 		// Create trace ID for config messages too (for consistency)
-		traceID := utils.CreateContextualTraceID(b.Cctx.CurrentScenario, b.Cctx.ExampleData)
-		traceLogger := utils.WithTraceLoggerFromID(b.Cctx.L, traceID)
+		traceID := b.contextualTraceID()
+		traceLogger := loggerWithTraceID(b.Cctx.L, traceID)
 
 		for m, arule := range rconfig.AlertRules {
 			rconfig.AlertRules[m].UUID = ruleUUID
@@ -154,17 +157,12 @@ func (b *StepBindings) SendScaleInputDataWithFabric(dataFile string, dcount int)
 	b.Cctx.ConsHandler.SetExpectedHeaders(expMetaDataMap)
 
 	// Create trace ID from current scenario name and example data
-	traceID := utils.CreateContextualTraceID(b.Cctx.CurrentScenario, b.Cctx.ExampleData)
-	if traceID == "" {
-		traceID = "testrunner-default-trace"
-	}
-
-	// Use trace-aware logging
-	traceLogger := utils.WithTraceLoggerFromID(b.Cctx.L, traceID)
+	traceID := b.contextualTraceID()
+	traceLogger := loggerWithTraceID(b.Cctx.L, traceID)
 
 	metaDataMap := map[string]string{
-		"testData":   "true",
-		"X-Trace-Id": traceID,
+		"testData":               "true",
+		logcontext.TraceIDHeader: traceID,
 	}
 
 	_, dataMeta, aStream, err := LoadAlertFromJSON(dataFile)
@@ -218,8 +216,8 @@ func (b *StepBindings) SendScaleInputConfigWithCategory(configFile string, count
 
 		//return b.SendInputConfigToTopic(configFile, b.Cctx.InConfigTopic)
 		// Create trace ID for config messages too (for consistency)
-		traceID := utils.CreateContextualTraceID(b.Cctx.CurrentScenario, b.Cctx.ExampleData)
-		traceLogger := utils.WithTraceLoggerFromID(b.Cctx.L, traceID)
+		traceID := b.contextualTraceID()
+		traceLogger := loggerWithTraceID(b.Cctx.L, traceID)
 
 		for m, arule := range rconfig.AlertRules {
 			rconfig.AlertRules[m].UUID = ruleUUID
@@ -255,15 +253,11 @@ func (b *StepBindings) SendScaleInputDataWithCategory(dataFile string, count int
 	b.Cctx.ConsHandler.SetExpectedHeaders(expMetaDataMap)
 
 	// Create trace ID from current scenario name and example data
-	traceID := utils.CreateContextualTraceID(b.Cctx.CurrentScenario, b.Cctx.ExampleData)
-	if traceID == "" {
-		traceID = "testrunner-default-trace"
-	}
-	// Use trace-aware logging
-	traceLogger := utils.WithTraceLoggerFromID(b.Cctx.L, traceID)
+	traceID := b.contextualTraceID()
+	traceLogger := loggerWithTraceID(b.Cctx.L, traceID)
 	metaDataMap := map[string]string{
-		"testData":   "true",
-		"X-Trace-Id": traceID,
+		"testData":               "true",
+		logcontext.TraceIDHeader: traceID,
 	}
 
 	_, dataMeta, aStream, err := LoadAlertFromJSON(dataFile)
@@ -317,8 +311,8 @@ func (b *StepBindings) SendScaleInputConfigWithInterface(configFile string, coun
 
 		//return b.SendInputConfigToTopic(configFile, b.Cctx.InConfigTopic)
 		// Create trace ID for config messages too (for consistency)
-		traceID := utils.CreateContextualTraceID(b.Cctx.CurrentScenario, b.Cctx.ExampleData)
-		traceLogger := utils.WithTraceLoggerFromID(b.Cctx.L, traceID)
+		traceID := b.contextualTraceID()
+		traceLogger := loggerWithTraceID(b.Cctx.L, traceID)
 
 		for m, arule := range rconfig.AlertRules {
 			rconfig.AlertRules[m].UUID = ruleUUID
@@ -355,15 +349,11 @@ func (b *StepBindings) SendScaleInputDataWithInterface(dataFile string, count in
 	b.Cctx.ConsHandler.SetExpectedHeaders(expMetaDataMap)
 
 	// Create trace ID from current scenario name and example data
-	traceID := utils.CreateContextualTraceID(b.Cctx.CurrentScenario, b.Cctx.ExampleData)
-	if traceID == "" {
-		traceID = "testrunner-default-trace"
-	}
-	// Use trace-aware logging
-	traceLogger := utils.WithTraceLoggerFromID(b.Cctx.L, traceID)
+	traceID := b.contextualTraceID()
+	traceLogger := loggerWithTraceID(b.Cctx.L, traceID)
 	metaDataMap := map[string]string{
-		"testData":   "true",
-		"X-Trace-Id": traceID,
+		"testData":               "true",
+		logcontext.TraceIDHeader: traceID,
 	}
 
 	_, dataMeta, aStream, err := LoadAlertFromJSON(dataFile)

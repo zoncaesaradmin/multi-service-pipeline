@@ -2,6 +2,7 @@ package logging
 
 import (
 	"context"
+	"corekit/logcontext"
 	"fmt"
 	"strings"
 	"sync"
@@ -231,28 +232,6 @@ func (m *MockLogger) WithError(err error) Logger {
 func (m *MockLogger) WithContext(ctx context.Context) Logger {
 	newLogger := m.Clone().(*MockLogger)
 	newLogger.context = ctx
-	if ctx != nil {
-		// Extract common context values for testing
-		contextFields := make(Fields)
-
-		// Check for common context keys
-		if traceID := ctx.Value("traceID"); traceID != nil {
-			contextFields["traceID"] = traceID
-		}
-		if userID := ctx.Value("userID"); userID != nil {
-			contextFields["userID"] = userID
-		}
-		if requestID := ctx.Value("requestID"); requestID != nil {
-			contextFields["requestID"] = requestID
-		}
-		if correlationID := ctx.Value("correlationID"); correlationID != nil {
-			contextFields["correlationID"] = correlationID
-		}
-
-		if len(contextFields) > 0 {
-			newLogger = newLogger.WithFields(contextFields).(*MockLogger)
-		}
-	}
 	return newLogger
 }
 
@@ -311,6 +290,9 @@ func (m *MockLogger) log(level Level, msg string, additionalFields Fields, err e
 
 	// Combine fields
 	allFields := make(Fields)
+	for k, v := range logcontext.FieldsFromContext(m.context) {
+		allFields[k] = v
+	}
 	for k, v := range m.fields {
 		allFields[k] = v
 	}

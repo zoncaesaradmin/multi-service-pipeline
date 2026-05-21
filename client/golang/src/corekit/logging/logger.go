@@ -3,6 +3,7 @@ package logging
 import (
 	"context"
 	"fmt"
+	"io"
 	"strings"
 )
 
@@ -66,6 +67,16 @@ func ConvertToLogLevel(levelStr string) Level {
 
 // Fields represents structured logging fields
 type Fields map[string]interface{}
+
+// OutputTarget determines where log entries are written.
+type OutputTarget string
+
+const (
+	OutputTargetFile   OutputTarget = "file"
+	OutputTargetStdout OutputTarget = "stdout"
+	OutputTargetStderr OutputTarget = "stderr"
+	outputTargetWriter OutputTarget = "writer"
+)
 
 // Logger defines the interface for structured logging
 type Logger interface {
@@ -133,11 +144,17 @@ func keysAndValuesToFields(keysAndValues ...interface{}) Fields {
 // LoggerConfig holds comprehensive configuration for creating loggers
 type LoggerConfig struct {
 	// Basic configuration
-	Level         Level  // Log level (Debug, Info, Warn, Error, Fatal, Panic)
-	FilePath      string // Complete path to Log file name
-	LoggerName    string // Name identifier for the logger instance
-	ComponentName string // Component/module name for structured logging
-	ServiceName   string // Service name for structured logging
+	Level         Level        // Log level (Debug, Info, Warn, Error, Fatal, Panic)
+	FilePath      string       // Complete path to log file when OutputTargetFile is used
+	LoggerName    string       // Name identifier for the logger instance
+	ComponentName string       // Component/module name for structured logging
+	ServiceName   string       // Service name for structured logging
+	OutputTarget  OutputTarget // file, stdout, or stderr. File output remains the default.
+	OutputWriter  io.Writer    // Optional custom writer. When set, it takes precedence over OutputTarget/FilePath.
+
+	// Error metadata controls
+	IncludeCallerOnError     bool // Adds a caller field for Error/Fatal/Panic events.
+	IncludeStackTraceOnError bool // Adds a stack field for Error/Fatal/Panic events.
 }
 
 // DefaultLoggerConfig returns the default logger configuration
@@ -148,21 +165,46 @@ func DefaultLoggerConfig() *LoggerConfig {
 		LoggerName:    "default",
 		ComponentName: "application",
 		ServiceName:   "service",
+		OutputTarget:  OutputTargetFile,
 	}
 }
 
 // Validate validates the logger configuration
 func (c *LoggerConfig) Validate() error {
-	if c.FilePath == "" {
-		return fmt.Errorf("filename is required - stdout logging is not allowed")
-	}
 	if c.LoggerName == "" {
 		return fmt.Errorf("logger name is required")
 	}
 	if c.ServiceName == "" {
 		return fmt.Errorf("service name is required")
 	}
+
+	switch c.resolveOutputTarget() {
+	case OutputTargetFile:
+		if c.FilePath == "" {
+			return fmt.Errorf("filename is required - stdout logging is not allowed")
+		}
+	case OutputTargetStdout, OutputTargetStderr, outputTargetWriter:
+		// valid non-file targets
+	default:
+		return fmt.Errorf("invalid output target %q", c.OutputTarget)
+	}
 	return nil
+}
+
+func (c *LoggerConfig) resolveOutputTarget() OutputTarget {
+	if c == nil {
+		return OutputTargetFile
+	}
+	if c.OutputWriter != nil {
+		return outputTargetWriter
+	}
+	if c.OutputTarget != "" {
+		return c.OutputTarget
+	}
+	if c.FilePath != "" {
+		return OutputTargetFile
+	}
+	return OutputTargetFile
 }
 
 // NewLogger creates a new logger with the given configuration

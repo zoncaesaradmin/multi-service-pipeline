@@ -22,9 +22,11 @@ A comprehensive, interface-based logging package for Go applications with suppor
 import "corekit/logging"
 
 func main() {
-    logger := logging.NewLogger(&logging.LoggerConfig{
-        Level:  logging.InfoLevel,
-        Writer: os.Stdout,
+    logger, _ := logging.NewLogger(&logging.LoggerConfig{
+        Level:        logging.InfoLevel,
+        OutputTarget: logging.OutputTargetStdout,
+        LoggerName:   "api",
+        ServiceName:  "user-service",
     })
     
     logger.Info("Application starting")
@@ -101,6 +103,34 @@ contextLogger := logger.WithContext(ctx)
 contextLogger.Info("Request processed")
 ```
 
+### Standardized Log Context
+```go
+import (
+    "context"
+    "corekit/logcontext"
+    "corekit/logging"
+)
+
+func main() {
+    logger, _ := logging.NewLogger(&logging.LoggerConfig{
+        Level:                    logging.InfoLevel,
+        OutputTarget:             logging.OutputTargetStdout,
+        LoggerName:               "worker",
+        ServiceName:              "rule-engine",
+        IncludeCallerOnError:     true,
+        IncludeStackTraceOnError: true,
+    })
+
+    ctx := context.Background()
+    ctx = logcontext.WithTraceID(ctx, "trace-123")
+    ctx = logcontext.WithRequestID(ctx, "req-456")
+    ctx = logcontext.WithField(ctx, "workflowId", "wf-789")
+
+    logger.WithContext(ctx).Info("Request processed")
+    logger.WithContext(ctx).Error("Request failed")
+}
+```
+
 ## Configuration
 
 ### Environment-Based Configuration
@@ -114,13 +144,17 @@ func setupLogger() logging.Logger {
     switch env {
     case "development":
         config = &logging.LoggerConfig{
-            Level:  logging.DebugLevel,
-            Writer: os.Stdout,
+            Level:        logging.DebugLevel,
+            OutputTarget: logging.OutputTargetStdout,
+            LoggerName:   "api",
+            ServiceName:  "user-service",
         }
     case "production":
         config = &logging.LoggerConfig{
-            Level:  logging.WarnLevel,
-            Writer: os.Stderr,
+            Level:        logging.WarnLevel,
+            OutputTarget: logging.OutputTargetStderr,
+            LoggerName:   "api",
+            ServiceName:  "user-service",
         }
     default:
         config = logging.DefaultLoggerConfig()

@@ -2,6 +2,7 @@ package processing
 
 import (
 	"context"
+	"corekit/logcontext"
 	"corekit/logging"
 	"corekit/messagebus"
 	"corekit/utils"
@@ -124,7 +125,7 @@ func (o *OutputHandler) flushBatch(batch []*models.ChannelMessage) {
 		// Use trace-aware logger if available
 		msgLogger := o.logger
 		if message.Context != nil {
-			msgLogger = utils.WithTraceLogger(o.logger, message.Context)
+			msgLogger = o.logger.WithContext(message.Context)
 		}
 
 		if err := o.sendMessage(message); err != nil {
@@ -201,7 +202,7 @@ func (o *OutputHandler) sendMessage(channelMsg *models.ChannelMessage) error {
 	// Use trace-aware logger if available
 	msgLogger := o.logger
 	if channelMsg.Context != nil {
-		msgLogger = utils.WithTraceLogger(o.logger, channelMsg.Context)
+		msgLogger = o.logger.WithContext(channelMsg.Context)
 	}
 
 	// Check if this is an empty message (no alerts generated)
@@ -221,11 +222,11 @@ func (o *OutputHandler) sendMessage(channelMsg *models.ChannelMessage) error {
 
 	// Extract and ensure trace ID is propagated
 	if channelMsg.Context != nil {
-		if traceID, ok := utils.GetTraceID(channelMsg.Context); ok {
-			headers[utils.TraceIDHeader] = traceID
+		if traceID, ok := logcontext.GetTraceID(channelMsg.Context); ok {
+			headers[logcontext.TraceIDHeader] = traceID
 		}
-		if debugEnabled, ok := utils.GetDebugEnabled(channelMsg.Context); ok && debugEnabled {
-			headers[utils.DebugEnabledHeader] = "true"
+		if debugEnabled, ok := logcontext.GetDebugEnabled(channelMsg.Context); ok && debugEnabled {
+			headers[logcontext.DebugEnabledHeader] = "true"
 		}
 	}
 

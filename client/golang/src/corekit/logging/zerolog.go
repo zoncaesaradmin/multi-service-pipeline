@@ -2,8 +2,14 @@ package logging
 
 import (
 	"context"
+	"corekit/logcontext"
 	"fmt"
+	"io"
 	"os"
+	"path/filepath"
+	"runtime"
+	"runtime/debug"
+	"strings"
 	"sync"
 
 	"github.com/rs/zerolog"
@@ -18,22 +24,21 @@ type ZerologLogger struct {
 	context  context.Context
 	errorKey string
 	config   *LoggerConfig
-	file     *os.File
+	closer   io.Closer
 }
 
 // NewLoggerWithConfig creates a new ZerologLogger with comprehensive configuration
 func NewLoggerWithConfig(config *LoggerConfig) (*ZerologLogger, error) {
-	// Open the log file for writing (create if not exists, append if exists)
-	file, err := os.OpenFile(config.FilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	writer, closer, err := openLogWriter(config)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open log file %s: %w", config.FilePath, err)
+		return nil, err
 	}
 
 	//set global logger to lowest level so that
 	// explicit logger instance level can always take effect
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	// Configure zerolog to write to the file with JSON format
-	logger := zerolog.New(file).With().
+	logger := zerolog.New(writer).With().
 		Timestamp().
 		Str("service", config.ServiceName).
 		Logger().
@@ -45,7 +50,7 @@ func NewLoggerWithConfig(config *LoggerConfig) (*ZerologLogger, error) {
 		fields:   make(Fields),
 		errorKey: "error",
 		config:   config,
-		file:     file,
+		closer:   closer,
 	}, nil
 }
 
@@ -54,9 +59,9 @@ func (z *ZerologLogger) Close() error {
 	z.mu.Lock()
 	defer z.mu.Unlock()
 
-	if z.file != nil {
-		err := z.file.Close()
-		z.file = nil
+	if z.closer != nil {
+		err := z.closer.Close()
+		z.closer = nil
 		return err
 	}
 	return nil
@@ -114,8 +119,11 @@ func (z *ZerologLogger) getEvent(level Level) *zerolog.Event {
 	for key, value := range z.fields {
 		fields[key] = value
 	}
+	contextFields := logcontext.FieldsFromContext(z.context)
 	currentLevel := z.level
 	ctx := z.context
+	includeCaller := z.config != nil && z.config.IncludeCallerOnError
+	includeStack := z.config != nil && z.config.IncludeStackTraceOnError
 	z.mu.RUnlock()
 
 	if activeLevel := effectiveLevel(currentLevel, ctx); activeLevel != currentLevel {
@@ -141,8 +149,14 @@ func (z *ZerologLogger) getEvent(level Level) *zerolog.Event {
 		event = logger.Info()
 	}
 
+	for key, value := range contextFields {
+		event = event.Interface(key, value)
+	}
 	for key, value := range fields {
 		event = event.Interface(key, value)
+	}
+	if level >= ErrorLevel {
+		event = enrichErrorEvent(event, includeCaller, includeStack)
 	}
 
 	return event
@@ -316,6 +330,58 @@ func (z *ZerologLogger) Clone() Logger {
 		context:  z.context,
 		errorKey: z.errorKey,
 		config:   z.config,
-		file:     z.file, // Share the same file
+		closer:   z.closer, // Share the same closer target
 	}
+}
+
+func openLogWriter(config *LoggerConfig) (io.Writer, io.Closer, error) {
+	switch config.resolveOutputTarget() {
+	case outputTargetWriter:
+		return config.OutputWriter, nil, nil
+	case OutputTargetStdout:
+		return os.Stdout, nil, nil
+	case OutputTargetStderr:
+		return os.Stderr, nil, nil
+	case OutputTargetFile:
+		file, err := os.OpenFile(config.FilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to open log file %s: %w", config.FilePath, err)
+		}
+		return file, file, nil
+	default:
+		return nil, nil, fmt.Errorf("invalid output target %q", config.OutputTarget)
+	}
+}
+
+func enrichErrorEvent(event *zerolog.Event, includeCaller bool, includeStack bool) *zerolog.Event {
+	if includeCaller {
+		if caller, ok := findExternalCaller(); ok {
+			event = event.Str("caller", caller)
+		}
+	}
+	if includeStack {
+		event = event.Str("stack", string(debug.Stack()))
+	}
+	return event
+}
+
+func findExternalCaller() (string, bool) {
+	programCounters := make([]uintptr, 16)
+	frameCount := runtime.Callers(3, programCounters)
+	if frameCount == 0 {
+		return "", false
+	}
+
+	frames := runtime.CallersFrames(programCounters[:frameCount])
+	for {
+		frame, more := frames.Next()
+		if !strings.Contains(frame.Function, "corekit/logging.") {
+			return fmt.Sprintf("%s:%d", filepath.Base(frame.File), frame.Line), true
+		}
+		if !more {
+			break
+		}
+	}
+
+	return "", false
 }

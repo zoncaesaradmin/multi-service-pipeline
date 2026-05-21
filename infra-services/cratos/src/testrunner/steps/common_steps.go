@@ -1,6 +1,9 @@
 package steps
 
 import (
+	"context"
+	"corekit/logcontext"
+	"corekit/logging"
 	"corekit/utils"
 	"testgomodule/impl"
 	"time"
@@ -12,10 +15,17 @@ type CommonStepBindings struct {
 	SuiteCtx *impl.CustomContext
 }
 
+func loggerWithTraceID(logger logging.Logger, traceID string) logging.Logger {
+	if traceID == "" {
+		return logger
+	}
+	return logger.WithContext(logcontext.WithTraceID(context.Background(), traceID))
+}
+
 func (b *CommonStepBindings) KafkaProducerReady() error {
 	// Create trace-aware logger with contextual trace ID
-	traceID := utils.CreateContextualTraceID(b.SuiteCtx.CurrentScenario, b.SuiteCtx.ExampleData)
-	traceLogger := utils.WithTraceLoggerFromID(b.SuiteCtx.L, traceID)
+	traceID := logcontext.CreateContextualTraceID(b.SuiteCtx.CurrentScenario, b.SuiteCtx.ExampleData)
+	traceLogger := loggerWithTraceID(b.SuiteCtx.L, traceID)
 
 	prodHandler := impl.NewProducerHandler(traceLogger, b.SuiteCtx.ExecGroupIndex)
 	if err := prodHandler.Start(); err != nil {
@@ -36,8 +46,8 @@ func (b *CommonStepBindings) KafkaConsumerReady() error {
 
 func (b *CommonStepBindings) KafkaConsumersStarted(topic string) error {
 	// Create trace-aware logger with contextual trace ID
-	traceID := utils.CreateContextualTraceID(b.SuiteCtx.CurrentScenario, b.SuiteCtx.ExampleData)
-	traceLogger := utils.WithTraceLoggerFromID(b.SuiteCtx.L, traceID)
+	traceID := logcontext.CreateContextualTraceID(b.SuiteCtx.CurrentScenario, b.SuiteCtx.ExampleData)
+	traceLogger := loggerWithTraceID(b.SuiteCtx.L, traceID)
 
 	consHandler := impl.NewConsumerHandler(traceLogger, b.SuiteCtx.ExecGroupIndex)
 	if err := consHandler.Start(); err != nil {

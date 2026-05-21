@@ -84,12 +84,11 @@ func loadEnvironmentFiles() {
 
 // setupLogDirectory creates and returns the log directory path
 func setupLogDirectory() string {
-	logDir := os.Getenv("SERVICE_LOG_DIR")
-	if logDir == "" {
-		logDir = "./logs"
-	}
+	logDir := utils.GetEnv("SERVICE_LOG_DIR", "./logs")
 	fmt.Printf("Log and report dir : %s\n", logDir)
-	os.MkdirAll(logDir, 0755)
+	if err := utils.EnsureDir(logDir, 0755); err != nil {
+		log.Fatalf("Failed to create log/report directory %s: %v", logDir, err)
+	}
 	return logDir
 }
 
@@ -102,7 +101,7 @@ func handleServerShutdown(server *http.Server) {
 	}()
 
 	fmt.Println("Test execution is complete")
-	if os.Getenv("KEEP_REPORT_SERVER") == "true" {
+	if utils.GetEnvBool("KEEP_REPORT_SERVER", false) {
 		fmt.Println("Report server is still running as KEEP_REPORT_SERVER is set")
 		keepRunningSever(server)
 	} else {

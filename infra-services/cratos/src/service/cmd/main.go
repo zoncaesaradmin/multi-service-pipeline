@@ -122,7 +122,9 @@ func loadConfig() *config.RawConfig {
 
 func initLoggerSettings(cfg *config.RawConfig) logging.Logger {
 	// create the log directory path if it does not exist
-	os.MkdirAll(utils.GetEnv("SERVICE_LOG_DIR", ""), 0755)
+	if err := utils.EnsureDir(utils.GetEnv("SERVICE_LOG_DIR", ""), 0755); err != nil {
+		log.Fatalf("Failed to create service log directory: %v", err)
+	}
 
 	// update all log file paths to absolute paths
 	logDir := os.Getenv("SERVICE_LOG_DIR")
@@ -191,7 +193,7 @@ func isRunningInProdContainer() bool {
 	if os.Getenv("KUBERNETES_SERVICE_HOST") != "" {
 		return true // Running in Kubernetes
 	}
-	if os.Getenv("CONTAINER") == "true" {
+	if utils.GetEnvBool("CONTAINER", false) {
 		return true // Explicit container flag
 	}
 	return false

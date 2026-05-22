@@ -1,6 +1,6 @@
 # Shared Module
 
-This module provides common functionality shared between the service and testrunner modules, with a focus on message bus implementations, logging, and utilities.
+This module provides common functionality shared between the service and testrunner modules, with a focus on message bus implementations, logging, configuration helpers, and contextual request metadata.
 
 ## Core Packages
 
@@ -20,26 +20,26 @@ This module provides common functionality shared between the service and testrun
 - **File/Console Output**: Configurable output targets
 - **Performance Optimized**: Zero-allocation logging
 
-### Utilities (`utils/`)
-- **Configuration**: YAML/ENV config management
-- **File Operations**: Safe file handling utilities
-- **Error Handling**: Common error types and helpers
-- **Testing Utilities**: Test helper functions
+### Context Utilities (`ctxutil/`)
+- **Flow Metadata**: Trace ID, request ID, correlation ID, tenant ID, and user ID helpers
+- **Debug Overrides**: Request-scoped debug enablement support
+- **Header Mapping**: Standard trace/debug header extraction and propagation
 
-### Types (`types/`)
-- **Shared Models**: Common data structures
-- **Message Formats**: Standard message definitions
-- **Type Safety**: Go type checking for messages
+### Utility Packages
+- **Configuration**: `configutil/` for YAML/ENV-backed config loading
+- **Environment**: `envutil/` for typed environment access
+- **Filesystem**: `fsutil/` for common file and directory helpers
+- **Time**: `timeutil/` for UTC timestamp helpers
 
 ## Usage
 
 ### Importing
 ```go
 import (
-    "corekit/messagebus"
-    "corekit/logging"
-    "corekit/utils"
-    "corekit/types"
+    "platformkit/configutil"
+    "platformkit/ctxutil"
+    "platformkit/logging"
+    "platformkit/messagebus"
 )
 ```
 
@@ -115,16 +115,14 @@ make coverage-enforce
 
 ## Directory Structure
 ```
-corekit/
-├── messagebus/           # Message bus implementations
-│   ├── localbus.go      # Local file-based bus
-│   ├── kafkabus.go      # Kafka production bus
-│   └── mbinterfaces.go  # Common interfaces
+platformkit/
+├── configstore/         # Shared config path constants
+├── configutil/          # Config loading helpers
+├── ctxutil/             # Request/message context helpers
+├── datastore/           # OpenSearch and local datastore helpers
+├── envutil/             # Environment variable helpers
+├── fsutil/              # Filesystem utilities
 ├── logging/             # Logging framework
-│   ├── logger.go       # Logger interface
-│   └── zerolog.go      # Zerolog implementation
-├── utils/              # Common utilities
-│   └── utils.go       # Utility functions
-└── types/             # Shared data types
-    └── types.go      # Common models
+├── messagebus/          # Local and Kafka message bus implementations
+└── timeutil/            # UTC time helpers
 ```

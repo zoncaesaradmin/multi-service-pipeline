@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"corekit/logging"
+	"platformkit/logging"
 	"servicegomodule/internal/models"
 	"servicegomodule/internal/rules"
 	"telemetry/utils/alert"

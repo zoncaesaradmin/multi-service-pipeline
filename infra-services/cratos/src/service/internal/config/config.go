@@ -5,8 +5,8 @@ import (
 	"os"
 	"time"
 
-	"corekit/envutil"
-	"corekit/logging"
+	"platformkit/envutil"
+	"platformkit/logging"
 
 	"gopkg.in/yaml.v3"
 )

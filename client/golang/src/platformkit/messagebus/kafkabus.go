@@ -5,7 +5,6 @@ package messagebus
 
 import (
 	"context"
-	"corekit/internal/configmap"
 	"fmt"
 	"os"
 	"sync"
@@ -67,27 +66,27 @@ func NewProducer(configMap map[string]any, clientId string) Producer {
 
 	config := &kafka.ConfigMap{}
 	if clientId == "" {
-		clientId = configmap.String(configMap, kafkaClientID, os.Getenv("HOSTNAME"))
+		clientId = GetStringValue(configMap, kafkaClientID, os.Getenv("HOSTNAME"))
 	}
 
 	// Set values from config file, with fallback defaults
-	config.SetKey(kafkaBootstrapServers, configmap.String(configMap, kafkaBootstrapServers, "localhost:9092"))
+	config.SetKey(kafkaBootstrapServers, GetStringValue(configMap, kafkaBootstrapServers, "localhost:9092"))
 	config.SetKey(kafkaClientID, clientId)
-	config.SetKey("acks", configmap.String(configMap, "acks", "1"))
-	config.SetKey("retries", configmap.Int(configMap, "retries", 3))
-	config.SetKey("batch.size", configmap.Int(configMap, "batch.size", 16384))
-	config.SetKey("linger.ms", configmap.Int(configMap, "linger.ms", 1))
-	//config.SetKey("buffer.memory", configmap.Int(configMap, "buffer.memory", 33554432))
-	//config.SetKey("compression.type", configmap.String(configMap, "compression.type", "none"))
-	//config.SetKey("max.in.flight.requests.per.connection", configmap.Int(configMap, "max.in.flight.requests.per.connection", 5))
-	//config.SetKey("enable.idempotence", configmap.Bool(configMap, "enable.idempotence", false))
-	config.SetKey("go.events.channel.size", configmap.Int(configMap, "go.events.channel.size", 100000))
-	config.SetKey("go.produce.channel.size", configmap.Int(configMap, "go.produce.channel.size", 100000))
-	config.SetKey(kafkaSecurityProtocol, configmap.String(configMap, kafkaSecurityProtocol, "PLAINTEXT"))
-	config.SetKey(kafkaSSLCALocation, configmap.String(configMap, kafkaSSLCALocation, ""))
-	config.SetKey(kafkaSSLCertLocation, configmap.String(configMap, kafkaSSLCertLocation, ""))
-	config.SetKey(kafkaSSLKeyLocation, configmap.String(configMap, kafkaSSLKeyLocation, ""))
-	config.SetKey(kafkaSSLCertVerification, configmap.Bool(configMap, kafkaSSLCertVerification, false))
+	config.SetKey("acks", GetStringValue(configMap, "acks", "1"))
+	config.SetKey("retries", GetIntValue(configMap, "retries", 3))
+	config.SetKey("batch.size", GetIntValue(configMap, "batch.size", 16384))
+	config.SetKey("linger.ms", GetIntValue(configMap, "linger.ms", 1))
+	//config.SetKey("buffer.memory", GetIntValue(configMap, "buffer.memory", 33554432))
+	//config.SetKey("compression.type", GetStringValue(configMap, "compression.type", "none"))
+	//config.SetKey("max.in.flight.requests.per.connection", GetIntValue(configMap, "max.in.flight.requests.per.connection", 5))
+	//config.SetKey("enable.idempotence", GetBoolValue(configMap, "enable.idempotence", false))
+	config.SetKey("go.events.channel.size", GetIntValue(configMap, "go.events.channel.size", 100000))
+	config.SetKey("go.produce.channel.size", GetIntValue(configMap, "go.produce.channel.size", 100000))
+	config.SetKey(kafkaSecurityProtocol, GetStringValue(configMap, kafkaSecurityProtocol, "PLAINTEXT"))
+	config.SetKey(kafkaSSLCALocation, GetStringValue(configMap, kafkaSSLCALocation, ""))
+	config.SetKey(kafkaSSLCertLocation, GetStringValue(configMap, kafkaSSLCertLocation, ""))
+	config.SetKey(kafkaSSLKeyLocation, GetStringValue(configMap, kafkaSSLKeyLocation, ""))
+	config.SetKey(kafkaSSLCertVerification, GetBoolValue(configMap, kafkaSSLCertVerification, false))
 
 	producer, err := kafka.NewProducer(config)
 	if err != nil {
@@ -368,7 +367,7 @@ func (c *KafkaConsumer) reconnectConsumer(configMap map[string]any, cgroup strin
 	for k, v := range configMap {
 		config.SetKey(k, v)
 	}
-	groupID := configmap.String(configMap, kafkaGroupID, "default-group")
+	groupID := GetStringValue(configMap, kafkaGroupID, "default-group")
 	if cgroup != "" {
 		groupID = cgroup
 	}
@@ -388,33 +387,33 @@ func NewConsumer(configMap map[string]any, cgroup string) Consumer {
 	config := &kafka.ConfigMap{}
 
 	// Set values from config file, with fallback defaults
-	config.SetKey(kafkaBootstrapServers, configmap.String(configMap, kafkaBootstrapServers, "localhost:9092"))
+	config.SetKey(kafkaBootstrapServers, GetStringValue(configMap, kafkaBootstrapServers, "localhost:9092"))
 
 	// Use provided cgroup if not empty, otherwise use config file value
-	groupID := configmap.String(configMap, kafkaGroupID, "default-group")
+	groupID := GetStringValue(configMap, kafkaGroupID, "default-group")
 	if cgroup != "" {
 		groupID = cgroup
 	}
 	config.SetKey(kafkaGroupID, groupID)
-	config.SetKey("auto.offset.reset", configmap.String(configMap, "auto.offset.reset", "earliest"))
-	config.SetKey("go.application.rebalance.enable", configmap.Bool(configMap, "go.application.rebalance.enable", true))
-	config.SetKey("go.events.channel.enable", configmap.Bool(configMap, "go.events.channel.enable", true))
-	config.SetKey("enable.auto.commit", configmap.Bool(configMap, "enable.auto.commit", false))
-	config.SetKey("go.events.channel.size", configmap.Int(configMap, "go.events.channel.size", 100000))
-	config.SetKey("queued.max.messages.kbytes", configmap.Int(configMap, "queued.max.messages.kbytes", 65536))
-	config.SetKey("session.timeout.ms", configmap.Int(configMap, "session.timeout.ms", 6000))
-	config.SetKey("fetch.max.bytes", configmap.Int(configMap, "fetch.max.bytes", 1048576))
-	//config.SetKey("session.timeout.ms", configmap.Int(configMap, "session.timeout.ms", 30000))
-	//config.SetKey("heartbeat.interval.ms", configmap.Int(configMap, "heartbeat.interval.ms", 10000))
-	//config.SetKey("fetch.min.bytes", configmap.Int(configMap, "fetch.min.bytes", 1))
-	//config.SetKey("fetch.max.wait.ms", configmap.Int(configMap, "fetch.max.wait.ms", 500))
-	//config.SetKey("max.partition.fetch.bytes", configmap.Int(configMap, "max.partition.fetch.bytes", 1048576))
-	config.SetKey(kafkaClientID, configmap.String(configMap, kafkaClientID, cgroup+os.Getenv("HOSTNAME")))
-	config.SetKey(kafkaSecurityProtocol, configmap.String(configMap, kafkaSecurityProtocol, "PLAINTEXT"))
-	config.SetKey(kafkaSSLCALocation, configmap.String(configMap, kafkaSSLCALocation, ""))
-	config.SetKey(kafkaSSLCertLocation, configmap.String(configMap, kafkaSSLCertLocation, ""))
-	config.SetKey(kafkaSSLKeyLocation, configmap.String(configMap, kafkaSSLKeyLocation, ""))
-	config.SetKey(kafkaSSLCertVerification, configmap.Bool(configMap, kafkaSSLCertVerification, false))
+	config.SetKey("auto.offset.reset", GetStringValue(configMap, "auto.offset.reset", "earliest"))
+	config.SetKey("go.application.rebalance.enable", GetBoolValue(configMap, "go.application.rebalance.enable", true))
+	config.SetKey("go.events.channel.enable", GetBoolValue(configMap, "go.events.channel.enable", true))
+	config.SetKey("enable.auto.commit", GetBoolValue(configMap, "enable.auto.commit", false))
+	config.SetKey("go.events.channel.size", GetIntValue(configMap, "go.events.channel.size", 100000))
+	config.SetKey("queued.max.messages.kbytes", GetIntValue(configMap, "queued.max.messages.kbytes", 65536))
+	config.SetKey("session.timeout.ms", GetIntValue(configMap, "session.timeout.ms", 6000))
+	config.SetKey("fetch.max.bytes", GetIntValue(configMap, "fetch.max.bytes", 1048576))
+	//config.SetKey("session.timeout.ms", GetIntValue(configMap, "session.timeout.ms", 30000))
+	//config.SetKey("heartbeat.interval.ms", GetIntValue(configMap, "heartbeat.interval.ms", 10000))
+	//config.SetKey("fetch.min.bytes", GetIntValue(configMap, "fetch.min.bytes", 1))
+	//config.SetKey("fetch.max.wait.ms", GetIntValue(configMap, "fetch.max.wait.ms", 500))
+	//config.SetKey("max.partition.fetch.bytes", GetIntValue(configMap, "max.partition.fetch.bytes", 1048576))
+	config.SetKey(kafkaClientID, GetStringValue(configMap, kafkaClientID, cgroup+os.Getenv("HOSTNAME")))
+	config.SetKey(kafkaSecurityProtocol, GetStringValue(configMap, kafkaSecurityProtocol, "PLAINTEXT"))
+	config.SetKey(kafkaSSLCALocation, GetStringValue(configMap, kafkaSSLCALocation, ""))
+	config.SetKey(kafkaSSLCertLocation, GetStringValue(configMap, kafkaSSLCertLocation, ""))
+	config.SetKey(kafkaSSLKeyLocation, GetStringValue(configMap, kafkaSSLKeyLocation, ""))
+	config.SetKey(kafkaSSLCertVerification, GetBoolValue(configMap, kafkaSSLCertVerification, false))
 
 	consumer, err := kafka.NewConsumer(config)
 	if err != nil {

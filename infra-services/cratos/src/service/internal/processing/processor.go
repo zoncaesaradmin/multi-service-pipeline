@@ -2,7 +2,7 @@ package processing
 
 import (
 	"context"
-	"corekit/logging"
+	"platformkit/logging"
 	"fmt"
 	"runtime/debug"
 	"servicegomodule/internal/metrics"

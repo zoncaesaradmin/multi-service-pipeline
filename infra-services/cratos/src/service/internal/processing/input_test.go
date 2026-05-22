@@ -2,7 +2,7 @@ package processing
 
 import (
 	"context"
-	"corekit/messagebus"
+	"platformkit/messagebus"
 	"testing"
 	"time"
 )

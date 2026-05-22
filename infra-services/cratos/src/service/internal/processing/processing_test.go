@@ -2,7 +2,7 @@ package processing
 
 import (
 	"context"
-	"corekit/logging"
+	"platformkit/logging"
 	"os"
 	"path/filepath"
 	"servicegomodule/internal/models"

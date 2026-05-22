@@ -3,9 +3,9 @@ package logging
 import (
 	"bytes"
 	"context"
-	"corekit/ctxutil"
 	"errors"
 	"os"
+	"platformkit/ctxutil"
 	"strings"
 	"testing"
 )

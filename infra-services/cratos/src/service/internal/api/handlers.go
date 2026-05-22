@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"time"
 
-	"corekit/logging"
+	"platformkit/logging"
 	"servicegomodule/internal/metrics"
 	"servicegomodule/internal/models"
 	"servicegomodule/internal/processing"

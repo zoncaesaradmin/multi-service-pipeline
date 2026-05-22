@@ -5,6 +5,7 @@ go 1.24
 toolchain go1.24.6
 
 require (
+	platformkit v0.0.0
 	github.com/joho/godotenv v1.5.1
 	google.golang.org/protobuf v1.25.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -23,3 +24,5 @@ require (
 replace telemetry/utils/ruleenginelib => ../../../../client/golang/src/telemetry/utils/ruleenginelib
 
 replace telemetry/utils/alert => ../../../../client/golang/src/telemetry/utils/alert
+
+replace platformkit => ../../../../client/golang/src/platformkit

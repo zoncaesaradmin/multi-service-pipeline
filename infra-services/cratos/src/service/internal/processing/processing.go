@@ -1,8 +1,8 @@
 package processing
 
 import (
-	"corekit/configutil"
-	"corekit/logging"
+	"platformkit/configutil"
+	"platformkit/logging"
 	"fmt"
 	"log"
 	"servicegomodule/internal/config"

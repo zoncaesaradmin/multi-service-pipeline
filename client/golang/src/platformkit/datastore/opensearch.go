@@ -5,14 +5,14 @@ package datastore
 
 import (
 	"context"
-	"corekit/configutil"
-	"corekit/logging"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"platformkit/configutil"
+	"platformkit/logging"
 	"strings"
 	"sync"
 	"time"

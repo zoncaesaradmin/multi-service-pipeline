@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
-	"corekit/envutil"
-	"corekit/fsutil"
-	"corekit/logging"
+	"platformkit/envutil"
+	"platformkit/fsutil"
+	"platformkit/logging"
 	"fmt"
 	"log"
 	"net/http"

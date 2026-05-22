@@ -61,7 +61,7 @@ cratos/
 ├── src/                    # Source code
 │   ├── service/          # Main service source
 │   ├── testrunner/         # Test runner source
-│   └── ../../client/golang/src/corekit/  # Shared module
+│   └── ../../client/golang/src/platformkit/  # Shared module
 ├── test/                   # Test infrastructure (NEW LOCATION)
 │   ├── local_test_run.sh  # Main test script
 │   ├── results/            # Test results and reports
@@ -159,7 +159,7 @@ The system automatically instruments binaries with coverage tracking and generat
 
 ### Coverage Scope
 - ✅ **service/**: Main business logic (included)
-- ✅ **corekit**: Common utilities (included)  
+- ✅ **platformkit**: Common utilities (included)  
 - ❌ **testrunner/**: Testing infrastructure (excluded from coverage)
 
 ## Build Tags

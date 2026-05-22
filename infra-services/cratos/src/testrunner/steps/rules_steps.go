@@ -1,7 +1,7 @@
 package steps
 
 import (
-	"corekit/ctxutil"
+	"platformkit/ctxutil"
 	"encoding/json"
 	"errors"
 	"fmt"

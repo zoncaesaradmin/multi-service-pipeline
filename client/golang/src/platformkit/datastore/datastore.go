@@ -2,8 +2,8 @@ package datastore
 
 import (
 	"context"
-	"corekit/logging"
 	"errors"
+	"platformkit/logging"
 )
 
 // ErrStopScroll is returned by the scroll callback to stop scrolling

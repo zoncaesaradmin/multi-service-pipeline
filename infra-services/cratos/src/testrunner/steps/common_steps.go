@@ -2,9 +2,9 @@ package steps
 
 import (
 	"context"
-	"corekit/ctxutil"
-	"corekit/envutil"
-	"corekit/logging"
+	"platformkit/ctxutil"
+	"platformkit/envutil"
+	"platformkit/logging"
 	"testgomodule/impl"
 	"time"
 

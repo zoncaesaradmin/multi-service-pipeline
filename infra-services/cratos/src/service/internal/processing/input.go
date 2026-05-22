@@ -2,9 +2,9 @@ package processing
 
 import (
 	"context"
-	"corekit/ctxutil"
-	"corekit/logging"
-	"corekit/messagebus"
+	"platformkit/ctxutil"
+	"platformkit/logging"
+	"platformkit/messagebus"
 	"fmt"
 	"servicegomodule/internal/metrics"
 	"servicegomodule/internal/models"

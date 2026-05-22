@@ -2,9 +2,9 @@ package ruletask
 
 import (
 	"context"
-	"corekit/configutil"
-	"corekit/datastore"
-	"corekit/logging"
+	"platformkit/configutil"
+	"platformkit/datastore"
+	"platformkit/logging"
 	"fmt"
 	"os"
 	"strings"

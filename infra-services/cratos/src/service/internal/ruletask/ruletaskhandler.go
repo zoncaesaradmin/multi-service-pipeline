@@ -2,10 +2,10 @@ package ruletask
 
 import (
 	"context"
-	"corekit/ctxutil"
-	"corekit/envutil"
-	"corekit/logging"
-	"corekit/messagebus"
+	"platformkit/ctxutil"
+	"platformkit/envutil"
+	"platformkit/logging"
+	"platformkit/messagebus"
 	"fmt"
 	"servicegomodule/internal/metrics"
 	"servicegomodule/internal/models"

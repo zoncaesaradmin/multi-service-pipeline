@@ -5,7 +5,6 @@ package messagebus
 
 import (
 	"context"
-	"corekit/internal/configmap"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -38,7 +37,7 @@ type LocalProducer struct {
 // NewProducer creates a new local producer with configuration from YAML file
 func NewProducer(configMap map[string]any, clientId string) Producer {
 	// Update messageBusDir if specified in config
-	if baseDir := configmap.String(configMap, "local.base.dir", ""); baseDir != "" {
+	if baseDir := GetStringValue(configMap, "local.base.dir", ""); baseDir != "" {
 		messageBusDir = baseDir
 		offsetDir = filepath.Join(baseDir, "offsets")
 		// Ensure the directories exist
@@ -160,7 +159,7 @@ func NewConsumer(configMap map[string]any, cgroup string) Consumer {
 	}
 
 	// Update messageBusDir if specified in config
-	if baseDir := configmap.String(configMap, "local.base.dir", ""); baseDir != "" {
+	if baseDir := GetStringValue(configMap, "local.base.dir", ""); baseDir != "" {
 		messageBusDir = baseDir
 		offsetDir = filepath.Join(baseDir, "offsets")
 		// Ensure the directories exist

@@ -19,7 +19,7 @@ A comprehensive, interface-based logging package for Go applications with suppor
 ### Creating and Using Logger Instances
 
 ```go
-import "corekit/logging"
+import "platformkit/logging"
 
 func main() {
     logger, _ := logging.NewLogger(&logging.LoggerConfig{
@@ -38,7 +38,7 @@ func main() {
 ### Using Default Configuration
 
 ```go
-import "corekit/logging"
+import "platformkit/logging"
 
 func main() {
     logger := logging.NewLogger(logging.DefaultLoggerConfig())
@@ -107,8 +107,8 @@ contextLogger.Info("Request processed")
 ```go
 import (
     "context"
-    "corekit/ctxutil"
-    "corekit/logging"
+    "platformkit/ctxutil"
+    "platformkit/logging"
 )
 
 func main() {

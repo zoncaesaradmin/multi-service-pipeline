@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"corekit/logging"
+	"platformkit/logging"
 	"servicegomodule/internal/models"
 )
 

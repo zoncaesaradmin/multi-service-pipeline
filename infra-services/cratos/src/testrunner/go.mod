@@ -5,6 +5,7 @@ go 1.24
 toolchain go1.24.6
 
 require (
+	platformkit v0.0.0
 	github.com/cucumber/godog v0.15.1
 	github.com/joho/godotenv v1.5.1
 	google.golang.org/protobuf v1.36.8
@@ -20,3 +21,5 @@ require (
 	github.com/spf13/pflag v1.0.7 // indirect
 	github.com/stretchr/testify v1.10.0 // indirect
 )
+
+replace platformkit => ../../../../client/golang/src/platformkit

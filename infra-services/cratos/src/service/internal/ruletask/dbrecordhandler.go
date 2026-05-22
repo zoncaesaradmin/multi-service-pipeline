@@ -1,7 +1,7 @@
 package ruletask
 
 import (
-	"corekit/logging"
+	"platformkit/logging"
 	"servicegomodule/internal/metrics"
 	"servicegomodule/internal/models"
 )

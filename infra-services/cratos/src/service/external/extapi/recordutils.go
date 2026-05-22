@@ -1,7 +1,7 @@
 package extapi
 
 import (
-	"corekit/logging"
+	"platformkit/logging"
 	"encoding/json"
 	"strconv"
 	"strings"

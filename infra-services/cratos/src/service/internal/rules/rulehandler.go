@@ -2,11 +2,11 @@ package rules
 
 import (
 	"context"
-	"corekit/ctxutil"
-	"corekit/envutil"
-	"corekit/logging"
-	"corekit/messagebus"
-	"corekit/timeutil"
+	"platformkit/ctxutil"
+	"platformkit/envutil"
+	"platformkit/logging"
+	"platformkit/messagebus"
+	"platformkit/timeutil"
 	"crypto/tls"
 	"fmt"
 	"net/http"

@@ -4,8 +4,8 @@ import (
 	"context"
 	"sync"
 
-	"corekit/datastore"
-	"corekit/logging"
+	"platformkit/datastore"
+	"platformkit/logging"
 	"servicegomodule/internal/config"
 	"servicegomodule/internal/metrics"
 	"servicegomodule/internal/processing"

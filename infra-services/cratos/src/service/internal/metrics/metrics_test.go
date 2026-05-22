@@ -2,7 +2,7 @@ package metrics
 
 import (
 	"context"
-	"corekit/logging"
+	"platformkit/logging"
 	"encoding/json"
 	"servicegomodule/internal/models"
 	"sync"

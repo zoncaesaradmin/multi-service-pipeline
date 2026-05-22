@@ -1,4 +1,4 @@
-module corekit
+module platformkit
 
 go 1.24
 

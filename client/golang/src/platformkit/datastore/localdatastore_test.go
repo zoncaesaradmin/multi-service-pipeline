@@ -4,7 +4,7 @@
 package datastore
 
 import (
-	"corekit/logging"
+	"platformkit/logging"
 	"testing"
 )
 

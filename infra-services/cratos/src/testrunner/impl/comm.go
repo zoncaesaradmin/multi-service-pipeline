@@ -2,11 +2,11 @@ package impl
 
 import (
 	"context"
-	"corekit/configutil"
-	"corekit/ctxutil"
-	"corekit/envutil"
-	"corekit/logging"
-	"corekit/messagebus"
+	"platformkit/configutil"
+	"platformkit/ctxutil"
+	"platformkit/envutil"
+	"platformkit/logging"
+	"platformkit/messagebus"
 	"fmt"
 	"os"
 	"strconv"

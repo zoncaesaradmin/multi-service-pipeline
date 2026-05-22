@@ -1,7 +1,7 @@
 package processing
 
 import (
-	"corekit/logging"
+	"platformkit/logging"
 	"servicegomodule/internal/models"
 	"testing"
 	"time"

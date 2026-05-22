@@ -2,7 +2,7 @@ package logging
 
 import (
 	"context"
-	"corekit/ctxutil"
+	"platformkit/ctxutil"
 )
 
 // WithDebugEnabled stores a per-flow debug override in the context.

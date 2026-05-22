@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"corekit/logging"
+	"platformkit/logging"
 	"servicegomodule/internal/api"
 	"servicegomodule/internal/app"
 	"servicegomodule/internal/config"

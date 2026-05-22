@@ -8,8 +8,6 @@ import (
 	"errors"
 	"reflect"
 	"testing"
-
-	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 )
 
 // --- Mocks ---
@@ -158,11 +156,16 @@ func TestKafkaProducerClose(t *testing.T) {
 
 func TestKafkaProducerCloseIdempotent(t *testing.T) {
 	prod := &KafkaProducer{
-		configMap:         map[string]any{},
-		clientID:          "test-client",
 		deliveryNotifChan: make(chan WriteConfirmNotif, 1),
 		closeDone:         make(chan struct{}),
+		drainerDone:       make(chan struct{}),
 	}
+
+	go func() {
+		<-prod.closeDone
+		close(prod.deliveryNotifChan)
+		close(prod.drainerDone)
+	}()
 
 	if err := prod.Close(); err != nil {
 		t.Fatalf("first Close() error = %v", err)
@@ -289,7 +292,7 @@ func TestKafkaConsumerEventHooks(t *testing.T) {
 // --- Type/Field Coverage ---
 func TestKafkaProducerTypeFields(t *testing.T) {
 	prodType := reflect.TypeOf(KafkaProducer{})
-	for _, field := range []string{"configMap", "clientID", "producerMu", "producer", "deliveryNotifChan", "closeDone", "closeOnce", "drainWG"} {
+	for _, field := range []string{"producer", "deliveryNotifChan", "closeDone", "drainerDone", "closeOnce"} {
 		if _, ok := prodType.FieldByName(field); !ok {
 			t.Errorf("KafkaProducer missing field: %s", field)
 		}
@@ -298,52 +301,9 @@ func TestKafkaProducerTypeFields(t *testing.T) {
 
 func TestKafkaConsumerTypeFields(t *testing.T) {
 	consType := reflect.TypeOf(KafkaConsumer{})
-	for _, field := range []string{"configMap", "cgroup", "consumerMu", "consumer", "topics", "assignedPartitions", "onAssign", "onRevoke", "onMessage", "onError", "closeDone", "closeOnce", "eventsWG", "reconnectMu", "reconnecting"} {
+	for _, field := range []string{"consumer", "assignedPartitions", "onAssign", "onRevoke", "onMessage", "onError"} {
 		if _, ok := consType.FieldByName(field); !ok {
 			t.Errorf("KafkaConsumer missing field: %s", field)
 		}
-	}
-}
-
-func TestConfigLoaderCoercesCommonTypes(t *testing.T) {
-	config := map[string]any{
-		"string":    []byte("bytes-value"),
-		"boolTrue":  "true",
-		"boolOne":   1,
-		"intFloat":  42.9,
-		"intString": "7",
-	}
-
-	if got := GetStringValue(config, "string", "fallback"); got != "bytes-value" {
-		t.Fatalf("GetStringValue() = %q", got)
-	}
-	if !GetBoolValue(config, "boolTrue", false) {
-		t.Fatal("GetBoolValue() should parse string bool")
-	}
-	if !GetBoolValue(config, "boolOne", false) {
-		t.Fatal("GetBoolValue() should parse numeric truthy values")
-	}
-	if got := GetIntValue(config, "intFloat", 0); got != 42 {
-		t.Fatalf("GetIntValue(float) = %d", got)
-	}
-	if got := GetIntValue(config, "intString", 0); got != 7 {
-		t.Fatalf("GetIntValue(string) = %d", got)
-	}
-}
-
-func TestKafkaErrorClassification(t *testing.T) {
-	retriableErr := kafka.NewError(kafka.ErrTransport, "transport down", false)
-	if !isRetryableKafkaError(retriableErr) {
-		t.Fatal("transport errors should be retryable")
-	}
-
-	sslErr := kafka.NewError(kafka.ErrSsl, "certificate expired", false)
-	if !shouldRecreateKafkaClient(sslErr) {
-		t.Fatal("ssl errors should trigger client recreation")
-	}
-
-	authErr := kafka.NewError(kafka.ErrAuthentication, "auth failed", false)
-	if !shouldRecreateKafkaClient(authErr) {
-		t.Fatal("authentication errors should trigger client recreation")
 	}
 }

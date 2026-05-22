@@ -1,4 +1,4 @@
-package utils
+package timeutil
 
 import "time"
 
@@ -9,7 +9,7 @@ func FormatUTCTimestampMilli(t time.Time) string {
 	return t.UTC().Format(ISO8601Milli)
 }
 
-// GetCurrentUTCTimestampMilli returns the current UTC timestamp with millisecond precision.
-func GetCurrentUTCTimestampMilli() string {
+// NowUTCTimestampMilli returns the current UTC timestamp with millisecond precision.
+func NowUTCTimestampMilli() string {
 	return FormatUTCTimestampMilli(time.Now())
 }

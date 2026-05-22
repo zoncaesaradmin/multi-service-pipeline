@@ -1,31 +1,21 @@
 package messagebus
 
-// GetStringValue safely gets a string value from config map with default
+import "corekit/internal/configmap"
+
+// GetStringValue safely gets a string value from config map with default.
+// Deprecated: use package-specific config handling; this wrapper remains for compatibility.
 func GetStringValue(config map[string]interface{}, key, defaultValue string) string {
-	if val, ok := config[key]; ok {
-		if str, ok := val.(string); ok {
-			return str
-		}
-	}
-	return defaultValue
+	return configmap.String(config, key, defaultValue)
 }
 
-// GetBoolValue safely gets a bool value from config map with default
+// GetBoolValue safely gets a bool value from config map with default.
+// Deprecated: use package-specific config handling; this wrapper remains for compatibility.
 func GetBoolValue(config map[string]interface{}, key string, defaultValue bool) bool {
-	if val, ok := config[key]; ok {
-		if b, ok := val.(bool); ok {
-			return b
-		}
-	}
-	return defaultValue
+	return configmap.Bool(config, key, defaultValue)
 }
 
-// GetIntValue safely gets an int value from config map with default
+// GetIntValue safely gets an int value from config map with default.
+// Deprecated: use package-specific config handling; this wrapper remains for compatibility.
 func GetIntValue(config map[string]interface{}, key string, defaultValue int) int {
-	if val, ok := config[key]; ok {
-		if i, ok := val.(int); ok {
-			return i
-		}
-	}
-	return defaultValue
+	return configmap.Int(config, key, defaultValue)
 }

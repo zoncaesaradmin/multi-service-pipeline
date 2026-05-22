@@ -11,8 +11,10 @@ import (
 	"syscall"
 	"time"
 
+	"corekit/configutil"
+	"corekit/envutil"
+	"corekit/fsutil"
 	"corekit/logging"
-	"corekit/utils"
 	"servicegomodule/internal/api"
 	"servicegomodule/internal/app"
 	"servicegomodule/internal/config"
@@ -122,7 +124,7 @@ func loadConfig() *config.RawConfig {
 
 func initLoggerSettings(cfg *config.RawConfig) logging.Logger {
 	// create the log directory path if it does not exist
-	if err := utils.EnsureDir(utils.GetEnv("SERVICE_LOG_DIR", ""), 0755); err != nil {
+	if err := fsutil.EnsureDir(envutil.Get("SERVICE_LOG_DIR", ""), 0755); err != nil {
 		log.Fatalf("Failed to create service log directory: %v", err)
 	}
 
@@ -150,11 +152,11 @@ func initLoggerSettings(cfg *config.RawConfig) logging.Logger {
 }
 
 func initKafkaConfigMaps(cfg *config.RawConfig) {
-	cfg.Processing.Input.KafkaConfFile = utils.ResolveConfFilePath(cfg.Processing.Input.KafkaConfFile)
-	cfg.Processing.Processor.RuleProcConfig.RulesKafkaConfFile = utils.ResolveConfFilePath(cfg.Processing.Processor.RuleProcConfig.RulesKafkaConfFile)
-	cfg.Processing.Output.KafkaConfFile = utils.ResolveConfFilePath(cfg.Processing.Output.KafkaConfFile)
-	cfg.Processing.Processor.RuleProcConfig.RuleTasksConsKafkaFile = utils.ResolveConfFilePath(cfg.Processing.Processor.RuleProcConfig.RuleTasksConsKafkaFile)
-	cfg.Processing.Processor.RuleProcConfig.RuleTasksProdKafkaFile = utils.ResolveConfFilePath(cfg.Processing.Processor.RuleProcConfig.RuleTasksProdKafkaFile)
+	cfg.Processing.Input.KafkaConfFile = configutil.ResolveConfFilePath(cfg.Processing.Input.KafkaConfFile)
+	cfg.Processing.Processor.RuleProcConfig.RulesKafkaConfFile = configutil.ResolveConfFilePath(cfg.Processing.Processor.RuleProcConfig.RulesKafkaConfFile)
+	cfg.Processing.Output.KafkaConfFile = configutil.ResolveConfFilePath(cfg.Processing.Output.KafkaConfFile)
+	cfg.Processing.Processor.RuleProcConfig.RuleTasksConsKafkaFile = configutil.ResolveConfFilePath(cfg.Processing.Processor.RuleProcConfig.RuleTasksConsKafkaFile)
+	cfg.Processing.Processor.RuleProcConfig.RuleTasksProdKafkaFile = configutil.ResolveConfFilePath(cfg.Processing.Processor.RuleProcConfig.RuleTasksProdKafkaFile)
 }
 
 // loadEnvFile loads .env file for local development
@@ -193,7 +195,7 @@ func isRunningInProdContainer() bool {
 	if os.Getenv("KUBERNETES_SERVICE_HOST") != "" {
 		return true // Running in Kubernetes
 	}
-	if utils.GetEnvBool("CONTAINER", false) {
+	if envutil.GetBool("CONTAINER", false) {
 		return true // Explicit container flag
 	}
 	return false
@@ -201,9 +203,9 @@ func isRunningInProdContainer() bool {
 
 // logEnvironmentInfo logs information about the current environment
 func logEnvironmentInfo() {
-	appEnv := utils.GetEnv("APP_ENV", "production")
-	appName := utils.GetEnv("APP_NAME", "cratos")
-	appVersion := utils.GetEnv("APP_VERSION", "unknown")
+	appEnv := envutil.Get("APP_ENV", "production")
+	appName := envutil.Get("APP_NAME", "cratos")
+	appVersion := envutil.Get("APP_VERSION", "unknown")
 
 	log.Printf("🚀 Starting %s v%s in %s environment", appName, appVersion, appEnv)
 

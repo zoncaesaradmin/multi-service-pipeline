@@ -1,4 +1,4 @@
-package utils
+package fsutil
 
 import (
 	"os"

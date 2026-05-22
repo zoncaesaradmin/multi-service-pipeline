@@ -2,8 +2,9 @@ package main
 
 import (
 	"context"
+	"corekit/envutil"
+	"corekit/fsutil"
 	"corekit/logging"
-	"corekit/utils"
 	"fmt"
 	"log"
 	"net/http"
@@ -84,9 +85,9 @@ func loadEnvironmentFiles() {
 
 // setupLogDirectory creates and returns the log directory path
 func setupLogDirectory() string {
-	logDir := utils.GetEnv("SERVICE_LOG_DIR", "./logs")
+	logDir := envutil.Get("SERVICE_LOG_DIR", "./logs")
 	fmt.Printf("Log and report dir : %s\n", logDir)
-	if err := utils.EnsureDir(logDir, 0755); err != nil {
+	if err := fsutil.EnsureDir(logDir, 0755); err != nil {
 		log.Fatalf("Failed to create log/report directory %s: %v", logDir, err)
 	}
 	return logDir
@@ -101,7 +102,7 @@ func handleServerShutdown(server *http.Server) {
 	}()
 
 	fmt.Println("Test execution is complete")
-	if utils.GetEnvBool("KEEP_REPORT_SERVER", false) {
+	if envutil.GetBool("KEEP_REPORT_SERVER", false) {
 		fmt.Println("Report server is still running as KEEP_REPORT_SERVER is set")
 		keepRunningSever(server)
 	} else {
@@ -531,9 +532,9 @@ func setupGroupKafkaResources(groupCtx *impl.CustomContext, logger logging.Logge
 	logger.Debugw("Group producer handler started successfully", "group", groupIndex)
 
 	// Set default topics for the group
-	groupCtx.InConfigTopic = utils.GetEnv("PROCESSING_RULES_TOPIC", "cisco_nir-alertRules")
-	groupCtx.InDataTopic = utils.GetEnv("PROCESSING_INPUT_TOPIC", "cisco_nir-anomalies")
-	groupCtx.OutDataTopic = utils.GetEnv("PROCESSING_OUTPUT_TOPIC", "cisco_nir-prealerts")
+	groupCtx.InConfigTopic = envutil.Get("PROCESSING_RULES_TOPIC", "cisco_nir-alertRules")
+	groupCtx.InDataTopic = envutil.Get("PROCESSING_INPUT_TOPIC", "cisco_nir-anomalies")
+	groupCtx.OutDataTopic = envutil.Get("PROCESSING_OUTPUT_TOPIC", "cisco_nir-prealerts")
 	groupCtx.ExecGroupIndex = groupIndex
 
 	logger.Infow("Kafka resources initialized successfully for group", "group", groupIndex)

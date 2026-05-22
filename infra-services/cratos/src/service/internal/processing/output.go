@@ -3,9 +3,9 @@ package processing
 import (
 	"context"
 	"corekit/ctxutil"
+	"corekit/envutil"
 	"corekit/logging"
 	"corekit/messagebus"
-	"corekit/utils"
 	"fmt"
 	"servicegomodule/internal/metrics"
 	"servicegomodule/internal/models"
@@ -32,7 +32,7 @@ type OutputHandler struct {
 
 func NewOutputHandler(config OutputConfig, logger logging.Logger, metricsHelper *metrics.MetricsHelper) *OutputHandler {
 	ctx, cancel := context.WithCancel(context.Background())
-	producer := messagebus.NewProducer(config.KafkaConfigMap, "prealertsProducer"+utils.GetEnv("HOSTNAME", ""))
+	producer := messagebus.NewProducer(config.KafkaConfigMap, "prealertsProducer"+envutil.Get("HOSTNAME", ""))
 
 	return &OutputHandler{
 		config:        config,

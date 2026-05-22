@@ -1,4 +1,4 @@
-package utils
+package timeutil
 
 import (
 	"strings"
@@ -15,8 +15,8 @@ func TestFormatUTCTimestampMilli(t *testing.T) {
 	}
 }
 
-func TestGetCurrentUTCTimestampMilli(t *testing.T) {
-	got := GetCurrentUTCTimestampMilli()
+func TestNowUTCTimestampMilli(t *testing.T) {
+	got := NowUTCTimestampMilli()
 	if !strings.Contains(got, "T") {
 		t.Fatalf("expected ISO-8601 style timestamp, got %q", got)
 	}

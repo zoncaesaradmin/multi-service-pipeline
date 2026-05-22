@@ -5,8 +5,8 @@ import (
 	"os"
 	"time"
 
+	"corekit/envutil"
 	"corekit/logging"
-	"corekit/utils"
 
 	"gopkg.in/yaml.v3"
 )
@@ -130,32 +130,32 @@ func overrideWithEnvVars(config *RawConfig) {
 
 // overrideServerConfig overrides server configuration with environment variables
 func overrideServerConfig(server *RawServerConfig) {
-	if host := utils.GetEnv("SERVER_HOST", ""); host != "" {
+	if host := envutil.Get("SERVER_HOST", ""); host != "" {
 		server.Host = host
 	}
-	if port := utils.GetEnvInt("SERVER_PORT", -1); port != -1 {
+	if port := envutil.GetInt("SERVER_PORT", -1); port != -1 {
 		server.Port = port
 	}
-	if readTimeout := utils.GetEnvInt("SERVER_READ_TIMEOUT", -1); readTimeout != -1 {
+	if readTimeout := envutil.GetInt("SERVER_READ_TIMEOUT", -1); readTimeout != -1 {
 		server.ReadTimeout = readTimeout
 	}
-	if writeTimeout := utils.GetEnvInt("SERVER_WRITE_TIMEOUT", -1); writeTimeout != -1 {
+	if writeTimeout := envutil.GetInt("SERVER_WRITE_TIMEOUT", -1); writeTimeout != -1 {
 		server.WriteTimeout = writeTimeout
 	}
 }
 
 // overrideLoggingConfig overrides logging configuration with environment variables
 func overrideLoggingConfig(logging *RawLoggingConfig) {
-	if level := utils.GetEnv("LOG_LEVEL", ""); level != "" {
+	if level := envutil.Get("LOG_LEVEL", ""); level != "" {
 		logging.Level = level
 	}
-	if fileName := utils.GetEnv("LOG_FILE_NAME", ""); fileName != "" {
+	if fileName := envutil.Get("LOG_FILE_NAME", ""); fileName != "" {
 		logging.FileName = fileName
 	}
-	if loggerName := utils.GetEnv("LOG_LOGGER_NAME", ""); loggerName != "" {
+	if loggerName := envutil.Get("LOG_LOGGER_NAME", ""); loggerName != "" {
 		logging.LoggerName = loggerName
 	}
-	if serviceName := utils.GetEnv("LOG_SERVICE_NAME", ""); serviceName != "" {
+	if serviceName := envutil.Get("LOG_SERVICE_NAME", ""); serviceName != "" {
 		logging.ServiceName = serviceName
 	}
 }
@@ -171,68 +171,68 @@ func overrideProcessingConfig(processing *RawProcessingConfig) {
 
 // overrideInputConfig overrides input configuration with environment variables
 func overrideInputConfig(input *RawInputConfig) {
-	if inputTopic := utils.GetEnv("PROCESSING_INPUT_TOPIC", ""); inputTopic != "" {
+	if inputTopic := envutil.Get("PROCESSING_INPUT_TOPIC", ""); inputTopic != "" {
 		input.Topics = []string{inputTopic}
 	}
-	if bufferSize := utils.GetEnvInt("PROCESSING_INPUT_BUFFER_SIZE", -1); bufferSize != -1 {
+	if bufferSize := envutil.GetInt("PROCESSING_INPUT_BUFFER_SIZE", -1); bufferSize != -1 {
 		input.ChannelBufferSize = bufferSize
 	}
 }
 
 // overrideProcessorConfig overrides processor configuration with environment variables
 func overrideProcessorConfig(processor *RawProcessorConfig) {
-	if delay := utils.GetEnvInt("PROCESSING_DELAY_MS", -1); delay != -1 {
+	if delay := envutil.GetInt("PROCESSING_DELAY_MS", -1); delay != -1 {
 		processor.ProcessingDelay = time.Duration(delay) * time.Millisecond
 	}
-	if batchSize := utils.GetEnvInt("PROCESSING_BATCH_SIZE", -1); batchSize != -1 {
+	if batchSize := envutil.GetInt("PROCESSING_BATCH_SIZE", -1); batchSize != -1 {
 		processor.BatchSize = batchSize
 	}
-	if rulesTopic := utils.GetEnv("PROCESSING_RULES_TOPIC", ""); rulesTopic != "" {
+	if rulesTopic := envutil.Get("PROCESSING_RULES_TOPIC", ""); rulesTopic != "" {
 		processor.RuleProcConfig.RulesTopic = rulesTopic
 	}
-	if ruleTasksTopic := utils.GetEnv("PROCESSING_RULE_TASKS_TOPIC", ""); ruleTasksTopic != "" {
+	if ruleTasksTopic := envutil.Get("PROCESSING_RULE_TASKS_TOPIC", ""); ruleTasksTopic != "" {
 		processor.RuleProcConfig.RuleTasksTopic = ruleTasksTopic
 	}
 }
 
 // overrideOutputConfig overrides output configuration with environment variables
 func overrideOutputConfig(output *RawOutputConfig) {
-	if outputTopic := utils.GetEnv("PROCESSING_OUTPUT_TOPIC", ""); outputTopic != "" {
+	if outputTopic := envutil.Get("PROCESSING_OUTPUT_TOPIC", ""); outputTopic != "" {
 		output.OutputTopic = outputTopic
 	}
-	if outputBatchSize := utils.GetEnvInt("PROCESSING_OUTPUT_BATCH_SIZE", -1); outputBatchSize != -1 {
+	if outputBatchSize := envutil.GetInt("PROCESSING_OUTPUT_BATCH_SIZE", -1); outputBatchSize != -1 {
 		output.BatchSize = outputBatchSize
 	}
-	if flushTimeout := utils.GetEnvInt("PROCESSING_OUTPUT_FLUSH_TIMEOUT_MS", -1); flushTimeout != -1 {
+	if flushTimeout := envutil.GetInt("PROCESSING_OUTPUT_FLUSH_TIMEOUT_MS", -1); flushTimeout != -1 {
 		output.FlushTimeout = time.Duration(flushTimeout) * time.Millisecond
 	}
-	if outputBufferSize := utils.GetEnvInt("PROCESSING_OUTPUT_BUFFER_SIZE", -1); outputBufferSize != -1 {
+	if outputBufferSize := envutil.GetInt("PROCESSING_OUTPUT_BUFFER_SIZE", -1); outputBufferSize != -1 {
 		output.ChannelBufferSize = outputBufferSize
 	}
 }
 
 // overrideChannelConfig overrides channel configuration with environment variables
 func overrideChannelConfig(channels *RawChannelConfig) {
-	if inputBufferSize := utils.GetEnvInt("PROCESSING_CHANNELS_INPUT_BUFFER_SIZE", -1); inputBufferSize != -1 {
+	if inputBufferSize := envutil.GetInt("PROCESSING_CHANNELS_INPUT_BUFFER_SIZE", -1); inputBufferSize != -1 {
 		channels.InputBufferSize = inputBufferSize
 	}
-	if outputChannelBufferSize := utils.GetEnvInt("PROCESSING_CHANNELS_OUTPUT_BUFFER_SIZE", -1); outputChannelBufferSize != -1 {
+	if outputChannelBufferSize := envutil.GetInt("PROCESSING_CHANNELS_OUTPUT_BUFFER_SIZE", -1); outputChannelBufferSize != -1 {
 		channels.OutputBufferSize = outputChannelBufferSize
 	}
 }
 
 // overridePipelineLoggerConfig overrides pipeline logger configuration with environment variables
 func overridePipelineLoggerConfig(plogger *RawLoggingConfig) {
-	if ploggerLevel := utils.GetEnv("PROCESSING_PLOGGER_LEVEL", ""); ploggerLevel != "" {
+	if ploggerLevel := envutil.Get("PROCESSING_PLOGGER_LEVEL", ""); ploggerLevel != "" {
 		plogger.Level = ploggerLevel
 	}
-	if ploggerFileName := utils.GetEnv("PROCESSING_PLOGGER_FILE_NAME", ""); ploggerFileName != "" {
+	if ploggerFileName := envutil.Get("PROCESSING_PLOGGER_FILE_NAME", ""); ploggerFileName != "" {
 		plogger.FileName = ploggerFileName
 	}
-	if ploggerLoggerName := utils.GetEnv("PROCESSING_PLOGGER_LOGGER_NAME", ""); ploggerLoggerName != "" {
+	if ploggerLoggerName := envutil.Get("PROCESSING_PLOGGER_LOGGER_NAME", ""); ploggerLoggerName != "" {
 		plogger.LoggerName = ploggerLoggerName
 	}
-	if ploggerServiceName := utils.GetEnv("PROCESSING_PLOGGER_SERVICE_NAME", ""); ploggerServiceName != "" {
+	if ploggerServiceName := envutil.Get("PROCESSING_PLOGGER_SERVICE_NAME", ""); ploggerServiceName != "" {
 		plogger.ServiceName = ploggerServiceName
 	}
 }

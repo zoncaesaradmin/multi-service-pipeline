@@ -2,10 +2,12 @@ package ruletask
 
 import (
 	"context"
+	"corekit/configutil"
 	"corekit/datastore"
 	"corekit/logging"
 	"fmt"
 	"os"
+	"strings"
 )
 
 const (
@@ -32,7 +34,7 @@ type TaskStore struct {
 func NewTaskStore(logger logging.Logger) *TaskStore {
 	hostname, _ := os.Hostname()
 	dbClient := datastore.GetDatabaseClient()
-	indexName := datastore.EsIndexPrefix() + TaskStoreIndex
+	indexName := taskStoreIndexPrefix() + TaskStoreIndex
 
 	if dbClient == nil {
 		logger.Warnw("Database client is nil during TaskStore creation - this may cause issues")
@@ -46,6 +48,24 @@ func NewTaskStore(logger logging.Logger) *TaskStore {
 		hostname:  hostname,
 		indexName: indexName,
 	}
+}
+
+func taskStoreIndexPrefix() string {
+	prefix := strings.TrimSpace(os.Getenv("ES_INDEX_PREFIX"))
+	if prefix == "" {
+		prefix = strings.TrimSpace(os.Getenv("OPENSEARCH_INDEX_PREFIX"))
+	}
+	if prefix == "" {
+		cfg := configutil.LoadConfigMap(configutil.ResolveConfFilePath("opensearch.yaml"))
+		if cfg != nil {
+			if raw, ok := cfg["index_prefix"]; ok {
+				if value, ok := raw.(string); ok {
+					prefix = strings.TrimSpace(value)
+				}
+			}
+		}
+	}
+	return prefix
 }
 
 func (ts *TaskStore) Initialize(ctx context.Context) error {

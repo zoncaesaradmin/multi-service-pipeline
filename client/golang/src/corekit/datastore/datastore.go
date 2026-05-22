@@ -41,7 +41,7 @@ func Init(ctx context.Context, logger logging.Logger, indices []string) {
 			continue
 		}
 		mappingPath := EsTemplatePath + "/" + ind + ".json"
-		err := dbClient.UpsertIndex(EsIndexPrefix()+ind, mappingPath)
+		err := dbClient.UpsertIndex(esIndexPrefix()+ind, mappingPath)
 		if err != nil {
 			logger.Errorw("datastore init - failed to update schema for index", "error", err, "index", ind)
 		} else {

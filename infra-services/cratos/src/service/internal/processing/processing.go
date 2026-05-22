@@ -1,8 +1,8 @@
 package processing
 
 import (
+	"corekit/configutil"
 	"corekit/logging"
-	"corekit/utils"
 	"fmt"
 	"log"
 	"servicegomodule/internal/config"
@@ -129,7 +129,7 @@ func DefaultProcConfig(cfg *config.RawConfig) ProcConfig {
 		Input: InputConfig{
 			Topics:            processing.Input.Topics,
 			ChannelBufferSize: processing.Input.ChannelBufferSize,
-			KafkaConfigMap:    utils.LoadConfigMap(processing.Input.KafkaConfFile),
+			KafkaConfigMap:    configutil.LoadConfigMap(processing.Input.KafkaConfFile),
 		},
 		Processor: ProcessorConfig{
 			ProcessingDelay: processing.Processor.ProcessingDelay,
@@ -137,11 +137,11 @@ func DefaultProcConfig(cfg *config.RawConfig) ProcConfig {
 			RuleEngine: rules.RuleEngineConfig{
 				RulesTopic:                  processing.Processor.RuleProcConfig.RulesTopic,
 				RuleEngLibLogging:           processing.Processor.RuleProcConfig.RelibLogging.ConvertToLoggerConfig(),
-				RulesKafkaConfigMap:         utils.LoadConfigMap(processing.Processor.RuleProcConfig.RulesKafkaConfFile),
+				RulesKafkaConfigMap:         configutil.LoadConfigMap(processing.Processor.RuleProcConfig.RulesKafkaConfFile),
 				RuleTasksTopic:              processing.Processor.RuleProcConfig.RuleTasksTopic,
 				RuleHandlerLogging:          processing.Processor.RuleProcConfig.RuleHandlerLogging.ConvertToLoggerConfig(),
-				RuleTasksConsKafkaConfigMap: utils.LoadConfigMap(processing.Processor.RuleProcConfig.RuleTasksConsKafkaFile),
-				RuleTasksProdKafkaConfigMap: utils.LoadConfigMap(processing.Processor.RuleProcConfig.RuleTasksProdKafkaFile),
+				RuleTasksConsKafkaConfigMap: configutil.LoadConfigMap(processing.Processor.RuleProcConfig.RuleTasksConsKafkaFile),
+				RuleTasksProdKafkaConfigMap: configutil.LoadConfigMap(processing.Processor.RuleProcConfig.RuleTasksProdKafkaFile),
 			},
 		},
 		Output: OutputConfig{
@@ -149,7 +149,7 @@ func DefaultProcConfig(cfg *config.RawConfig) ProcConfig {
 			BatchSize:         processing.Output.BatchSize,
 			FlushTimeout:      processing.Output.FlushTimeout,
 			ChannelBufferSize: processing.Output.ChannelBufferSize,
-			KafkaConfigMap:    utils.LoadConfigMap(processing.Output.KafkaConfFile),
+			KafkaConfigMap:    configutil.LoadConfigMap(processing.Output.KafkaConfFile),
 		},
 		Channels: ChannelConfig{
 			InputBufferSize:  processing.Channels.InputBufferSize,

@@ -2,10 +2,11 @@ package impl
 
 import (
 	"context"
+	"corekit/configutil"
 	"corekit/ctxutil"
+	"corekit/envutil"
 	"corekit/logging"
 	"corekit/messagebus"
-	"corekit/utils"
 	"fmt"
 	"os"
 	"strconv"
@@ -49,8 +50,8 @@ type ConsumerHandler struct {
 // NewInputHandler creates a new input handler
 func NewConsumerHandler(logger logging.Logger, index int) *ConsumerHandler {
 
-	confFilename := utils.ResolveConfFilePath("kafka-consumer.yaml")
-	kafkaConf := utils.LoadConfigMap(confFilename)
+	confFilename := configutil.ResolveConfFilePath("kafka-consumer.yaml")
+	kafkaConf := configutil.LoadConfigMap(confFilename)
 	consumer := messagebus.NewConsumer(kafkaConf, "prealertConsGroup"+strconv.Itoa(index)+"-"+os.Getenv("HOSTNAME"))
 
 	return &ConsumerHandler{
@@ -61,7 +62,7 @@ func NewConsumerHandler(logger logging.Logger, index int) *ConsumerHandler {
 
 // Start starts the input handler
 func (i *ConsumerHandler) Start() error {
-	outTopic := utils.GetEnv("PROCESSING_OUTPUT_TOPIC", "cisco_nir-prealerts")
+	outTopic := envutil.Get("PROCESSING_OUTPUT_TOPIC", "cisco_nir-prealerts")
 	topics := []string{outTopic}
 	//i.logger.Infow("Starting consumer handler", "topics", topics)
 
@@ -253,8 +254,8 @@ type ProducerHandler struct {
 }
 
 func NewProducerHandler(logger logging.Logger, index int) *ProducerHandler {
-	confFilename := utils.ResolveConfFilePath("kafka-producer.yaml")
-	kafkaConf := utils.LoadConfigMap(confFilename)
+	confFilename := configutil.ResolveConfFilePath("kafka-producer.yaml")
+	kafkaConf := configutil.LoadConfigMap(confFilename)
 
 	producer := messagebus.NewProducer(kafkaConf, "testAnomalyProducer"+strconv.Itoa(index)+"-"+os.Getenv("HOSTNAME"))
 

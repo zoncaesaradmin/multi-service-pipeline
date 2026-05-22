@@ -1,12 +1,12 @@
 package datastore
 
 import (
-	"corekit/utils"
+	"corekit/configutil"
 	"os"
 	"strings"
 )
 
-func EsIndexPrefix() string {
+func esIndexPrefix() string {
 	// 1) Environment variables
 	p := strings.TrimSpace(os.Getenv("ES_INDEX_PREFIX"))
 	if p == "" {
@@ -14,7 +14,7 @@ func EsIndexPrefix() string {
 	}
 	// 2) Config file (conf/opensearch.yaml), key: index_prefix
 	if p == "" {
-		cfg := utils.LoadConfigMap(utils.ResolveConfFilePath("opensearch.yaml"))
+		cfg := configutil.LoadConfigMap(configutil.ResolveConfFilePath("opensearch.yaml"))
 		if cfg != nil {
 			if v, ok := cfg["index_prefix"]; ok {
 				if s, ok2 := v.(string); ok2 {

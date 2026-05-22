@@ -5,8 +5,8 @@ package datastore
 
 import (
 	"context"
+	"corekit/configutil"
 	"corekit/logging"
-	"corekit/utils"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -84,7 +84,7 @@ func (osc *OpenSearchClient) loadconfig() error {
 
 func (osc *OpenSearchClient) loadYAMLConfig() (*Config, error) {
 	config := &Config{}
-	configMap := utils.LoadConfigMap(utils.ResolveConfFilePath("opensearch.yaml"))
+	configMap := configutil.LoadConfigMap(configutil.ResolveConfFilePath("opensearch.yaml"))
 	if configMap == nil {
 		return config, nil
 	}

@@ -3,9 +3,10 @@ package rules
 import (
 	"context"
 	"corekit/ctxutil"
+	"corekit/envutil"
 	"corekit/logging"
 	"corekit/messagebus"
-	"corekit/utils"
+	"corekit/timeutil"
 	"crypto/tls"
 	"fmt"
 	"net/http"
@@ -53,7 +54,7 @@ func NewRuleHandler(config RuleEngineConfig, logger logging.Logger,
 	inputSink chan<- *models.ChannelMessage, metricHelper *metrics.MetricsHelper) *RuleEngineHandler {
 
 	// use simple filename - path resolution is handled by messagebus config loader
-	consumer := messagebus.NewConsumer(config.RulesKafkaConfigMap, "ruleConsGroup"+utils.GetEnv("HOSTNAME", ""))
+	consumer := messagebus.NewConsumer(config.RulesKafkaConfigMap, "ruleConsGroup"+envutil.Get("HOSTNAME", ""))
 
 	reInst := relib.CreateRuleEngineInstance(
 		// this creates separate logger for rule engine lib handling
@@ -364,7 +365,7 @@ func (rh *RuleEngineHandler) applyRuleAction(aObj *alert.Alert, actionType strin
 		aObj.Severity = actionValue
 	case relib.RuleActionAcknowledge:
 		aObj.Acknowledged = true
-		aObj.AckTs = utils.GetCurrentUTCTimestampMilli()
+		aObj.AckTs = timeutil.NowUTCTimestampMilli()
 		aObj.AutoAck = true
 	case relib.RuleActionCustomizeRecommendation:
 		aObj.IsRuleCustomReco = true
@@ -385,7 +386,7 @@ func (rh *RuleEngineHandler) applyDefaultAction(aObj *alert.Alert, actionType st
 		}
 	case relib.RuleActionAcknowledge:
 		aObj.Acknowledged = false
-		aObj.AckTs = utils.GetCurrentUTCTimestampMilli()
+		aObj.AckTs = timeutil.NowUTCTimestampMilli()
 		aObj.AutoAck = false
 	case relib.RuleActionCustomizeRecommendation:
 		aObj.IsRuleCustomReco = false

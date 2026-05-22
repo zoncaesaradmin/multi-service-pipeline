@@ -3,9 +3,9 @@ package ruletask
 import (
 	"context"
 	"corekit/ctxutil"
+	"corekit/envutil"
 	"corekit/logging"
 	"corekit/messagebus"
-	"corekit/utils"
 	"fmt"
 	"servicegomodule/internal/metrics"
 	"servicegomodule/internal/models"
@@ -166,7 +166,7 @@ func (rh *RuleTasksHandler) IncrementFailedCount() {
 // initializeRuleTaskHandling sets up rule task producer and consumer
 func (rh *RuleTasksHandler) initializeRuleTaskHandling() error {
 	// Initialize producer for distributing rule tasks
-	rh.ruleTaskProducer = messagebus.NewProducer(rh.ruleTasksProdKafkaConfigMap, "ruleTaskProducer"+utils.GetEnv("HOSTNAME", ""))
+	rh.ruleTaskProducer = messagebus.NewProducer(rh.ruleTasksProdKafkaConfigMap, "ruleTaskProducer"+envutil.Get("HOSTNAME", ""))
 
 	// Initialize rule task consumer with shared group for task distribution
 	ruleTaskGroup := "ruleTaskConsGroup-shared"

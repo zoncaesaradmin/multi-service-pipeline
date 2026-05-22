@@ -10,8 +10,7 @@ require (
 	github.com/rs/zerolog v1.34.0
 	github.com/stretchr/testify v1.10.0
 	go.mongodb.org/mongo-driver v1.17.4
-	telemetry/utils/alert v0.0.0-20240418123456-abcdef123456
-	telemetry/utils/ruleenginelib v0.0.0-20240418123456-abcdef123456
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -36,11 +35,5 @@ require (
 	golang.org/x/sync v0.8.0 // indirect
 	golang.org/x/sys v0.33.0 // indirect
 	golang.org/x/text v0.18.0 // indirect
-	google.golang.org/protobuf v1.33.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/utils v0.0.0-20250502105355-0f33e8f1c979 // indirect
 )
-
-replace telemetry/utils/alert => ../telemetry/utils/alert
-
-replace telemetry/utils/ruleenginelib => ../telemetry/utils/ruleenginelib
